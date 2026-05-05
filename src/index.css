@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* ── Prevent horizontal overflow on ALL pages ── */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* ── Smooth scroll behaviour ── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Ensure every page starts at the top ── */
+#root {
+  overflow-x: hidden;
+}
