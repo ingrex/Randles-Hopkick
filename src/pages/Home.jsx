@@ -83,19 +83,14 @@ const Home = () => {
 
       {/* HERO */}
       <section className="relative h-screen flex items-center justify-center text-white">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute w-full h-full object-cover"
-        >
-          <source
-            src="https://player.cloudinary.com/embed/?cloud_name=dotvnclej&public_id=Video_1_m7xwzz.mp4"
-            type="video/mp4"
-          />
-          Your browser does not support the video tag.
-        </video>
+        {/* ✅ Hero image replacing the video — swap the URL below with your own image if needed */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1600&q=85')",
+          }}
+        />
 
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/40"></div>
 
