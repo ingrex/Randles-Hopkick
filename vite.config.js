@@ -1,20 +1,27 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
- 
+
+// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
- 
+
+  // 👇 IMPORTANT: fixes routing + deployment base path
+  base: "/",
+
+  // 👇 ONLY for local development (Vite dev server)
   server: {
     proxy: {
-      // Any request to /api/** gets forwarded to the backend
       "/api": {
         target: "https://randnhop.onrender.com",
-        changeOrigin: true,   // rewrites the Host header → fixes CORS
-        secure: true,         // backend is HTTPS
-        // No rewrite needed — paths already start with /api/v1/...
-      },
-    },
+        changeOrigin: true,
+        secure: true
+      }
+    }
   },
+
+  // 👇 ensures proper build output for Vercel
+  build: {
+    outDir: "dist"
+  }
 });
- 
