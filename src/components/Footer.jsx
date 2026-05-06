@@ -48,7 +48,7 @@ const Footer = () => {
           <p className="text-sm leading-6">
             73, Ogudu road, Ojota, Lagos. Nigeria
           </p>
-          <p className="mt-2 text-sm">+234 806 812 9190</p>
+          <p className="mt-2 text-sm">+234 706 817 2272</p>
           <p className="mt-2 text-sm">info@randleandhopkick.com</p>
 
           <p className="mt-2 text-gray-300 text-sm">

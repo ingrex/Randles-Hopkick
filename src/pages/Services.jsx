@@ -872,6 +872,7 @@ const CAROUSEL = [
 
 // ─── SERVICE DATA ─────────────────────────────────────────────────────────────
 const serviceData = [
+  
   {
     id: "domestic",
     title: "Domestic Outsourcing Services",

@@ -1,24 +1,13 @@
 import { useState } from "react";
 import { apiStaffRequest } from "../api/auth";
 
-/* ─────────────────────────────────────────────────────────────────
-   BACKGROUND IMAGE
-   In your project replace the line below with:
-       import bgImage from "../assets/background.jpg";
-   and delete the const bgImage line underneath it.
-──────────────────────────────────────────────────────────────────── */
-const bgImage = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1800&q=80&auto=format&fit=crop";
-
-/* ─── localStorage key for draft clearing after submit ───────── */
-const STORAGE_KEY = "staffRequestDraft";
-
 /* ─── date option arrays ─────────────────────────────────────── */
 const DAYS   = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
 const MONTHS = ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"];
 const YEARS  = Array.from({ length: 70 }, (_, i) => String(2006 - i));
 
-/* ─── keyframes & Google font (must stay in <style>) ─────────── */
+/* ─── keyframes + mobile styles ─────────────────────────────── */
 const KEYFRAMES = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap');
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,16 +20,27 @@ const KEYFRAMES = `
 @keyframes spin     { to  { transform:rotate(360deg) } }
 @keyframes checkDraw{ from{ stroke-dashoffset:40 } to { stroke-dashoffset:0 } }
 @keyframes cardIn   { from{ opacity:0; transform:translateY(32px) scale(.97) } to { opacity:1; transform:translateY(0) scale(1) } }
-@keyframes orbFloat { 0%,100%{ transform:translate(0,0) scale(1) } 50%{ transform:translate(30px,-22px) scale(1.07) } }
 @keyframes errShake { 0%,100%{ transform:translateX(0) } 20%,60%{ transform:translateX(-5px) } 40%,80%{ transform:translateX(5px) } }
 
 input::placeholder  { color: rgba(170,205,240,.42); }
 textarea::placeholder { color: rgba(170,205,240,.42); }
 select option       { background: #0d1e35; color: #ddeeff; }
 
-@media (max-width: 580px) {
+/* ── mobile: collapse 2-col grids to single column ── */
+@media (max-width: 600px) {
   .fg  { grid-template-columns: 1fr !important; }
   .ff  { grid-column: 1 !important; }
+  /* DOB row: stack day/month/year vertically */
+  .dob-grid { grid-template-columns: 1fr !important; }
+  /* tighten inner card padding */
+  .sf-inner { padding: 8px 18px 28px !important; }
+  /* step label: allow wrap and shrink font */
+  .step-lbl { font-size: 8px !important; white-space: normal !important; text-align: center; max-width: 52px; }
+  /* h1 title: shrink on small screens */
+  .sf-title { font-size: 22px !important; }
+  /* nav buttons: stack vertically */
+  .sf-nav { flex-direction: column !important; }
+  .sf-nav button { width: 100% !important; flex: none !important; }
 }
 `;
 
@@ -188,7 +188,6 @@ function TextareaField({ label, value, onChange, placeholder, err, req:r, rows=4
   );
 }
 
-/* ─── gender (Male / Female only) ───────────────────────────── */
 function GenderToggle({ value, onChange, err }) {
   return (
     <div style={{ display:"flex", flexDirection:"column" }}>
@@ -256,7 +255,7 @@ function Progress({ step, pct }) {
                     </svg>
                   ) : s}
                 </div>
-                <span style={{
+                <span className="step-lbl" style={{
                   fontSize:9, fontWeight:600, textTransform:"uppercase", letterSpacing:".1em",
                   fontFamily:FONT, whiteSpace:"nowrap",
                   color: active ? `${SKY[300]}ee` : done ? `${SKY[300]}88` : "rgba(180,215,255,.35)",
@@ -327,18 +326,19 @@ function SecondaryBtn({ children, onClick }) {
       onClick={onClick}
       onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{
-        flex:"0 0 auto", padding:"12px 22px", borderRadius:20,
+        padding:"12px 22px", borderRadius:20,
         border: `1.5px solid ${hov ? "rgba(255,255,255,.36)" : "rgba(255,255,255,.2)"}`,
         cursor:"pointer", fontFamily:FONT, fontSize:13, fontWeight:400,
         color: hov ? "#fff" : "rgba(190,220,255,.7)",
         background: hov ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.07)",
-        transition:"all .28s ease",
+        transition:"all .28s ease", whiteSpace:"nowrap",
       }}
     >{children}</button>
   );
 }
 
 /* ═══════════════════════ SUCCESS MODAL ════════════════════════ */
+// Unchanged — SuccessModal is a portal overlay, not part of the page bg
 function SuccessModal({ onAction }) {
   return (
     <div style={{
@@ -384,9 +384,7 @@ function SuccessModal({ onAction }) {
   );
 }
 
-/* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
-
-/* ─── nationality: display label → demonym sent to backend ───── */
+/* ═══════════════════════ OPTION LISTS ══════════════════════════ */
 const NATIONALITY_OPTIONS = [
   { label:"Nigerian",      value:"Nigerian"      },
   { label:"Ghanaian",      value:"Ghanaian"      },
@@ -403,39 +401,25 @@ const NATIONALITY_OPTIONS = [
   { label:"Other",         value:"Other"         },
 ];
 
-/* ─── primarySkills: plain job titles matching backend enum ──── */
 const PRIMARY_SKILL_OPTIONS = [
-  "Driver",
-  "Nurse",
-  "Teacher",
-  "Accountant",
-  "IT Technician",
-  "Farmer",
-  "Journalist",
-  "Lawyer",
-  "Engineer",
-  "Chef",
-  "Security Guard",
-  "Cleaner",
-  "Tailor",
-  "Electrician",
-  "Plumber",
-  "Other",
+  "Driver", "Nurse", "Teacher", "Accountant", "IT Technician",
+  "Farmer", "Journalist", "Lawyer", "Engineer", "Chef",
+  "Security Guard", "Cleaner", "Tailor", "Electrician", "Plumber", "Other",
 ];
 
-/* ─── educationalQualification: short values matching backend ── */
 const QUALIFICATION_OPTIONS = [
-  { label:"SSCE / O-Level",            value:"SSCE"                    },
-  { label:"OND",                        value:"OND"                     },
-  { label:"HND",                        value:"HND"                     },
-  { label:"B.Sc / B.A",                value:"B.Sc"                    },
-  { label:"M.Sc / MBA",                value:"M.Sc"                    },
-  { label:"PhD / Doctorate",           value:"PhD"                     },
-  { label:"Vocational / Trade Cert.",  value:"Vocational"              },
-  { label:"Professional Certification",value:"Professional Certification"},
-  { label:"No Formal Education",       value:"No Formal Education"     },
+  { label:"SSCE / O-Level",             value:"SSCE"                     },
+  { label:"OND",                         value:"OND"                      },
+  { label:"HND",                         value:"HND"                      },
+  { label:"B.Sc / B.A",                 value:"B.Sc"                     },
+  { label:"M.Sc / MBA",                 value:"M.Sc"                     },
+  { label:"PhD / Doctorate",            value:"PhD"                      },
+  { label:"Vocational / Trade Cert.",   value:"Vocational"               },
+  { label:"Professional Certification", value:"Professional Certification"},
+  { label:"No Formal Education",        value:"No Formal Education"      },
 ];
 
+/* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
 export function StaffForm() {
   const [step,    setStep]    = useState(1);
   const [form,    setForm]    = useState(INIT);
@@ -448,7 +432,6 @@ export function StaffForm() {
   const set = k => e =>
     setForm(f => ({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
 
-  /* overall completion % */
   const allKeys = [...S1,...S2,...S3];
   const pct = Math.round(allKeys.filter(k => isReq(form[k])).length / allKeys.length * 100);
 
@@ -462,25 +445,16 @@ export function StaffForm() {
   const goNext = async () => {
     const keys = step === 1 ? S1 : step === 2 ? S2 : S3;
     const e = validate(form, keys);
-    if (Object.keys(e).length) {
-      setErrs(e);
-      return;
-    }
+    if (Object.keys(e).length) { setErrs(e); return; }
     setErrs({});
 
-    if (step < 3) {
-      transition(step + 1, "fwd");
-      return;
-    }
+    if (step < 3) { transition(step + 1, "fwd"); return; }
 
-    /* ── Step 3: build payload and POST to backend ── */
     setLoading(true);
     try {
-      /* dateOfBirth → ISO "YYYY-MM-DD" */
       const monthIndex = String(MONTHS.indexOf(form.dobMonth) + 1).padStart(2, "0");
       const isoDate    = `${form.dobYear}-${monthIndex}-${form.dobDay}`;
 
-      /* yearsOfExperience → numeric midpoint */
       const yoeMap = {
         "Less than 1 year" : 0,
         "1 – 2 years"      : 1,
@@ -489,34 +463,27 @@ export function StaffForm() {
         "10+ years"        : 10,
       };
 
-      /*
-       * KEY FIXES vs original:
-       *  1. nationality  → demonym value (e.g. "Ghanaian") not country label
-       *  2. primarySkills → plain job title (e.g. "Driver") not category string
-       *  3. educationalQualification → short value (e.g. "SSCE") not display label
-       */
       const payload = {
         surname:                  form.surname,
         otherNames:               form.otherName,
         email:                    form.email,
         phoneNumber:              form.phone,
-        nationality:              form.nationality,          // already a demonym value
+        nationality:              form.nationality,
         homeAddress:              form.address,
         maritalStatus:            form.maritalStatus,
         languageSkill:            form.language,
         dateOfBirth:              isoDate,
         gender:                   form.gender,
-        primarySkills:            form.primarySkill,        // already a plain job title
+        primarySkills:            form.primarySkill,
         yearsOfExperience:        yoeMap[form.yearsExp] ?? 0,
         additionalSkills:         form.additionalSkills,
         bio:                      form.bio,
-        educationalQualification: form.qualification,       // already the short value
+        educationalQualification: form.qualification,
         agreedToPolicy:           form.agreed,
       };
 
       await apiStaffRequest(payload);
-
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem("staffRequestDraft");
       setDone(true);
     } catch (err) {
       console.error("Staff request error:", err.message);
@@ -538,239 +505,186 @@ export function StaffForm() {
     { title:"Professional Details",  sub:"Your skills and qualifications help us match you." },
   ];
 
+  // CHANGED: removed full-page layout (minHeight 100vh, bgImage, overlay divs, ambient orbs,
+  // blurred bg panel). Now renders as a self-contained glass modal card matching ClientForm1.
   return (
     <div style={{
-      minHeight:"100vh", position:"relative",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      padding:"48px 20px", fontFamily:FONT,
-      backgroundImage:`url(${bgImage})`,
-      backgroundSize:"cover", backgroundPosition:"center", backgroundAttachment:"fixed",
+      width: "100%",
+      maxHeight: "85vh",
+      overflowY: "auto",
+      overflowX: "hidden",
+      borderRadius: 20,
+      background: "rgba(255,255,255,0.08)",
+      backdropFilter: "blur(28px) saturate(130%)",
+      WebkitBackdropFilter: "blur(28px) saturate(130%)",
+      border: "1px solid rgba(255,255,255,0.12)",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+      position: "relative",
     }}>
       <style>{KEYFRAMES}</style>
 
-      {/* page overlay */}
-      <div style={{
-        position:"absolute", inset:0,
-        background:"linear-gradient(155deg,rgba(2,8,22,.76) 0%,rgba(4,20,48,.7) 50%,rgba(2,8,22,.80) 100%)",
-      }}/>
+      {/* sky-blue top accent line — preserved from original card */}
+      <div style={{ height:2, background:`linear-gradient(90deg,transparent,${SKY[500]}cc,${SKY[400]}88,transparent)` }}/>
 
-      {/* soft ambient orbs */}
-      <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none" }}>
-        <div style={{ position:"absolute", top:"6%", left:"2%", width:300, height:300, borderRadius:"50%", background:"radial-gradient(circle,rgba(5,90,140,.18),transparent 70%)", filter:"blur(70px)", animation:"orbFloat 10s ease-in-out infinite" }}/>
-        <div style={{ position:"absolute", bottom:"5%", right:"2%", width:360, height:360, borderRadius:"50%", background:"radial-gradient(circle,rgba(5,70,115,.14),transparent 70%)", filter:"blur(78px)", animation:"orbFloat 14s ease-in-out infinite reverse" }}/>
-      </div>
+      {/* Spacer so parent modal close button never overlaps card content */}
+      <div style={{ height: 48 }} aria-hidden="true" />
 
-      {/* blurred bg panel directly behind the card */}
-      <div style={{
-        position:"absolute", top:"50%", left:"50%",
-        transform:"translate(-50%,-50%)",
-        width:"min(660px,94vw)", height:"min(840px,90vh)",
-        borderRadius:34,
-        backgroundImage:`url(${bgImage})`,
-        backgroundSize:"cover", backgroundPosition:"center",
-        filter:"blur(2px) brightness(0.28) saturate(0.5)",
-        zIndex:1,
-        border:"1px solid rgba(255,255,255,.05)",
-      }}/>
+      <div className="sf-inner" style={{ padding:"4px 40px 40px", fontFamily:FONT }}>
 
-      {/* ── glass card ── */}
-      <div style={{
-        position:"relative", zIndex:10,
-        width:"100%", maxWidth:600,
-        background:"rgba(8,20,44,.76)",
-        backdropFilter:"blur(28px) saturate(130%)",
-        WebkitBackdropFilter:"blur(28px) saturate(130%)",
-        border:"1px solid rgba(255,255,255,.13)",
-        borderRadius:30, overflow:"hidden",
-        boxShadow:"0 36px 90px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.1), inset 0 -1px 0 rgba(0,0,0,.16)",
-        animation:"cardIn .6s cubic-bezier(.4,0,.2,1) both",
-      }}>
-
-        {/* sky-blue top accent */}
-        <div style={{ height:2, background:`linear-gradient(90deg,transparent,${SKY[500]}cc,${SKY[400]}88,transparent)` }}/>
-
-        <div style={{ padding:"38px 46px 46px" }}>
-
-          {/* brand header */}
-          <div style={{ marginBottom:24 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:8 }}>
-              <div style={{ width:7, height:7, borderRadius:"50%", background:`linear-gradient(135deg,${SKY[500]},${SKY[300]})`, boxShadow:`0 0 8px ${SKY[500]}88` }}/>
-              <span style={{ fontSize:10, fontWeight:600, letterSpacing:".22em", textTransform:"uppercase", color:`${SKY[400]}dd`, fontFamily:FONT }}>
-                Randle &amp; Hopkins
-              </span>
-            </div>
-            <h1 style={{ fontFamily:SERIF, fontSize:32, fontWeight:700, color:"#e8f0fe", letterSpacing:"-.022em", lineHeight:1.12 }}>
-              {STEP_META[step-1].title}
-            </h1>
-            <p style={{ fontSize:12, color:"rgba(155,200,240,.5)", marginTop:6, fontWeight:300, fontFamily:FONT }}>
-              {STEP_META[step-1].sub}
-            </p>
+        {/* brand header — unchanged */}
+        <div style={{ marginBottom:24 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:8 }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:`linear-gradient(135deg,${SKY[500]},${SKY[300]})`, boxShadow:`0 0 8px ${SKY[500]}88` }}/>
+            <span style={{ fontSize:10, fontWeight:600, letterSpacing:".22em", textTransform:"uppercase", color:`${SKY[400]}dd`, fontFamily:FONT }}>
+              Randle &amp; Hopkins
+            </span>
           </div>
+          <h1 className="sf-title" style={{ fontFamily:SERIF, fontSize:32, fontWeight:700, color:"#e8f0fe", letterSpacing:"-.022em", lineHeight:1.12 }}>
+            {STEP_META[step-1].title}
+          </h1>
+          <p style={{ fontSize:12, color:"rgba(155,200,240,.5)", marginTop:6, fontWeight:300, fontFamily:FONT }}>
+            {STEP_META[step-1].sub}
+          </p>
+        </div>
 
-          <Progress step={step} pct={pct}/>
+        <Progress step={step} pct={pct}/>
 
-          {/* animated step content */}
-          <div key={animKey} style={stepAnim}>
+        {/* animated step content — all unchanged */}
+        <div key={animKey} style={stepAnim}>
 
-            {/* ── STEP 1: Personal Information ── */}
-            {step===1 && (
-              <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-                <InputField label="Surname" value={form.surname} onChange={set("surname")} placeholder="Your surname" err={errs.surname} req/>
-                <InputField label="Other Name" value={form.otherName} onChange={set("otherName")} placeholder="Other name" err={errs.otherName} req/>
-                <InputField label="Email Address" type="email" value={form.email} onChange={set("email")} placeholder="you@example.com" err={errs.email} req/>
-                <InputField label="Phone Number" type="tel" value={form.phone} onChange={set("phone")} placeholder="+234 800 000 0000" err={errs.phone} req/>
+          {/* ── STEP 1: Personal Information ── */}
+          {step===1 && (
+            <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+              <InputField label="Surname" value={form.surname} onChange={set("surname")} placeholder="Your surname" err={errs.surname} req/>
+              <InputField label="Other Name" value={form.otherName} onChange={set("otherName")} placeholder="Other name" err={errs.otherName} req/>
+              <InputField label="Email Address" type="email" value={form.email} onChange={set("email")} placeholder="you@example.com" err={errs.email} req/>
+              <InputField label="Phone Number" type="tel" value={form.phone} onChange={set("phone")} placeholder="+234 800 000 0000" err={errs.phone} req/>
 
-                {/* ── Nationality: value is already the demonym ── */}
+              <div style={{ display:"flex", flexDirection:"column" }}>
+                <label style={LBL_ST}>Nationality<span style={{color:SKY[300]}}> *</span></label>
+                <div style={{ position:"relative" }}>
+                  <select style={errs.nationality ? sErr : sRest} value={form.nationality} onChange={set("nationality")}>
+                    <option value="">Select nationality</option>
+                    {NATIONALITY_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <span style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
+                </div>
+                {errs.nationality && <span style={ERR_ST}>{errs.nationality}</span>}
+              </div>
+
+              <InputField label="Home Address" value={form.address} onChange={set("address")} placeholder="City, State, Country" err={errs.address} req/>
+            </div>
+          )}
+
+          {/* ── STEP 2: Additional Details ── */}
+          {step===2 && (
+            <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+              <SelectField label="Marital Status" value={form.maritalStatus} onChange={set("maritalStatus")} placeholder="Select status" err={errs.maritalStatus} req
+                opts={["Single","Married","Divorced","Widowed","Separated"]}/>
+              <InputField label="Language Skill" value={form.language} onChange={set("language")} placeholder="e.g. English, Yoruba" err={errs.language} req/>
+
+              <div className="ff" style={{ gridColumn:"1/-1" }}>
+                <label style={LBL_ST}>Date of Birth<span style={{color:SKY[300]}}> *</span></label>
+                <div className="dob-grid" style={{ display:"grid", gridTemplateColumns:"1fr 2fr 1fr", gap:10 }}>
+                  <DOBSelect value={form.dobDay}   onChange={set("dobDay")}   placeholder="Day"   opts={DAYS}   hasErr={!!errs.dobDay}/>
+                  <DOBSelect value={form.dobMonth} onChange={set("dobMonth")} placeholder="Month" opts={MONTHS} hasErr={!!errs.dobMonth}/>
+                  <DOBSelect value={form.dobYear}  onChange={set("dobYear")}  placeholder="Year"  opts={YEARS}  hasErr={!!errs.dobYear}/>
+                </div>
+                {(errs.dobDay||errs.dobMonth||errs.dobYear) && (
+                  <span style={ERR_ST}>Please select your complete date of birth</span>
+                )}
+              </div>
+
+              <div className="ff" style={{ gridColumn:"1/-1" }}>
+                <GenderToggle value={form.gender} onChange={v => setForm(f => ({...f, gender:v}))} err={errs.gender}/>
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 3: Professional Details ── */}
+          {step===3 && (
+            <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+              <SelectField label="Primary Skill" value={form.primarySkill} onChange={set("primarySkill")} placeholder="Select skill" err={errs.primarySkill} req opts={PRIMARY_SKILL_OPTIONS}/>
+              <SelectField label="Years of Experience" value={form.yearsExp} onChange={set("yearsExp")} placeholder="Select range" err={errs.yearsExp} req
+                opts={["Less than 1 year","1 – 2 years","3 – 5 years","6 – 10 years","10+ years"]}/>
+
+              <div className="ff" style={{ gridColumn:"1/-1" }}>
+                <InputField label="Additional Skills" value={form.additionalSkills} onChange={set("additionalSkills")} placeholder="e.g. Driving, Cooking, Childcare" err={errs.additionalSkills} req/>
+              </div>
+              <div className="ff" style={{ gridColumn:"1/-1" }}>
+                <TextareaField label="Bio" value={form.bio} onChange={set("bio")} rows={3}
+                  placeholder="Brief description of your background and career goals…" err={errs.bio} req/>
+              </div>
+
+              <div className="ff" style={{ gridColumn:"1/-1" }}>
                 <div style={{ display:"flex", flexDirection:"column" }}>
-                  <label style={LBL_ST}>Nationality<span style={{color:SKY[300]}}> *</span></label>
+                  <label style={LBL_ST}>Educational Qualification<span style={{color:SKY[300]}}> *</span></label>
                   <div style={{ position:"relative" }}>
-                    <select
-                      style={errs.nationality ? sErr : sRest}
-                      value={form.nationality}
-                      onChange={set("nationality")}
-                    >
-                      <option value="">Select nationality</option>
-                      {NATIONALITY_OPTIONS.map(o => (
+                    <select style={errs.qualification ? sErr : sRest} value={form.qualification} onChange={set("qualification")}>
+                      <option value="">Select qualification</option>
+                      {QUALIFICATION_OPTIONS.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
                     <span style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
                   </div>
-                  {errs.nationality && <span style={ERR_ST}>{errs.nationality}</span>}
+                  {errs.qualification && <span style={ERR_ST}>{errs.qualification}</span>}
                 </div>
-
-                <InputField label="Home Address" value={form.address} onChange={set("address")} placeholder="City, State, Country" err={errs.address} req/>
               </div>
-            )}
 
-            {/* ── STEP 2: Additional Details ── */}
-            {step===2 && (
-              <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-                <SelectField label="Marital Status" value={form.maritalStatus} onChange={set("maritalStatus")} placeholder="Select status" err={errs.maritalStatus} req
-                  opts={["Single","Married","Divorced","Widowed","Separated"]}/>
-                <InputField label="Language Skill" value={form.language} onChange={set("language")} placeholder="e.g. English, Yoruba" err={errs.language} req/>
-
-                {/* Date of Birth */}
-                <div className="ff" style={{ gridColumn:"1/-1" }}>
-                  <label style={LBL_ST}>Date of Birth<span style={{color:SKY[300]}}> *</span></label>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr 1fr", gap:10 }}>
-                    <DOBSelect value={form.dobDay}   onChange={set("dobDay")}   placeholder="Day"   opts={DAYS}   hasErr={!!errs.dobDay}/>
-                    <DOBSelect value={form.dobMonth} onChange={set("dobMonth")} placeholder="Month" opts={MONTHS} hasErr={!!errs.dobMonth}/>
-                    <DOBSelect value={form.dobYear}  onChange={set("dobYear")}  placeholder="Year"  opts={YEARS}  hasErr={!!errs.dobYear}/>
+              <div className="ff" style={{ gridColumn:"1/-1", marginTop:4 }}>
+                <label style={{ display:"flex", alignItems:"flex-start", gap:12, cursor:"pointer" }}>
+                  <div
+                    onClick={() => setForm(f => ({...f, agreed:!f.agreed}))}
+                    style={{
+                      flexShrink:0, marginTop:2, width:22, height:22, borderRadius:7, cursor:"pointer",
+                      display:"flex", alignItems:"center", justifyContent:"center", transition:"all .28s ease",
+                      background: form.agreed ? `linear-gradient(135deg,${SKY[700]},${SKY[400]})` : "rgba(255,255,255,.13)",
+                      border: form.agreed ? `2px solid ${SKY[400]}bb` : "2px solid rgba(255,255,255,.26)",
+                      boxShadow: form.agreed ? "0 0 12px rgba(14,165,233,.32)" : "none",
+                    }}
+                  >
+                    {form.agreed && (
+                      <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+                        <path d="M1.5 5L4.5 8L10.5 2" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
                   </div>
-                  {(errs.dobDay||errs.dobMonth||errs.dobYear) && (
-                    <span style={ERR_ST}>Please select your complete date of birth</span>
-                  )}
-                </div>
-
-                {/* Gender */}
-                <div className="ff" style={{ gridColumn:"1/-1" }}>
-                  <GenderToggle
-                    value={form.gender}
-                    onChange={v => setForm(f => ({...f, gender:v}))}
-                    err={errs.gender}
-                  />
-                </div>
+                  <span style={{ fontSize:12, color:"rgba(175,210,245,.6)", lineHeight:1.7, fontWeight:300, fontFamily:FONT }}>
+                    I agree to Randle &amp; Hopkins's{" "}
+                    <span style={{ color:SKY[300], textDecoration:"underline", textUnderlineOffset:3, cursor:"pointer" }}>Terms and Conditions</span>
+                    {" "}and{" "}
+                    <span style={{ color:SKY[300], textDecoration:"underline", textUnderlineOffset:3, cursor:"pointer" }}>Privacy Policy</span>
+                  </span>
+                </label>
+                {errs.agreed && <span style={{ ...ERR_ST, marginLeft:34 }}>You must agree to the terms to continue</span>}
               </div>
-            )}
-
-            {/* ── STEP 3: Professional Details ── */}
-            {step===3 && (
-              <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-
-                {/* Primary Skill: plain job titles */}
-                <SelectField
-                  label="Primary Skill" value={form.primarySkill}
-                  onChange={set("primarySkill")} placeholder="Select skill"
-                  err={errs.primarySkill} req
-                  opts={PRIMARY_SKILL_OPTIONS}
-                />
-
-                <SelectField label="Years of Experience" value={form.yearsExp} onChange={set("yearsExp")} placeholder="Select range" err={errs.yearsExp} req
-                  opts={["Less than 1 year","1 – 2 years","3 – 5 years","6 – 10 years","10+ years"]}/>
-
-                <div className="ff" style={{ gridColumn:"1/-1" }}>
-                  <InputField label="Additional Skills" value={form.additionalSkills} onChange={set("additionalSkills")} placeholder="e.g. Driving, Cooking, Childcare" err={errs.additionalSkills} req/>
-                </div>
-                <div className="ff" style={{ gridColumn:"1/-1" }}>
-                  <TextareaField label="Bio" value={form.bio} onChange={set("bio")} rows={3}
-                    placeholder="Brief description of your background and career goals…" err={errs.bio} req/>
-                </div>
-
-                {/* Educational Qualification: short value sent to backend */}
-                <div className="ff" style={{ gridColumn:"1/-1" }}>
-                  <div style={{ display:"flex", flexDirection:"column" }}>
-                    <label style={LBL_ST}>Educational Qualification<span style={{color:SKY[300]}}> *</span></label>
-                    <div style={{ position:"relative" }}>
-                      <select
-                        style={errs.qualification ? sErr : sRest}
-                        value={form.qualification}
-                        onChange={set("qualification")}
-                      >
-                        <option value="">Select qualification</option>
-                        {QUALIFICATION_OPTIONS.map(o => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                      <span style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
-                    </div>
-                    {errs.qualification && <span style={ERR_ST}>{errs.qualification}</span>}
-                  </div>
-                </div>
-
-                {/* Terms & Conditions */}
-                <div className="ff" style={{ gridColumn:"1/-1", marginTop:4 }}>
-                  <label style={{ display:"flex", alignItems:"flex-start", gap:12, cursor:"pointer" }}>
-                    <div
-                      onClick={() => setForm(f => ({...f, agreed:!f.agreed}))}
-                      style={{
-                        flexShrink:0, marginTop:2, width:22, height:22, borderRadius:7, cursor:"pointer",
-                        display:"flex", alignItems:"center", justifyContent:"center", transition:"all .28s ease",
-                        background: form.agreed ? `linear-gradient(135deg,${SKY[700]},${SKY[400]})` : "rgba(255,255,255,.13)",
-                        border: form.agreed ? `2px solid ${SKY[400]}bb` : "2px solid rgba(255,255,255,.26)",
-                        boxShadow: form.agreed ? "0 0 12px rgba(14,165,233,.32)" : "none",
-                      }}
-                    >
-                      {form.agreed && (
-                        <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
-                          <path d="M1.5 5L4.5 8L10.5 2" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
-                    <span style={{ fontSize:12, color:"rgba(175,210,245,.6)", lineHeight:1.7, fontWeight:300, fontFamily:FONT }}>
-                      I agree to Randle &amp; Hopkins's{" "}
-                      <span style={{ color:SKY[300], textDecoration:"underline", textUnderlineOffset:3, cursor:"pointer" }}>Terms and Conditions</span>
-                      {" "}and{" "}
-                      <span style={{ color:SKY[300], textDecoration:"underline", textUnderlineOffset:3, cursor:"pointer" }}>Privacy Policy</span>
-                    </span>
-                  </label>
-                  {errs.agreed && <span style={{ ...ERR_ST, marginLeft:34 }}>You must agree to the terms to continue</span>}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* navigation */}
-          <div style={{ display:"flex", gap:12, marginTop:28 }}>
-            {step > 1 && <SecondaryBtn onClick={goBack}>← Back</SecondaryBtn>}
-            <PrimaryBtn onClick={goNext} disabled={loading}>
-              {loading ? (
-                <>
-                  <span style={{ width:15, height:15, border:"2.5px solid rgba(255,255,255,.25)", borderTopColor:"#fff", borderRadius:"50%", display:"inline-block", animation:"spin .75s linear infinite" }}/>
-                  Submitting…
-                </>
-              ) : step < 3 ? "Continue →" : "Submit Application ✦"}
-            </PrimaryBtn>
-          </div>
-
-          <p style={{ textAlign:"center", marginTop:14, fontSize:10, color:"rgba(150,190,230,.28)", letterSpacing:".05em", fontFamily:FONT }}>
-            <span style={{ color:"rgba(125,211,252,.55)" }}>*</span> All fields are required
-          </p>
+            </div>
+          )}
         </div>
 
-        {/* bottom shimmer */}
-        <div style={{ height:1, background:"linear-gradient(90deg,transparent,rgba(14,165,233,.1),transparent)" }}/>
+        {/* navigation — unchanged */}
+        <div className="sf-nav" style={{ display:"flex", gap:12, marginTop:28 }}>
+          {step > 1 && <SecondaryBtn onClick={goBack}>← Back</SecondaryBtn>}
+          <PrimaryBtn onClick={goNext} disabled={loading}>
+            {loading ? (
+              <>
+                <span style={{ width:15, height:15, border:"2.5px solid rgba(255,255,255,.25)", borderTopColor:"#fff", borderRadius:"50%", display:"inline-block", animation:"spin .75s linear infinite" }}/>
+                Submitting…
+              </>
+            ) : step < 3 ? "Continue →" : "Submit Application ✦"}
+          </PrimaryBtn>
+        </div>
+
+        <p style={{ textAlign:"center", marginTop:14, fontSize:10, color:"rgba(150,190,230,.28)", letterSpacing:".05em", fontFamily:FONT }}>
+          <span style={{ color:"rgba(125,211,252,.55)" }}>*</span> All fields are required
+        </p>
       </div>
+
+      {/* bottom shimmer — preserved */}
+      <div style={{ height:1, background:"linear-gradient(90deg,transparent,rgba(14,165,233,.1),transparent)" }}/>
 
       {done && <SuccessModal onAction={() => setDone(false)}/>}
     </div>

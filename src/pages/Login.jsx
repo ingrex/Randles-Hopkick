@@ -3,6 +3,53 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./AuthContext"; // ✅ use AuthContext login
 
+/* ───────── SVG EYE ICONS ───────── */
+function EyeIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* Outer eye shape */}
+      <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z" />
+      {/* Pupil */}
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeSlashIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* Diagonal strike-through line */}
+      <line x1="2" y1="2" x2="22" y2="22" />
+      {/* Left side of eye arc */}
+      <path d="M6.71 6.71A10.94 10.94 0 0 0 1 12s4 8 11 8c2.35 0 4.47-.82 6.13-2.13" />
+      {/* Right side of eye arc */}
+      <path d="M17.47 17.47A10.94 10.94 0 0 0 23 12S19 4 12 4c-1.29 0-2.54.22-3.71.63" />
+      {/* Partial pupil arc */}
+      <path d="M9.53 9.53A3 3 0 0 0 12 15a3 3 0 0 0 2.47-1.47" />
+    </svg>
+  );
+}
+
 /* ───────── VALIDATION ───────── */
 function validate(fields) {
   const e = {};
@@ -15,7 +62,7 @@ function validate(fields) {
 }
 
 /* ───────── COMPONENT ───────── */
-export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
+export function Login({ onNavigateToRegister, onGoHome, onGoDashboard, onNavigateToForgotPassword }) {
   const { login } = useAuth(); // ✅ AuthContext login — sets user state correctly
 
   const [fields, setFields]     = useState({ email: "", password: "" });
@@ -40,10 +87,6 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
     setApiError("");
 
     try {
-      // ✅ This calls AuthContext's login() which:
-      //    1. Hits the API
-      //    2. Sets user state (so ProtectedRoute sees it)
-      //    3. Saves to localStorage under "user" key
       const result = await login(fields.email, fields.password);
 
       if (!result.success) {
@@ -51,7 +94,6 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
         return;
       }
 
-      // Also save token if returned (for API calls that need Bearer token)
       const stored = localStorage.getItem("user");
       if (stored) setUserData(JSON.parse(stored));
 
@@ -79,7 +121,7 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
         className="absolute w-[400px] h-[400px] rounded-full blur-[90px]"
         animate={{ x: [0, 40, -20, 0], y: [0, -30, 20, 0] }}
         transition={{ duration: 12, repeat: Infinity }}
-        style={{ background: "radial-gradient(circle, rgba(120,60,240,0.4), transparent)" }}
+        style={{ background: "radial-gradient(circle, rgba(35,133,205,0.35), transparent)" }}
       />
 
       {/* CARD */}
@@ -107,7 +149,10 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
         {/* NAV TABS — hide after success */}
         {!done && (
           <div className="flex bg-white/10 rounded-full p-1 mb-6">
-            <button className="flex-1 py-2 rounded-full bg-gradient-to-r from-purple-400 to-blue-400">
+            <button
+              className="flex-1 py-2 rounded-full"
+              style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd)" }}
+            >
               Sign In
             </button>
             <button
@@ -136,7 +181,7 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
                 className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
-                style={{ background: "linear-gradient(135deg,#a78bfa,#60a5fa)" }}
+                style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
               >
                 <span className="text-4xl">✓</span>
               </motion.div>
@@ -154,12 +199,10 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
                 </p>
 
                 <div className="flex flex-col gap-3">
-                  {/* ✅ onGoDashboard is now passed from App.jsx — user state
-                      is already set so ProtectedRoute will let them through */}
                   <button
                     onClick={onGoDashboard}
                     className="w-full py-3 rounded-xl font-medium transition-opacity hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg,#a78bfa,#60a5fa)" }}
+                    style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
                   >
                     Go to Dashboard →
                   </button>
@@ -187,7 +230,7 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
                   className="h-full rounded transition-all duration-300"
                   style={{
                     width: `${pct}%`,
-                    background: "linear-gradient(90deg,#a78bfa,#60a5fa)",
+                    background: "linear-gradient(90deg, #1a6dbd, #2385cd, #42aae8)",
                   }}
                 />
               </div>
@@ -208,39 +251,53 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
                   value={fields.email}
                   onChange={(e) => set("email", e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 outline-none focus:border-purple-400"
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 outline-none focus:border-[#2385cd]"
                 />
                 {errors.email && (
                   <p className="text-red-400 text-xs mt-1">{errors.email}</p>
                 )}
               </div>
 
-              <div className="mb-4 relative">
+              <div className="mb-1 relative">
                 <input
                   type={showPass ? "text" : "password"}
                   placeholder="Password"
                   value={fields.password}
                   onChange={(e) => set("password", e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 outline-none focus:border-purple-400"
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 outline-none focus:border-[#2385cd] pr-11"
                 />
+                {/* ── EYE TOGGLE ── */}
                 <button
                   type="button"
                   onClick={() => setShowPass((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                  aria-label={showPass ? "Hide password" : "Show password"}
                 >
-                  {showPass ? "🙈" : "👁"}
+                  {showPass ? <EyeSlashIcon /> : <EyeIcon />}
                 </button>
                 {errors.password && (
                   <p className="text-red-400 text-xs mt-1">{errors.password}</p>
                 )}
               </div>
 
+              {/* ── FORGOT PASSWORD LINK ── */}
+              <div className="flex justify-end mb-5 mt-2">
+                <button
+                  type="button"
+                  onClick={onNavigateToForgotPassword}
+                  className="text-xs hover:underline transition-colors"
+                  style={{ color: "#42aae8" }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="w-full py-3 rounded-xl disabled:opacity-60 transition-opacity"
-                style={{ background: "linear-gradient(135deg,#a78bfa,#60a5fa)" }}
+                className="w-full py-3 rounded-xl disabled:opacity-60 transition-opacity hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
               >
                 {loading ? "Signing in…" : "Sign In →"}
               </button>
@@ -249,7 +306,8 @@ export function Login({ onNavigateToRegister, onGoHome, onGoDashboard }) {
                 Don't have an account?{" "}
                 <button
                   onClick={onNavigateToRegister}
-                  className="text-purple-300 hover:underline"
+                  style={{ color: "#42aae8" }}
+                  className="hover:underline"
                 >
                   Create one
                 </button>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -84,6 +83,7 @@ const FloatingInput = memo(({ name, value, onChange, placeholder, type = "text" 
 });
 
 export function PrivateForm({ onSubmit }) {
+  // navigate is only used for 401 redirect — NOT for success screen
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [countries, setCountries] = useState([]);
@@ -183,8 +183,10 @@ export function PrivateForm({ onSubmit }) {
       setSubmitStatus("success");
       if (onSubmit) onSubmit(data);
     } catch (err) {
+      // Only navigate on auth failure
       if (err.message?.includes("401") || err.message?.toLowerCase().includes("unauthorized")) {
-        navigate("/login"); return;
+        navigate("/login");
+        return;
       }
       setSubmitStatus("error");
       setErrorMessage(err.message || "Something went wrong. Please try again.");
@@ -195,30 +197,37 @@ export function PrivateForm({ onSubmit }) {
 
   const steps = ["Personal Info", "Staff Request"];
 
-  // ── Success screen ────────────────────────────────────────────────────────
+  // ── Success screen ──────────────────────────────────────────────────────────
   if (submitStatus === "success") {
     return (
-      <div className="w-full p-8 text-white rounded-xl bg-slate-900 flex flex-col items-center gap-4 text-center">
+      <div className="w-full p-8 text-white rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg flex flex-col items-center gap-4 text-center">
         <div className="text-5xl">✅</div>
         <h3 className="text-2xl font-semibold">Request Submitted!</h3>
         <p className="text-white/60">Your staff request has been received. We'll be in touch shortly.</p>
-        <button
-          onClick={() => { setFormData(INITIAL_FORM); setStep(1); setSubmitStatus(null); }}
-          className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium"
-        >
-          New Request
-        </button>
+        <div className="flex gap-3 mt-2">
+          <button
+            onClick={() => { setFormData(INITIAL_FORM); setStep(1); setSubmitStatus(null); }}
+            className="px-6 py-2 bg-white/10 text-white rounded-xl font-medium hover:bg-white/20 transition"
+          >
+            New Request
+          </button>
+          {/* ✅ FIX: close the modal instead of navigating to a new page */}
+          <button
+            onClick={() => onSubmit && onSubmit()}
+            className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium"
+          >
+            Done
+          </button>
+        </div>
       </div>
     );
   }
 
-  // ── Form content ──────────────────────────────────────────────────────────
+  // ── Form ────────────────────────────────────────────────────────────────────
   return (
-    <div className="w-full max-h-[80vh] overflow-y-auto p-6 text-white rounded-xl bg-slate-900 border border-white/10">
-
+    <div className="w-full max-h-[85vh] overflow-y-auto p-6 text-white rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg">
       <h2 className="text-2xl font-semibold mb-2">Request Staff</h2>
 
-      {/* Step indicators */}
       <div className="flex gap-2 mb-4">
         {steps.map((label, i) => (
           <div key={label} className="flex items-center gap-2 flex-1">
@@ -235,14 +244,11 @@ export function PrivateForm({ onSubmit }) {
         ))}
       </div>
 
-      {/* Progress bar */}
       <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-6">
         <div className="h-full bg-sky-400 rounded-full transition-all duration-400" style={{ width: `${progress}%` }} />
       </div>
 
       <AnimatePresence mode="wait">
-
-        {/* STEP 1 — Personal Info */}
         {step === 1 && (
           <motion.div key="s1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -256,40 +262,24 @@ export function PrivateForm({ onSubmit }) {
               </div>
               <FloatingInput name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone Number *" />
               <div className="col-span-2">
-                <Select
-                  options={countries}
-                  value={formData.nationality}
-                  onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))}
-                  placeholder="Nationality *"
-                  styles={glassSelectStyles}
-                />
+                <Select options={countries} value={formData.nationality} onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))} placeholder="Nationality *" styles={glassSelectStyles} />
               </div>
               <div className="col-span-2">
                 <FloatingInput name="businessLocation" value={formData.businessLocation} onChange={handleChange} placeholder="Business / Home Location *" />
               </div>
               <div className="col-span-2">
-                <textarea
-                  name="additionalComment" value={formData.additionalComment}
-                  onChange={handleChange} rows={3}
-                  placeholder="Additional comments (optional)"
-                  className={glass + " resize-none"}
-                />
+                <textarea name="additionalComment" value={formData.additionalComment} onChange={handleChange} rows={3} placeholder="Additional comments (optional)" className={glass + " resize-none"} />
               </div>
             </div>
             <div className="flex justify-end">
-              <button onClick={() => setStep(2)} disabled={!isStep1Valid()}
-                className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40">
-                Next →
-              </button>
+              <button onClick={() => setStep(2)} disabled={!isStep1Valid()} className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40">Next →</button>
             </div>
           </motion.div>
         )}
 
-        {/* STEP 2 — Staff Request (mirrors ClientForm1 Step 3) */}
         {step === 2 && (
           <motion.div key="s2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
             <p className="text-white/50 text-sm">Add the staff roles you need:</p>
-
             {formData.employees.map((emp, index) => {
               const filtered = STAFF_ROLES.filter(
                 (role) => role.toLowerCase().includes((emp.search || "").toLowerCase()) &&
@@ -299,22 +289,15 @@ export function PrivateForm({ onSubmit }) {
                 <div key={index} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
                   {!emp.name ? (
                     <div className="space-y-1">
-                      <input className={glass} placeholder="Search staff role..." value={emp.search}
-                        onChange={(e) => updateEmployee(index, "search", e.target.value)}
-                        autoFocus={index === formData.employees.length - 1} />
+                      <input className={glass} placeholder="Search staff role..." value={emp.search} onChange={(e) => updateEmployee(index, "search", e.target.value)} autoFocus={index === formData.employees.length - 1} />
                       {emp.search && filtered.length > 0 && (
-                        <div className="bg-slate-900 border border-white/10 rounded-lg max-h-44 overflow-y-auto">
+                        <div className="bg-slate-900/90 border border-white/10 rounded-lg max-h-44 overflow-y-auto">
                           {filtered.map((role) => (
-                            <div key={role} onClick={() => selectRole(index, role)}
-                              className="px-3 py-2 hover:bg-sky-400/20 cursor-pointer text-sm text-white/80 hover:text-white transition">
-                              {role}
-                            </div>
+                            <div key={role} onClick={() => selectRole(index, role)} className="px-3 py-2 hover:bg-sky-400/20 cursor-pointer text-sm text-white/80 hover:text-white transition">{role}</div>
                           ))}
                         </div>
                       )}
-                      {emp.search && filtered.length === 0 && (
-                        <p className="text-white/30 text-xs pl-1">No matching roles found.</p>
-                      )}
+                      {emp.search && filtered.length === 0 && <p className="text-white/30 text-xs pl-1">No matching roles found.</p>}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -325,49 +308,35 @@ export function PrivateForm({ onSubmit }) {
                       <div className="flex items-center justify-between">
                         <span className="text-white/50 text-sm">How many do you need?</span>
                         <div className="flex items-center gap-3">
-                          <button onClick={() => updateEmployee(index, "quantity", Math.max(1, emp.quantity - 1))}
-                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center">−</button>
+                          <button onClick={() => updateEmployee(index, "quantity", Math.max(1, emp.quantity - 1))} className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center">−</button>
                           <span className="w-8 text-center font-semibold text-lg">{emp.quantity}</span>
-                          <button onClick={() => updateEmployee(index, "quantity", emp.quantity + 1)}
-                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center">+</button>
+                          <button onClick={() => updateEmployee(index, "quantity", emp.quantity + 1)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center">+</button>
                         </div>
                       </div>
                     </div>
                   )}
                   {formData.employees.length > 1 && (
-                    <button onClick={() => removeEmployee(index)} className="text-red-400/50 hover:text-red-400 transition text-xs w-full text-right">
-                      Remove this role
-                    </button>
+                    <button onClick={() => removeEmployee(index)} className="text-red-400/50 hover:text-red-400 transition text-xs w-full text-right">Remove this role</button>
                   )}
                 </div>
               );
             })}
-
-            <button onClick={addEmployee} className="text-sky-400 hover:text-sky-300 transition text-sm">
-              + Add Another Role
-            </button>
-
+            <button onClick={addEmployee} className="text-sky-400 hover:text-sky-300 transition text-sm">+ Add Another Role</button>
             <label className="flex items-start gap-3 cursor-pointer">
               <input type="checkbox" name="agreed" checked={formData.agreed} onChange={handleChange} className="mt-1 accent-sky-400" />
               <span className="text-white/70 text-sm">I agree to the terms and conditions, and confirm that the information provided is accurate.</span>
             </label>
-
             {submitStatus === "error" && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">⚠️ {errorMessage}</div>
             )}
-
             <div className="flex justify-between pt-2">
               <button onClick={() => setStep(1)} disabled={submitting} className="px-4 py-2 text-white/60 hover:text-white transition disabled:opacity-40">← Back</button>
-              <button onClick={handleSubmit} disabled={!isStep2Valid() || submitting}
-                className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40 flex items-center gap-2">
-                {submitting
-                  ? <><span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />Submitting...</>
-                  : "Submit Request"}
+              <button onClick={handleSubmit} disabled={!isStep2Valid() || submitting} className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40 flex items-center gap-2">
+                {submitting ? <><span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />Submitting...</> : "Submit Request"}
               </button>
             </div>
           </motion.div>
         )}
-
       </AnimatePresence>
     </div>
   );
