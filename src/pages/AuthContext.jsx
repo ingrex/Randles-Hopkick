@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
 
-const BASE_URL = "https://randnhop.onrender.com/api/v1/auth";
+const BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/v1/auth`;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
