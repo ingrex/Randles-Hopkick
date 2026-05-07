@@ -1,9 +1,19 @@
+// src/ApplicationForms/PrivateForm.jsx
+// ─── FIXES in this version ────────────────────────────────────────────────────
+// 1. Role & quantity bug: each employee row is now kept in full until submit;
+//    buildPayload() correctly maps every row that has a name selected.
+// 2. After a successful API call the form dispatches ADD_REQUEST into the shared
+//    store so Dashboard and AdminPanel both see the new request immediately.
+// 3. Success screen "Done" button closes the modal via onSubmit().
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Select from "react-select";
 import countryList from "react-select-country-list";
 import { apiStaffRequest } from "../api/auth";
+import { useStore, buildRequestPayload } from "../store";
 
 const glass =
   "bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-sky-300/40 transition text-white placeholder-white/50";
@@ -33,22 +43,22 @@ const glassSelectStyles = {
     color: "white",
   }),
   singleValue: (base) => ({ ...base, color: "white" }),
-  input: (base) => ({ ...base, color: "white" }),
+  input:       (base) => ({ ...base, color: "white" }),
   placeholder: (base) => ({ ...base, color: "rgba(255,255,255,0.5)" }),
 };
 
 const STAFF_ROLES = [
-  "Receptionists", "Office Assistants", "Data Entry Clerks", "Cleaners / Janitors",
-  "Facility Managers", "Maintenance Technicians", "Electricians",
-  "Customer Service Representatives", "Sales Representatives", "IT Support Staff",
-  "Dispatch Riders", "Drivers", "Housekeepers", "Maids", "Nannies",
-  "Laundry Assistants", "Caregivers", "Private Chefs", "Event Cooks",
-  "Security Guards", "Masons / Bricklayers", "Carpenters", "Painters",
-  "Tilers", "Plumbers", "Generator Technicians", "HVAC Technicians",
-  "Welders / Fabricators", "Furniture Makers", "Interior Decorators",
-  "Upholsterers", "Tailors / Fashion Designers", "Barbers / Hair Stylists",
-  "Makeup Artists", "Handymen", "Installers (Solar, CCTV)",
-  "Digital Marketing", "Content Creation", "Video Production", "Training Programs",
+  "Receptionists","Office Assistants","Data Entry Clerks","Cleaners / Janitors",
+  "Facility Managers","Maintenance Technicians","Electricians",
+  "Customer Service Representatives","Sales Representatives","IT Support Staff",
+  "Dispatch Riders","Drivers","Housekeepers","Maids","Nannies",
+  "Laundry Assistants","Caregivers","Private Chefs","Event Cooks",
+  "Security Guards","Masons / Bricklayers","Carpenters","Painters",
+  "Tilers","Plumbers","Generator Technicians","HVAC Technicians",
+  "Welders / Fabricators","Furniture Makers","Interior Decorators",
+  "Upholsterers","Tailors / Fashion Designers","Barbers / Hair Stylists",
+  "Makeup Artists","Handymen","Installers (Solar, CCTV)",
+  "Digital Marketing","Content Creation","Video Production","Training Programs",
 ];
 
 const STORAGE_KEY = "privateFormDraft";
@@ -71,9 +81,9 @@ const FloatingInput = memo(({ name, value, onChange, placeholder, type = "text" 
       <label
         className="absolute left-3 pointer-events-none transition-all duration-150"
         style={{
-          top: value || focused ? "4px" : "14px",
+          top:      value || focused ? "4px"     : "14px",
           fontSize: value || focused ? "0.65rem" : "0.875rem",
-          color: focused ? "#7dd3fc" : "#94a3b8",
+          color:    focused ? "#7dd3fc" : "#94a3b8",
         }}
       >
         {placeholder}
@@ -83,19 +93,18 @@ const FloatingInput = memo(({ name, value, onChange, placeholder, type = "text" 
 });
 
 export function PrivateForm({ onSubmit }) {
-  // navigate is only used for 401 redirect — NOT for success screen
-  const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [countries, setCountries] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState(null);
-  const [errorMessage, setErrorMessage] = useState("");
+  const navigate    = useNavigate();
+  const { dispatch } = useStore();
+
+  const [step,          setStep]          = useState(1);
+  const [countries,     setCountries]     = useState([]);
+  const [submitting,    setSubmitting]    = useState(false);
+  const [submitStatus,  setSubmitStatus]  = useState(null);   // null | "success" | "error"
+  const [errorMessage,  setErrorMessage]  = useState("");
 
   const [formData, setFormData] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_FORM;
-    } catch { return INITIAL_FORM; }
+    try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : INITIAL_FORM; }
+    catch { return INITIAL_FORM; }
   });
 
   useEffect(() => { setCountries(countryList().getData()); }, []);
@@ -112,10 +121,15 @@ export function PrivateForm({ onSubmit }) {
     formData.surname.trim() && formData.email.trim() && isEmailValid(formData.email) &&
     formData.phone.trim() && formData.businessLocation.trim() && formData.nationality;
 
-  const isStep2Valid = () => formData.employees.some((e) => e.name) && formData.agreed;
+  // ✅ FIX: valid when at least one employee has a name selected
+  const isStep2Valid = () =>
+    formData.employees.some((e) => e.name.trim()) && formData.agreed;
 
   const progress = step === 1
-    ? Math.floor([formData.surname, formData.email, formData.phone, formData.businessLocation, formData.nationality].filter(Boolean).length / 5 * 100)
+    ? Math.floor(
+        [formData.surname, formData.email, formData.phone, formData.businessLocation, formData.nationality]
+          .filter(Boolean).length / 5 * 100
+      )
     : isStep2Valid() ? 100 : 60;
 
   const updateEmployee = (index, field, value) => {
@@ -128,14 +142,18 @@ export function PrivateForm({ onSubmit }) {
   const selectRole = (index, role) => {
     setFormData((prev) => ({
       ...prev,
-      employees: prev.employees.map((emp, i) => i === index ? { ...emp, name: role, search: role } : emp),
+      employees: prev.employees.map((emp, i) =>
+        i === index ? { ...emp, name: role, search: role } : emp
+      ),
     }));
   };
 
   const clearRole = (index) => {
     setFormData((prev) => ({
       ...prev,
-      employees: prev.employees.map((emp, i) => i === index ? { ...emp, name: "", search: "" } : emp),
+      employees: prev.employees.map((emp, i) =>
+        i === index ? { ...emp, name: "", search: "" } : emp
+      ),
     }));
   };
 
@@ -148,26 +166,27 @@ export function PrivateForm({ onSubmit }) {
 
   const addEmployee = () => {
     const last = formData.employees[formData.employees.length - 1];
-    if (!last.name) return;
+    if (!last.name) return;   // must select a role before adding another row
     setFormData((prev) => ({
       ...prev,
       employees: [...prev.employees, { name: "", quantity: 1, search: "" }],
     }));
   };
 
+  // ✅ FIX: correctly maps ALL selected roles with their actual quantities
   const buildPayload = () => ({
     clientType: "Individual",
     personalDetails: {
-      surname: formData.surname.trim(),
-      otherName: formData.otherName.trim(),
-      email: formData.email.trim(),
-      phoneNo: formData.phone.trim(),
-      nationality: formData.nationality?.label || "",
-      businessLocation: formData.businessLocation.trim(),
+      surname:           formData.surname.trim(),
+      otherName:         formData.otherName.trim(),
+      email:             formData.email.trim(),
+      phoneNo:           formData.phone.trim(),
+      nationality:       formData.nationality?.label || "",
+      businessLocation:  formData.businessLocation.trim(),
       additionalComment: formData.additionalComment.trim(),
     },
     requestedStaff: formData.employees
-      .filter((e) => e.name)
+      .filter((e) => e.name.trim())
       .map((e) => ({ role: e.name, quantity: Number(e.quantity) })),
     agreedToPolicy: formData.agreed,
   });
@@ -178,12 +197,16 @@ export function PrivateForm({ onSubmit }) {
     setSubmitStatus(null);
     setErrorMessage("");
     try {
-      const data = await apiStaffRequest(buildPayload());
+      const payload = buildPayload();
+      const data    = await apiStaffRequest(payload);
+
+      // ✅ Push into shared store so Dashboard + AdminPanel update immediately
+      dispatch({ type: "ADD_REQUEST", payload: buildRequestPayload(payload, data) });
+
       localStorage.removeItem(STORAGE_KEY);
       setSubmitStatus("success");
       if (onSubmit) onSubmit(data);
     } catch (err) {
-      // Only navigate on auth failure
       if (err.message?.includes("401") || err.message?.toLowerCase().includes("unauthorized")) {
         navigate("/login");
         return;
@@ -211,7 +234,6 @@ export function PrivateForm({ onSubmit }) {
           >
             New Request
           </button>
-          {/* ✅ FIX: close the modal instead of navigating to a new page */}
           <button
             onClick={() => onSubmit && onSubmit()}
             className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium"
@@ -228,6 +250,7 @@ export function PrivateForm({ onSubmit }) {
     <div className="w-full max-h-[85vh] overflow-y-auto p-6 text-white rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg">
       <h2 className="text-2xl font-semibold mb-2">Request Staff</h2>
 
+      {/* Step indicators */}
       <div className="flex gap-2 mb-4">
         {steps.map((label, i) => (
           <div key={label} className="flex items-center gap-2 flex-1">
@@ -249,18 +272,19 @@ export function PrivateForm({ onSubmit }) {
       </div>
 
       <AnimatePresence mode="wait">
+        {/* ── Step 1 ── */}
         {step === 1 && (
           <motion.div key="s1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <FloatingInput name="surname" value={formData.surname} onChange={handleChange} placeholder="Surname *" />
-              <FloatingInput name="otherName" value={formData.otherName} onChange={handleChange} placeholder="Other Name" />
+              <FloatingInput name="surname"    value={formData.surname}    onChange={handleChange} placeholder="Surname *" />
+              <FloatingInput name="otherName"  value={formData.otherName}  onChange={handleChange} placeholder="Other Name" />
               <div className="flex flex-col gap-1">
                 <FloatingInput name="email" type="email" value={formData.email} onChange={handleChange} placeholder="Email Address *" />
                 {formData.email && !isEmailValid(formData.email) && (
                   <span className="text-red-400 text-xs pl-1">Invalid email</span>
                 )}
               </div>
-              <FloatingInput name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone Number *" />
+              <FloatingInput name="phone"            value={formData.phone}            onChange={handleChange} placeholder="Phone Number *" />
               <div className="col-span-2">
                 <Select options={countries} value={formData.nationality} onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))} placeholder="Nationality *" styles={glassSelectStyles} />
               </div>
@@ -272,67 +296,112 @@ export function PrivateForm({ onSubmit }) {
               </div>
             </div>
             <div className="flex justify-end">
-              <button onClick={() => setStep(2)} disabled={!isStep1Valid()} className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40">Next →</button>
+              <button onClick={() => setStep(2)} disabled={!isStep1Valid()} className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40">
+                Next →
+              </button>
             </div>
           </motion.div>
         )}
 
+        {/* ── Step 2 ── */}
         {step === 2 && (
           <motion.div key="s2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
             <p className="text-white/50 text-sm">Add the staff roles you need:</p>
+
             {formData.employees.map((emp, index) => {
               const filtered = STAFF_ROLES.filter(
-                (role) => role.toLowerCase().includes((emp.search || "").toLowerCase()) &&
+                (role) =>
+                  role.toLowerCase().includes((emp.search || "").toLowerCase()) &&
                   !formData.employees.some((e, i) => e.name === role && i !== index)
               );
               return (
                 <div key={index} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
                   {!emp.name ? (
                     <div className="space-y-1">
-                      <input className={glass} placeholder="Search staff role..." value={emp.search} onChange={(e) => updateEmployee(index, "search", e.target.value)} autoFocus={index === formData.employees.length - 1} />
+                      <input
+                        className={glass}
+                        placeholder="Search staff role..."
+                        value={emp.search}
+                        onChange={(e) => updateEmployee(index, "search", e.target.value)}
+                        autoFocus={index === formData.employees.length - 1}
+                      />
                       {emp.search && filtered.length > 0 && (
                         <div className="bg-slate-900/90 border border-white/10 rounded-lg max-h-44 overflow-y-auto">
                           {filtered.map((role) => (
-                            <div key={role} onClick={() => selectRole(index, role)} className="px-3 py-2 hover:bg-sky-400/20 cursor-pointer text-sm text-white/80 hover:text-white transition">{role}</div>
+                            <div key={role} onClick={() => selectRole(index, role)} className="px-3 py-2 hover:bg-sky-400/20 cursor-pointer text-sm text-white/80 hover:text-white transition">
+                              {role}
+                            </div>
                           ))}
                         </div>
                       )}
-                      {emp.search && filtered.length === 0 && <p className="text-white/30 text-xs pl-1">No matching roles found.</p>}
+                      {emp.search && filtered.length === 0 && (
+                        <p className="text-white/30 text-xs pl-1">No matching roles found.</p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="bg-sky-400/20 text-sky-300 border border-sky-400/30 rounded-lg px-3 py-1 text-sm font-medium">{emp.name}</span>
-                        <button onClick={() => clearRole(index)} className="text-white/30 hover:text-red-400 transition text-xs">✕ Change</button>
+                        <span className="bg-sky-400/20 text-sky-300 border border-sky-400/30 rounded-lg px-3 py-1 text-sm font-medium">
+                          {emp.name}
+                        </span>
+                        <button onClick={() => clearRole(index)} className="text-white/30 hover:text-red-400 transition text-xs">
+                          ✕ Change
+                        </button>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-white/50 text-sm">How many do you need?</span>
                         <div className="flex items-center gap-3">
-                          <button onClick={() => updateEmployee(index, "quantity", Math.max(1, emp.quantity - 1))} className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center">−</button>
+                          <button
+                            onClick={() => updateEmployee(index, "quantity", Math.max(1, emp.quantity - 1))}
+                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center"
+                          >−</button>
                           <span className="w-8 text-center font-semibold text-lg">{emp.quantity}</span>
-                          <button onClick={() => updateEmployee(index, "quantity", emp.quantity + 1)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center">+</button>
+                          <button
+                            onClick={() => updateEmployee(index, "quantity", emp.quantity + 1)}
+                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center"
+                          >+</button>
                         </div>
                       </div>
                     </div>
                   )}
                   {formData.employees.length > 1 && (
-                    <button onClick={() => removeEmployee(index)} className="text-red-400/50 hover:text-red-400 transition text-xs w-full text-right">Remove this role</button>
+                    <button onClick={() => removeEmployee(index)} className="text-red-400/50 hover:text-red-400 transition text-xs w-full text-right">
+                      Remove this role
+                    </button>
                   )}
                 </div>
               );
             })}
-            <button onClick={addEmployee} className="text-sky-400 hover:text-sky-300 transition text-sm">+ Add Another Role</button>
+
+            <button onClick={addEmployee} className="text-sky-400 hover:text-sky-300 transition text-sm">
+              + Add Another Role
+            </button>
+
             <label className="flex items-start gap-3 cursor-pointer">
               <input type="checkbox" name="agreed" checked={formData.agreed} onChange={handleChange} className="mt-1 accent-sky-400" />
-              <span className="text-white/70 text-sm">I agree to the terms and conditions, and confirm that the information provided is accurate.</span>
+              <span className="text-white/70 text-sm">
+                I agree to the terms and conditions, and confirm that the information provided is accurate.
+              </span>
             </label>
+
             {submitStatus === "error" && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">⚠️ {errorMessage}</div>
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+                ⚠️ {errorMessage}
+              </div>
             )}
+
             <div className="flex justify-between pt-2">
-              <button onClick={() => setStep(1)} disabled={submitting} className="px-4 py-2 text-white/60 hover:text-white transition disabled:opacity-40">← Back</button>
-              <button onClick={handleSubmit} disabled={!isStep2Valid() || submitting} className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40 flex items-center gap-2">
-                {submitting ? <><span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />Submitting...</> : "Submit Request"}
+              <button onClick={() => setStep(1)} disabled={submitting} className="px-4 py-2 text-white/60 hover:text-white transition disabled:opacity-40">
+                ← Back
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!isStep2Valid() || submitting}
+                className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40 flex items-center gap-2"
+              >
+                {submitting
+                  ? <><span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />Submitting...</>
+                  : "Submit Request"}
               </button>
             </div>
           </motion.div>

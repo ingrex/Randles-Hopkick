@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import HireStaffButton from "../components/buttons/HireStaffButton";
 
 // ─── CSS SCOPE HELPER ─────────────────────────────────────────────────────────
 const scopeCSS = (css, scope) =>
@@ -119,7 +121,7 @@ const RAW_CSS = `
     position: relative;
     padding-top: 80px;
     height: calc(100vh - 90px);
-  margin-top: -70px;
+    margin-top: -70px;
     min-height: 700px;
     overflow: hidden;
     display: flex;
@@ -239,13 +241,13 @@ const RAW_CSS = `
     animation-delay: 0.55s;
   }
   .hero-btn {
-    padding: 13px 30px;
+    padding: 8px 20px;
     border-radius: 40px;
     background: var(--sky-glass);
     backdrop-filter: blur(14px);
     border: 1px solid var(--sky-border);
     color: #fff;
-    font-size: 13px;
+    font-size: 11px;
     letter-spacing: 0.09em;
     text-transform: uppercase;
     font-family: 'Jost', sans-serif;
@@ -274,6 +276,30 @@ const RAW_CSS = `
     display: grid;
     grid-template-columns: repeat(3, 1fr);
   }
+
+  /* ── STATS MOBILE FIX ── */
+  @media (max-width: 640px) {
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+    .stat-cell {
+      border-right: none !important;
+      border-bottom: 1px solid var(--border);
+      padding: 24px 20px !important;
+    }
+    .stat-cell:last-child {
+      border-bottom: none;
+    }
+    .stat-cell--first::before {
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 44px;
+      height: 3px;
+      top: 0;
+    }
+  }
+
   .stat-cell {
     padding: 38px 40px;
     position: relative;
@@ -872,7 +898,97 @@ const CAROUSEL = [
 
 // ─── SERVICE DATA ─────────────────────────────────────────────────────────────
 const serviceData = [
-  
+  {
+    id: "training",
+    title: "Staff Training Services",
+    shortTitle: "Training",
+    description:
+      "We equip both domestic and corporate staff with the skills, discipline and professionalism required to excel in their roles — through structured, practical and results-driven training programmes.",
+    categoryImage:
+      "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=500&q=80",
+    subcategories: [
+      {
+        name: "Domestic Staff Training",
+        roles: [
+          {
+            name: "Housekeeping & Cleaning Standards",
+            brief: "Professional techniques for impeccable home maintenance.",
+            description:
+              "A comprehensive training programme covering professional cleaning techniques, organisation systems, surface-care best practices and household management standards — equipping domestic staff to maintain homes to the highest possible level of cleanliness and order.",
+            image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=700&q=80",
+          },
+          {
+            name: "Childcare & Nanny Training",
+            brief: "Child development and safety essentials for caregivers.",
+            description:
+              "Structured training covering early childhood development, age-appropriate activities, emergency first aid, child safety protocols and effective communication with parents — ensuring caregivers are fully equipped to provide nurturing and professional childcare.",
+            image: "https://images.unsplash.com/photo-1587614382346-4ec70e388b28?w=700&q=80",
+          },
+          {
+            name: "Cooking & Culinary Skills",
+            brief: "Kitchen mastery from preparation to plating.",
+            description:
+              "Practical culinary training designed for domestic cooks and private chefs — covering meal planning, food hygiene, dietary considerations, recipe execution and kitchen organisation to enable consistently high-quality home cooking.",
+            image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=700&q=80",
+          },
+          {
+            name: "Elderly Care & Support",
+            brief: "Compassionate care techniques for senior support staff.",
+            description:
+              "Specialist training focused on the physical and emotional needs of elderly individuals — including safe mobility assistance, medication awareness, communication with family members and maintaining dignity and independence in daily care routines.",
+            image: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=700&q=80",
+          },
+          {
+            name: "Etiquette & Household Protocols",
+            brief: "Professionalism and discretion in a household setting.",
+            description:
+              "Training in professional household etiquette, personal presentation, discretion, correct forms of address, service standards and the unspoken expectations of working within a private residence — ensuring staff conduct themselves with refinement at all times.",
+            image: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=700&q=80",
+          },
+        ],
+      },
+      {
+        name: "Corporate Staff Training",
+        roles: [
+          {
+            name: "Customer Service Excellence",
+            brief: "Delivering outstanding client experiences every time.",
+            description:
+              "An intensive programme developing communication skills, conflict resolution, empathy, active listening and brand-aligned service delivery — equipping customer-facing staff to consistently exceed client expectations across all touchpoints.",
+            image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=700&q=80",
+          },
+          {
+            name: "Office Administration & Productivity",
+            brief: "Structured workflows and administrative best practices.",
+            description:
+              "Practical training covering office organisation, document management, scheduling, email communication, time management and administrative best practices — enabling office staff to operate with greater efficiency and professionalism.",
+            image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=700&q=80",
+          },
+          {
+            name: "Sales & Business Development",
+            brief: "Proven techniques to drive revenue and client growth.",
+            description:
+              "A results-oriented programme covering prospecting, needs analysis, persuasive communication, objection handling, negotiation and closing techniques — designed to sharpen the commercial instincts of sales teams and drive measurable revenue growth.",
+            image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=700&q=80",
+          },
+          {
+            name: "Leadership & Team Management",
+            brief: "Building capable, confident and inspiring leaders.",
+            description:
+              "A structured leadership development programme covering management styles, team motivation, performance conversations, delegation, decision-making and emotional intelligence — transforming capable employees into effective, inspiring leaders.",
+            image: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=700&q=80",
+          },
+          {
+            name: "Health, Safety & Workplace Compliance",
+            brief: "Creating safer, compliant and legally sound workplaces.",
+            description:
+              "Comprehensive training on occupational health and safety regulations, hazard identification, emergency response procedures, workplace rights and compliance obligations — equipping staff and managers to maintain a safe and legally compliant working environment.",
+            image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=700&q=80",
+          },
+        ],
+      },
+    ],
+  },
   {
     id: "domestic",
     title: "Domestic Outsourcing Services",
@@ -1265,7 +1381,10 @@ function useReveal() {
 }
 
 // ─── MODAL ────────────────────────────────────────────────────────────────────
-function Modal({ role, onClose }) {
+function Modal({ role, onClose, isTraining, user }) {
+  const navigate = useNavigate();
+  const [hireOpen, setHireOpen] = useState(false);
+
   useEffect(() => {
     const h = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", h);
@@ -1276,32 +1395,53 @@ function Modal({ role, onClose }) {
     };
   }, [onClose]);
 
+  const handleHireClick = () => {
+    if (!user) {
+      onClose();
+      navigate("/login");
+      return;
+    }
+    setHireOpen(true);
+  };
+
   return (
-    // NOTE: Modal backdrop sits outside .svc so we use inline styles for its own bg
-    // but it still inherits .svc variables since they're on a parent
-    <div className="svc-modal-backdrop" onClick={onClose}>
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-img-wrap">
-          <img src={role.image} alt={role.name} className="modal-img" />
-          <div className="modal-img-gradient" />
-          <button className="modal-close-btn" onClick={onClose}>×</button>
-        </div>
-        <div className="modal-body">
-          <div className="modal-accent-bar" />
-          <p className="modal-eyebrow">Role Details</p>
-          <h3 className="modal-title">{role.name}</h3>
-          <p className="modal-desc">{role.description}</p>
-          <div className="modal-actions">
-            <button className="modal-cta-btn" onClick={onClose}>
-              Request This Role
-            </button>
-            <button className="modal-dismiss-btn" onClick={onClose}>
-              Close
-            </button>
+    <>
+      <div className="svc-modal-backdrop" onClick={onClose}>
+        <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-img-wrap">
+            <img src={role.image} alt={role.name} className="modal-img" />
+            <div className="modal-img-gradient" />
+            <button className="modal-close-btn" onClick={onClose}>×</button>
+          </div>
+          <div className="modal-body">
+            <div className="modal-accent-bar" />
+            <p className="modal-eyebrow">Role Details</p>
+            <h3 className="modal-title">{role.name}</h3>
+            <p className="modal-desc">{role.description}</p>
+            <div className="modal-actions">
+              {isTraining ? (
+                <a
+                  href="/contact"
+                  className="modal-cta-btn"
+                  style={{ textDecoration: "none", textAlign: "center" }}
+                  onClick={onClose}
+                >
+                  Contact Us
+                </a>
+              ) : (
+                <button className="modal-cta-btn" onClick={handleHireClick}>
+                  Hire Staff
+                </button>
+              )}
+              <button className="modal-dismiss-btn" onClick={onClose}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      {hireOpen && <HireStaffModal onClose={() => setHireOpen(false)} />}
+    </>
   );
 }
 
@@ -1348,7 +1488,7 @@ function CategoryHeader({ service }) {
         <p className="cat-desc">{service.description}</p>
         <div className="cat-meta">
           <div className="cat-meta-line" />
-          <span className="cat-meta-text">{totalRoles} roles available</span>
+          <span className="cat-meta-text">{totalRoles} programmes available</span>
         </div>
       </div>
     </div>
@@ -1356,8 +1496,9 @@ function CategoryHeader({ service }) {
 }
 
 // ─── SERVICE SECTION ──────────────────────────────────────────────────────────
-function ServiceSection({ service }) {
+function ServiceSection({ service, user }) {
   const [activeRole, setActiveRole] = useState(null);
+  const isTraining = service.id === "training";
   return (
     <section id={service.id} className="service-section">
       <div className="section-inner">
@@ -1381,7 +1522,14 @@ function ServiceSection({ service }) {
           </div>
         ))}
       </div>
-      {activeRole && <Modal role={activeRole} onClose={() => setActiveRole(null)} />}
+      {activeRole && (
+        <Modal
+          role={activeRole}
+          onClose={() => setActiveRole(null)}
+          isTraining={isTraining}
+          user={user}
+        />
+      )}
     </section>
   );
 }
@@ -1436,7 +1584,7 @@ function HeroSection({ onNav }) {
         </h1>
 
         <p className="hero-subtitle">
-          From domestic household management to corporate operations and skilled artisan recruitment — connecting you with the professionals who matter most.
+          From staff training and domestic household management to corporate operations and skilled artisan recruitment — connecting you with the professionals who matter most.
         </p>
 
         <div className="hero-buttons">
@@ -1454,8 +1602,8 @@ function HeroSection({ onNav }) {
 // ─── STATS STRIP ─────────────────────────────────────────────────────────────
 function StatsStrip() {
   const stats = [
-    { label: "Service Categories", value: "3", sub: "Domestic · Corporate · Artisans" },
-    { label: "Roles Available", value: "40+", sub: "Across all service categories" },
+    { label: "Service Categories", value: "4", sub: "Training · Domestic · Corporate · Artisans" },
+    { label: "Roles Available", value: "50+", sub: "Across all service categories" },
     { label: "Years of Excellence", value: "10+", sub: "Trusted by homes & businesses" },
   ];
   return (
@@ -1506,7 +1654,7 @@ function CTASection() {
         </div>
 
         <div className="cta-actions">
-          <button className="cta-btn-primary">Contact Us</button>
+          <a href="/contact" className="cta-btn-primary" style={{ textDecoration: 'none', textAlign: 'center', display: 'block' }}>Contact Us</a>
         </div>
       </div>
     </section>
@@ -1514,7 +1662,7 @@ function CTASection() {
 }
 
 // ─── PAGE ROOT ────────────────────────────────────────────────────────────────
-export function ServicesPage() {
+export function ServicesPage({ user }) {
   const scrollTo = (id) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1523,12 +1671,11 @@ export function ServicesPage() {
   return (
     <>
       <style>{SCOPED_CSS}</style>
-      {/* .svc scopes all CSS variables and resets — does NOT affect the header */}
       <div className="svc">
         <HeroSection onNav={scrollTo} />
         <StatsStrip />
         {serviceData.map((s) => (
-          <ServiceSection key={s.id} service={s} />
+          <ServiceSection key={s.id} service={s} user={user} />
         ))}
         <CTASection />
       </div>

@@ -15,7 +15,7 @@ function ModalShell({ onClose, children }) {
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-slate-700 border border-white/20 text-white flex items-center justify-center hover:bg-slate-600 transition"
+          className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-slate-700 border border-white/20 text-white flex items-center justify-center hover:bg-slate-600 hover:scale-110 transition-all duration-300"
         >
           ✕
         </button>
@@ -34,6 +34,11 @@ export function HireStaffModal({ onClose }) {
     navigate("/dashboard", { state: { openModal: type } });
   };
 
+  const handleHome = () => {
+    onClose();
+    navigate("/");
+  };
+
   return (
     <ModalShell onClose={onClose}>
       <motion.div
@@ -46,6 +51,7 @@ export function HireStaffModal({ onClose }) {
         {/* Header */}
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Hire Staff</h2>
+
           <p className="text-white/50 text-sm mt-1">
             Choose how you'd like to hire
           </p>
@@ -53,63 +59,134 @@ export function HireStaffModal({ onClose }) {
 
         {/* Cards */}
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Private */}
+
+          {/* ───────────────── PRIVATE ───────────────── */}
           <motion.div
             whileHover={{ scale: 1.03 }}
             className="p-6 rounded-2xl bg-white/10 border border-white/20
-            hover:bg-white/20 transition backdrop-blur-lg flex flex-col"
+            hover:bg-white/20 transition-all duration-300
+            backdrop-blur-lg flex flex-col
+            hover:shadow-[0_0_25px_rgba(35,133,205,0.18)]"
           >
             <div className="flex-1">
               <div className="w-10 h-10 rounded-full bg-sky-400/20 flex items-center justify-center mb-3">
                 <span className="text-sky-300 text-lg"></span>
               </div>
-              <h3 className="text-lg font-semibold mb-2">Private Hiring</h3>
+
+              <h3 className="text-lg font-semibold mb-2">
+                Private Hiring
+              </h3>
+
               <p className="text-sm text-white/70">
                 Hire trusted staff for personal or household needs like
                 nannies, cleaners, drivers, and more.
               </p>
             </div>
-            <button
-              onClick={() => handleContinue("private")}
-              className="mt-5 w-full px-3 py-2 rounded-full font-medium
-              bg-[#3e99da] text-white
-              hover:shadow-[0_0_15px_#2385cd,0_0_35px_#2385cd]
-              hover:scale-[1.02] transition-all duration-300"
-            >
-              Continue
-            </button>
+
+            {/* Buttons */}
+            <div className="mt-5 grid grid-cols-2 gap-3">
+
+              {/* Home */}
+              <button
+                onClick={handleHome}
+                className="px-3 py-2 rounded-full font-medium
+                bg-white/10 backdrop-blur-md text-white border border-white/20
+                hover:border-white/50 hover:bg-white/20
+                hover:shadow-[0_0_15px_rgba(255,255,255,0.25)]
+                hover:scale-[1.03]
+                active:scale-95
+                transition-all duration-300"
+              >
+                Home
+              </button>
+
+              {/* Continue */}
+              <button
+                onClick={() => handleContinue("private")}
+                className="relative overflow-hidden px-3 py-2 rounded-full font-medium
+                text-white border border-cyan-400/40
+                bg-gradient-to-r from-[#2385cd] via-cyan-400 to-[#2385cd]
+                hover:shadow-[0_0_18px_#2385cd,0_0_40px_rgba(35,133,205,0.6)]
+                hover:scale-[1.03]
+                active:scale-95
+                transition-all duration-300 group"
+              >
+                <span className="relative z-10">Continue</span>
+
+                {/* Glow Overlay */}
+                <span
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100
+                  bg-white/10 blur-md transition duration-300"
+                />
+              </button>
+            </div>
           </motion.div>
 
-          {/* Organization */}
+          {/* ───────────────── ORGANIZATION ───────────────── */}
           <motion.div
             whileHover={{ scale: 1.03 }}
             className="p-6 rounded-2xl bg-white/10 border border-white/20
-            hover:bg-white/20 transition backdrop-blur-lg flex flex-col"
+            hover:bg-white/20 transition-all duration-300
+            backdrop-blur-lg flex flex-col
+            hover:shadow-[0_0_25px_rgba(35,133,205,0.18)]"
           >
             <div className="flex-1">
               <div className="w-10 h-10 rounded-full bg-sky-400/20 flex items-center justify-center mb-3">
                 <span className="text-sky-300 text-lg"></span>
               </div>
-              <h3 className="text-lg font-semibold mb-2">Organization Hiring</h3>
+
+              <h3 className="text-lg font-semibold mb-2">
+                Organization Hiring
+              </h3>
+
               <p className="text-sm text-white/70">
                 Recruit skilled professionals for your business or company
                 operations quickly and efficiently.
               </p>
             </div>
-            <button
-              onClick={() => handleContinue("organization")}
-              className="mt-5 w-full px-2 py-2 active:scale-95 rounded-full font-medium
-              bg-white/10 backdrop-blur-md text-white border border-white/20
-              hover:border-[#2385cd]/70 hover:text-[#4aa2e0]
-              hover:shadow-[0_0_15px_#2385cd] hover:bg-white/5
-              transition-all duration-300"
-            >
-              Continue
-            </button>
+
+            {/* Buttons */}
+            <div className="mt-5 grid grid-cols-2 gap-3">
+
+              {/* Home */}
+              <button
+                onClick={handleHome}
+                className="px-3 py-2 rounded-full font-medium
+                bg-white/10 backdrop-blur-md text-white border border-white/20
+                hover:border-white/50 hover:bg-white/20
+                hover:shadow-[0_0_15px_rgba(255,255,255,0.25)]
+                hover:scale-[1.03]
+                active:scale-95
+                transition-all duration-300"
+              >
+                Home
+              </button>
+
+              {/* Continue */}
+              <button
+                onClick={() => handleContinue("organization")}
+                className="relative overflow-hidden px-3 py-2 rounded-full font-medium
+                text-white border border-cyan-400/40
+                bg-gradient-to-r from-[#1d4ed8] via-[#2385cd] to-cyan-400
+                hover:shadow-[0_0_18px_#2385cd,0_0_40px_rgba(35,133,205,0.6)]
+                hover:scale-[1.03]
+                active:scale-95
+                transition-all duration-300 group"
+              >
+                <span className="relative z-10">Continue</span>
+
+                {/* Glow Overlay */}
+                <span
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100
+                  bg-white/10 blur-md transition duration-300"
+                />
+              </button>
+            </div>
           </motion.div>
         </div>
       </motion.div>
     </ModalShell>
   );
 }
+
 export default HireStaffModal;

@@ -1,10 +1,19 @@
 // src/components/Header.jsx
+
 import React, { useState, useEffect, useRef } from "react";
-import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard } from "lucide-react";
+import {
+  Menu,
+  X,
+  ChevronDown,
+  User,
+  LogOut,
+  LayoutDashboard,
+} from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../pages/AuthContext";
 import Logo from "./Logo";
+import HireStaffButton from "./buttons/HireStaffButton1";
 
 /* ── Magnetic Nav Item ── */
 const MagneticNavItem = ({ children }) => {
@@ -50,7 +59,9 @@ const Header = () => {
   /* ── Scroll detection ── */
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 10);
+
     window.addEventListener("scroll", onScroll);
+
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -67,19 +78,40 @@ const Header = () => {
 
   const getInitials = (u) => {
     if (!u) return "?";
-    const parts = [u.surname, u.otherNames, u.firstName, u.name].filter(Boolean);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    if (u.email) return u.email[0].toUpperCase();
+
+    const parts = [
+      u.surname,
+      u.otherNames,
+      u.firstName,
+      u.name,
+    ].filter(Boolean);
+
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+
+    if (u.email) {
+      return u.email[0].toUpperCase();
+    }
+
     return "?";
   };
 
   const getDisplayName = (u) => {
     if (!u) return "";
-    if (u.otherNames && u.surname) return `${u.otherNames} ${u.surname}`;
+
+    if (u.otherNames && u.surname) {
+      return `${u.otherNames} ${u.surname}`;
+    }
+
     if (u.surname) return u.surname;
     if (u.name) return u.name;
     if (u.email) return u.email;
+
     return "User";
   };
 
@@ -98,13 +130,13 @@ const Header = () => {
           : "bg-black/30 backdrop-blur-md"
       }`}
     >
-      {/* FIXED HEIGHT CONTAINER (prevents compression) */}
+      {/* FIXED HEIGHT CONTAINER */}
       <div className="relative max-w-7xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
 
         {/* ── LEFT: LOGO ── */}
         <div className="flex items-center min-w-[140px]">
           <NavLink to="/" className="flex items-center">
-            <Logo className=" w-auto" />
+            <Logo className="w-auto" />
           </NavLink>
         </div>
 
@@ -158,9 +190,11 @@ const Header = () => {
                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-xs font-semibold border border-white/20">
                   {getInitials(user)}
                 </div>
+
                 <span className="text-sm text-white/90 max-w-[110px] truncate">
                   {getDisplayName(user)}
                 </span>
+
                 <ChevronDown
                   size={14}
                   className={`text-white/70 transition-transform ${
@@ -182,10 +216,12 @@ const Header = () => {
                       <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-xs font-semibold">
                         {getInitials(user)}
                       </div>
+
                       <div className="min-w-0">
                         <p className="text-sm text-white font-medium truncate">
                           {getDisplayName(user)}
                         </p>
+
                         {user.email && (
                           <p className="text-xs text-white/45 truncate">
                             {user.email}
@@ -226,10 +262,9 @@ const Header = () => {
           )}
 
           {/* CTA */}
-          <button className="relative px-4 py-1.5 rounded-full text-sm font-semibold text-white overflow-hidden group">
-            <span className="relative z-10">Hire Staff</span>
-            <span className="absolute inset-0 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 opacity-80 blur-sm group-hover:opacity-100 transition" />
-          </button>
+          <div className="flex items-center">
+            <HireStaffButton user={user} />
+          </div>
         </div>
 
         {/* ── MOBILE TOGGLE ── */}
@@ -250,6 +285,7 @@ const Header = () => {
         className="md:hidden overflow-hidden bg-[#0f2027] px-6"
       >
         <div className="py-5 space-y-4">
+
           {navItems.map((item, i) => (
             <NavLink
               key={i}
@@ -266,6 +302,7 @@ const Header = () => {
           ))}
 
           <div className="border-t border-white/10 pt-4 space-y-3">
+
             {!user ? (
               <NavLink
                 to="/login"
@@ -280,10 +317,12 @@ const Header = () => {
                   <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-xs font-semibold">
                     {getInitials(user)}
                   </div>
+
                   <div>
                     <p className="text-sm text-white font-medium">
                       {getDisplayName(user)}
                     </p>
+
                     {user.email && (
                       <p className="text-xs text-white/45">
                         {user.email}
@@ -297,7 +336,8 @@ const Header = () => {
                   className="flex items-center gap-2 text-blue-400 text-sm"
                   onClick={() => setMenuOpen(false)}
                 >
-                  <LayoutDashboard size={14} /> Dashboard
+                  <LayoutDashboard size={14} />
+                  Dashboard
                 </NavLink>
 
                 <NavLink
@@ -305,22 +345,26 @@ const Header = () => {
                   className="flex items-center gap-2 text-white/80 text-sm"
                   onClick={() => setMenuOpen(false)}
                 >
-                  <User size={14} /> My Profile
+                  <User size={14} />
+                  My Profile
                 </NavLink>
 
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 text-red-400 text-sm"
                 >
-                  <LogOut size={14} /> Sign out
+                  <LogOut size={14} />
+                  Sign out
                 </button>
               </>
             )}
           </div>
 
-          <button className="w-full bg-blue-500 py-2 rounded-full text-white text-sm font-semibold">
-            Hire Staff
-          </button>
+          {/* Mobile CTA */}
+          <div className="pt-2">
+            <HireStaffButton user={user} />
+          </div>
+
         </div>
       </motion.div>
     </header>
