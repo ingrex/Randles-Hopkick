@@ -20,6 +20,7 @@ import Register from "./pages/Register";
 import { AuthProvider }  from "./pages/AuthContext";
 import ProtectedRoute    from "./pages/ProtectedRoute";
 import { StoreProvider } from "./store";
+import AdminPanel from "./pages/Adminpanel";
 
 function App() {
   const location = useLocation();
@@ -46,6 +47,7 @@ function App() {
                 <Route path="/contact"       element={<Contact />} />
                 <Route path="/services"      element={<Services />} />
                 <Route path="/applicantform" element={<ApplicantForm />} />
+                <Route path="/Adminpanel" element={<AdminPanel />} />
 
                 {/* ── AUTH ── */}
                 <Route

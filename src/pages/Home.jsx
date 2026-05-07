@@ -546,7 +546,7 @@ const Home = () => {
             whileInView="show"
             variants={fadeUp}
             whileHover={{ scale: 1.05 }}
-            className="mt-6 text-white px-8 py-3 rounded-full transition"
+            className="mt-6 text-white px-4 py-2 rounded-full transition"
             style={{ background: "#2385cd" }}
           >
             Get Started Today
