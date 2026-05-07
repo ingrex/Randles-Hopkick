@@ -540,7 +540,7 @@ const Home = () => {
           >
             Let us handle recruitment while you grow your business.
           </motion.p>
-
+        <Link to="/contact">
           <motion.button
             initial="hidden"
             whileInView="show"
@@ -551,6 +551,7 @@ const Home = () => {
           >
             Get Started Today
           </motion.button>
+        </Link>
         </div>
       </section>
 

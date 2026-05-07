@@ -71,16 +71,15 @@ const founderBio = {
   name: "Mrs. Peace Obieke",
   role: "Founder & Head of Operations",
   paragraphs: [
-    "Mrs. Peace Obieke is the founder of Randle & Hopkick, and the Head of Operations. She has over 15 years of work experience that cuts across industries.",
-    "Peace also worked at Chisco Group of Companies as the Group Head of Human Resource, managing over 1,000 staff.",
+    "Mrs. Peace Obieke is the founder of Randle & Hopkick, and the Head of operations at Randle & Hopkick, she has over 15 years work experience that cuts across industries. Peace was a senior consultant at H. Pierson Associates Limited where she managed projects in training, HR consulting, business strategy and governance, she coordinated trainings fof UBA, Fidelity bank, First Bank, to mention a few. Peace also worked at Chisco group of companies as the Group Head of Human Resource, managing over 1000 staff. Peace holds a B.Sc in Business Administration from University of Lagos, Akoka and an MBA in (International studies) Human Resources from Lagos state University Ojo. She has attended various training and seminars local and offshore. ",
   ],
 };
 
 const technicalTeamContent = {
   heading: "Technical Team",
   paragraphs: [
-    "Our technical team is made up of seasoned professionals with over a decade of experience in specialised fields.",
-    "We deliver nothing less than the global standard when it comes to outsourcing services.",
+    "Our technical team is made up of seasoned professionals with over a decade experience in specialized field of facilities management, janitorial services, automobile leasing and management, hospitality, etc.",
+    "These individuals have worked with multinational companies like, Exxon Mobile, Dangote Flour, Coca-Cola, ETECO Integrated Facility manager, Nigeria Brewery, Promasidor, etc. These are companies where superior services delivery is non-negotiable. Hence, we shall deliver nothing less that the global standard when it comes to outsourcing services.",
   ],
 };
 
@@ -595,43 +594,7 @@ export function AboutPage() {
               </div>
 
               {/* premium stats */}
-              <div className="grid grid-cols-3 gap-4 mt-10">
-                {[
-                  {
-                    value: "10+",
-                    label: "Years",
-                  },
-                  {
-                    value: "6+",
-                    label: "Industries",
-                  },
-                  {
-                    value: "100%",
-                    label: "Standard",
-                  },
-                ].map((item, i) => (
-                  <div
-                    key={i}
-                    className="text-center rounded-2xl py-5"
-                    style={{
-                      background: "rgba(35,133,205,0.08)",
-                      border:
-                        "1px solid rgba(35,133,205,0.15)",
-                    }}
-                  >
-                    <h4
-                      className="text-2xl font-extrabold"
-                      style={{ color: "#2385cd" }}
-                    >
-                      {item.value}
-                    </h4>
 
-                    <p className="text-[11px] uppercase tracking-widest opacity-60 mt-1">
-                      {item.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
             </div>
           </motion.div>
         </div>

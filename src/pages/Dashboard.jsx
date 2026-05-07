@@ -19,7 +19,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import ClientForm1 from "../ApplicationForms/ClientForm1";
 import StaffForm   from "../ApplicationForms/StaffForm";
 import PrivateForm from "../ApplicationForms/PrivateForm";
-import AdminPanel from "./Adminpanel";
 import { useStore, loadProfile, saveProfile } from "../store";
 
 const MODES = ["Private", "Organization", "Staff"];
@@ -448,10 +447,6 @@ export function Dashboard() {
                 Edit Profile
               </motion.button>
               {/* Admin panel link — visible for admin users; in production guard with role check */}
-              <motion.button whileHover={{ scale: 1.05 }} onClick={() => navigate("/admin")}
-                className="px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-sky-400/30 border border-sky-400/50 backdrop-blur text-sky-200 font-medium">
-                ⚙ Admin
-              </motion.button>
             </div>
           </div>
 

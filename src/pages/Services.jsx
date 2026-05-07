@@ -1639,7 +1639,7 @@ function CTASection() {
           className="cta-bg-img"
         />
         <div className="cta-gif-badge">
-          <span className="cta-gif-badge-text">GIF Placeholder — Replace with animated asset</span>
+          <span className="cta-gif-badge-text"></span>
         </div>
         <div className="cta-bg-overlay" />
       </div>
