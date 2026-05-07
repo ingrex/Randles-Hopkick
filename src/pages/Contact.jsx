@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaClock, FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from "react-icons/fa";
+import { FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaClock, FaFacebookF, FaTwitter, FaInstagram, FaYoutube, FaLinkedin } from "react-icons/fa";
 import GetJobButton from "../components/buttons/GetJobButton";
 import HireStaffButton from "../components/buttons/HireStaffButton";
 
@@ -178,10 +178,10 @@ const Contact = () => {
                 Follow Us
               </h3>
               <div className="flex gap-4 text-xl">
-                <a href="#" target="_blank" rel="noreferrer" className="hover:text-[#2385cd] transition"><FaTwitter /></a>
-                <a href="#" target="_blank" rel="noreferrer" className="hover:text-[#2385cd] transition"><FaFacebookF /></a>
-                <a href="#" target="_blank" rel="noreferrer" className="hover:text-[#2385cd] transition"><FaInstagram /></a>
-                <a href="#" target="_blank" rel="noreferrer" className="hover:text-[#2385cd] transition"><FaYoutube /></a>
+                <a href="https://twitter.com/RandleHopkick" target="_blank" rel="noreferrer" className="hover:text-[#2385cd] transition"><FaTwitter /></a>
+                <a href="https://web.facebook.com/randleandhopkick" target="_blank" rel="noreferrer" className="hover:text-[#2385cd] transition"><FaFacebookF /></a>
+                <a href="https://www.instagram.com/randleandhopkick" target="_blank" rel="noreferrer" className="hover:text-[#2385cd] transition"><FaInstagram /></a>
+                <a href="https://www.linkedin.com/company/randle-and-hopkick" target="_blank" rel="noreferrer" className="hover:text-[#2385cd] transition"><FaLinkedin /></a>
               </div>
             </div>
           </div>
