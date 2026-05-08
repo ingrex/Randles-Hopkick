@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./AuthContext";
-import { useStore } from "../store";          // ← NEW
+import { useStore } from "../store";       // ← NEW
 import { Home } from "lucide-react";
 import Logo from "../components/Logo";
 
@@ -43,16 +43,16 @@ const STEPS = [
     title: "Stay in touch",
     sub: "How can we reach you?",
     fields: [
-      { n: "phoneNumber", l: "Phone Number", p: "+234...",          t: "tel"   },
-      { n: "email",       l: "Email",        p: "email@gmail.com",  t: "email" },
+      { n: "phoneNumber", l: "Phone Number", p: "+234...",         t: "tel"   },
+      { n: "email",       l: "Email",        p: "email@gmail.com", t: "email" },
     ],
   },
   {
     title: "Secure it",
     sub: "Create a strong password",
     fields: [
-      { n: "password",        l: "Password", p: "Min 8 chars",    t: "password" },
-      { n: "confirmPassword", l: "Confirm",  p: "Confirm password", t: "password" },
+      { n: "password",        l: "Password", p: "Min 8 chars",     t: "password" },
+      { n: "confirmPassword", l: "Confirm",  p: "Repeat password", t: "password" },
     ],
   },
 ];
@@ -68,11 +68,13 @@ function validateField(f, val, all) {
 
 /* ───────── COMPONENT ───────── */
 export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
-  const { register }       = useAuth();
-  const { dispatch }       = useStore();   // ← NEW: to save registered user
+  const { register }  = useAuth();
+  const { dispatch }  = useStore();    // ← NEW: save to shared store
 
   const [step,        setStep]        = useState(0);
-  const [data,        setData]        = useState({ surname: "", otherNames: "", phoneNumber: "", email: "", password: "", confirmPassword: "" });
+  const [data,        setData]        = useState({
+    surname: "", otherNames: "", phoneNumber: "", email: "", password: "", confirmPassword: "",
+  });
   const [errors,      setErrors]      = useState({});
   const [apiError,    setApiError]    = useState("");
   const [loading,     setLoading]     = useState(false);
@@ -80,10 +82,10 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
   const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const rootRef  = useRef(null);
-  const curStep  = STEPS[step];
-  const isLast   = step === STEPS.length - 1;
-  const pct      = ((step + 1) / STEPS.length) * 100;
+  const rootRef = useRef(null);
+  const curStep = STEPS[step];
+  const isLast  = step === STEPS.length - 1;
+  const pct     = ((step + 1) / STEPS.length) * 100;
 
   const handleChange = useCallback((name, val) => {
     setData((p) => ({ ...p, [name]: val }));
@@ -93,7 +95,10 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
 
   const next = async () => {
     const errs = {};
-    curStep.fields.forEach((f) => { const e = validateField(f, data[f.n], data); if (e) errs[f.n] = e; });
+    curStep.fields.forEach((f) => {
+      const e = validateField(f, data[f.n], data);
+      if (e) errs[f.n] = e;
+    });
     if (Object.keys(errs).length) return setErrors(errs);
     if (!isLast) return setStep((s) => s + 1);
 
@@ -101,9 +106,12 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
       setLoading(true);
       setApiError("");
       const result = await register(data);
-      if (!result.success) { setApiError(result.message || "Registration failed"); return; }
+      if (!result.success) {
+        setApiError(result.message || "Registration failed");
+        return;
+      }
 
-      // ── FIX: save registered user into store so AdminPanel can list them ──
+      // ── Save registered user into the shared store so AdminPanel lists them ──
       dispatch({
         type: "REGISTER_USER",
         payload: {
@@ -140,7 +148,11 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
         initial={{ opacity: 0, y: 40, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className="relative z-10 w-[420px] max-w-[95%] p-8 rounded-3xl"
-        style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(25px)", border: "1px solid rgba(255,255,255,0.2)" }}
+        style={{
+          background: "rgba(255,255,255,0.08)",
+          backdropFilter: "blur(25px)",
+          border: "1px solid rgba(255,255,255,0.2)",
+        }}
       >
         {/* BRAND + HOME */}
         <div className="flex items-center justify-between mb-5">
@@ -148,7 +160,7 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
             <div className="w-10 h-10 border border-dashed border-white/40 rounded-lg flex items-center justify-center text-xs text-white/50">
               <Logo />
             </div>
-            <span className="text-sm tracking-widest text-white/70 uppercase">Randle&Hopkick</span>
+            <span className="text-sm tracking-widest text-white/70 uppercase">Randle&amp;Hopkick</span>
           </div>
           <button onClick={onGoHome}
             className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/80 text-xs font-medium hover:text-white hover:border-[#2385cd] hover:bg-[#2385cd]/10 hover:shadow-[0_0_15px_rgba(35,133,205,0.35)] hover:scale-105 active:scale-95 transition-all duration-300">
@@ -160,27 +172,32 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
         {!done && (
           <div className="flex bg-white/10 rounded-full p-1 mb-5">
             <button onClick={onNavigateToLogin} className="flex-1 py-2 text-white/50">Sign In</button>
-            <button className="flex-1 py-2 rounded-full" style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd)" }}>Register</button>
+            <button className="flex-1 py-2 rounded-full" style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd)" }}>
+              Register
+            </button>
           </div>
         )}
 
         <AnimatePresence mode="wait">
           {/* ── SUCCESS ── */}
           {done ? (
-            <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.4 }} className="text-center py-4">
-              <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }}
+            <motion.div key="success"
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.4 }} className="text-center py-4">
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
                 className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
                 style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}>
                 <span className="text-4xl">🎉</span>
               </motion.div>
-
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <h2 className="text-2xl font-semibold mb-1">Account Created!</h2>
-                <p className="text-white/50 text-sm mb-2">Welcome to Randle&Hopkick, {data.surname}!</p>
+                <p className="text-white/50 text-sm mb-2">Welcome to Randle&amp;Hopkick, {data.surname}!</p>
                 <p className="text-white/30 text-xs mb-8">Your account is ready. Where would you like to go?</p>
                 <div className="flex flex-col gap-3">
-                  <button onClick={onGoDashboard} className="w-full py-3 rounded-xl font-medium transition-opacity hover:opacity-90"
+                  <button onClick={onGoDashboard}
+                    className="w-full py-3 rounded-xl font-medium transition-opacity hover:opacity-90"
                     style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}>
                     Go to Dashboard →
                   </button>
@@ -210,8 +227,8 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
               )}
 
               {curStep.fields.map((f) => {
-                const isPwd    = f.t === "password";
-                const visible  = f.n === "password" ? showPass : showConfirm;
+                const isPwd   = f.t === "password";
+                const visible = f.n === "password" ? showPass : showConfirm;
                 return (
                   <div key={f.n} className="mb-4 relative">
                     <input

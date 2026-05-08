@@ -13,12 +13,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { ShieldCheck, Eye, EyeOff, AlertTriangle, ArrowRight } from "lucide-react";
 
 // ⚠️  CHANGE THIS before going live.
 // Better: use  import.meta.env.VITE_ADMIN_PASSWORD  and set it in .env
 const ADMIN_PASSWORD = "stafflink@admin2026";
 
-export default function AdminGate() {
+export function AdminGate() {
   const navigate  = useNavigate();
   const [pw,      setPw]      = useState("");
   const [error,   setError]   = useState("");
@@ -65,7 +66,7 @@ export default function AdminGate() {
           {/* Logo / title */}
           <div className="text-center mb-8">
             <div className="w-14 h-14 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🔐</span>
+              <ShieldCheck className="w-7 h-7 text-sky-400" />
             </div>
             <h1 className="text-xl font-bold text-white">Admin Access</h1>
             <p className="text-sm text-slate-400 mt-1">StaffLink — Owner Panel</p>
@@ -88,9 +89,12 @@ export default function AdminGate() {
                 <button
                   type="button"
                   onClick={() => setVisible((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition text-sm"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
                 >
-                  {visible ? "🙈" : "👁"}
+                  {visible
+                    ? <EyeOff className="w-4 h-4" />
+                    : <Eye className="w-4 h-4" />
+                  }
                 </button>
               </div>
             </div>
@@ -99,18 +103,20 @@ export default function AdminGate() {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-xs text-red-400 flex items-center gap-1"
+                className="text-xs text-red-400 flex items-center gap-1.5"
               >
-                ⚠️ {error}
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                {error}
               </motion.p>
             )}
 
             <button
               type="submit"
               disabled={!pw}
-              className="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Enter Admin Panel →
+              Enter Admin Panel
+              <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
@@ -122,3 +128,4 @@ export default function AdminGate() {
     </div>
   );
 }
+export default AdminGate;

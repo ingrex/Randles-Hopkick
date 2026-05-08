@@ -63,15 +63,17 @@ export async function apiStaffRequest(payload) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TESTIMONIALS — confirm these routes with your colleague
-// Assumed: GET/POST /api/v1/testimonials  |  PUT/DELETE /api/v1/testimonials/:id
+// TESTIMONIALS
+// Assumed routes (confirm with your colleague):
+//   GET    /api/v1/testimonials          — fetch all
+//   POST   /api/v1/testimonials          — create one (admin)
+//   PUT    /api/v1/testimonials/:id      — update one (admin)
+//   DELETE /api/v1/testimonials/:id      — delete one (admin)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/* ── Fetch all testimonials ── */
+/* ── Fetch all testimonials (public) ── */
 export async function apiFetchTestimonials() {
-  return request("/testimonials", {
-    method: "GET",
-  });
+  return request("/testimonials", { method: "GET" });
 }
 
 /* ── Create testimonial (admin) ── */

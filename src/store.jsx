@@ -1,4 +1,4 @@
-// store.js — shared reactive store with localStorage persistence
+// src/store.js — shared reactive store with localStorage persistence
 // Wrap your app: <StoreProvider> in App.jsx
 // Any component: const { state, dispatch } = useStore();
 
@@ -17,9 +17,9 @@ const SEED_STAFF = [
 ];
 
 const SEED_BLOG = [
-  { id: 1, title: "How to find reliable household staff in Lagos",           date: "2026-04-18", status: "Published", excerpt: "Finding trustworthy domestic staff can be challenging in a busy city..." },
-  { id: 2, title: "Top 5 benefits of outsourcing facility management",       date: "2026-04-05", status: "Published", excerpt: "Businesses across Nigeria are discovering the advantages..." },
-  { id: 3, title: "Understanding labour regulations for domestic workers",   date: "2026-03-22", status: "Draft",     excerpt: "The Nigerian Labour Act outlines specific provisions..." },
+  { id: 1, title: "How to find reliable household staff in Lagos",          date: "2026-04-18", status: "Published", excerpt: "Finding trustworthy domestic staff can be challenging in a busy city..." },
+  { id: 2, title: "Top 5 benefits of outsourcing facility management",      date: "2026-04-05", status: "Published", excerpt: "Businesses across Nigeria are discovering the advantages..." },
+  { id: 3, title: "Understanding labour regulations for domestic workers",  date: "2026-03-22", status: "Draft",     excerpt: "The Nigerian Labour Act outlines specific provisions..." },
 ];
 
 const SEED_TESTIMONIALS = [
@@ -41,8 +41,7 @@ function defaultState() {
     blog:             SEED_BLOG,
     testimonials:     SEED_TESTIMONIALS,
     messages:         SEED_MESSAGES,
-    // FIX: registeredUsers holds every account created via Register.jsx
-    registeredUsers:  [],
+    registeredUsers:  [],           // ← NEW: populated by REGISTER_USER dispatch
     nextReqId:        1,
     nextStaffId:      SEED_STAFF.length + 1,
     nextBlogId:       SEED_BLOG.length + 1,
@@ -52,7 +51,8 @@ function defaultState() {
 }
 
 // ─── persist / rehydrate ──────────────────────────────────────────────────────
-const STORE_KEY = "stafflink_store_v3"; // bumped to v3 to avoid stale shape issues
+// Bumped to v3 to clear any stale v2 shapes that lack registeredUsers
+const STORE_KEY = "stafflink_store_v3";
 
 function loadState() {
   try {
@@ -60,14 +60,14 @@ function loadState() {
     if (!raw) return defaultState();
     const saved = JSON.parse(raw);
 
-    // Always merge seed staff so seeds survive but admin additions are kept
-    const savedIds   = new Set((saved.staff || []).map((s) => s.id));
+    // Always merge seed staff (seeds always present; admin additions kept)
+    const savedIds    = new Set((saved.staff || []).map((s) => s.id));
     const mergedStaff = [
       ...SEED_STAFF.filter((s) => !savedIds.has(s.id)),
       ...(saved.staff || []),
     ];
 
-    // Keep seed testimonials merged with any admin-added ones
+    // Always merge seed testimonials (server may override on mount)
     const savedTestiIds = new Set((saved.testimonials || []).map((t) => t.id));
     const mergedTestis  = [
       ...SEED_TESTIMONIALS.filter((t) => !savedTestiIds.has(t.id)),
@@ -77,8 +77,9 @@ function loadState() {
     return {
       ...defaultState(),
       ...saved,
-      staff:        mergedStaff,
-      testimonials: mergedTestis,
+      staff:           mergedStaff,
+      testimonials:    mergedTestis,
+      registeredUsers: saved.registeredUsers || [],
     };
   } catch {
     return defaultState();
@@ -97,19 +98,19 @@ function reducer(state, action) {
 
   switch (action.type) {
 
-    // ── Registered users (from Register.jsx on success) ───────────────────────
+    // ── Registered users (dispatched from Register.jsx on successful signup) ──
     case "REGISTER_USER": {
-      // action.payload: { surname, otherNames, email, phoneNumber, registeredAt }
+      // Deduplicate by email — safe to call multiple times
       const exists = state.registeredUsers.some((u) => u.email === action.payload.email);
-      if (exists) return state; // deduplicate if called twice
+      if (exists) return state;
       next = {
         ...state,
         registeredUsers: [
           ...state.registeredUsers,
           {
-            ...action.payload,
             id:           Date.now(),
             photoUrl:     "",
+            ...action.payload,
             registeredAt: action.payload.registeredAt || new Date().toISOString(),
           },
         ],
@@ -117,7 +118,7 @@ function reducer(state, action) {
       break;
     }
 
-    // Allow admin/profile to update a registered user's details & photo
+    // Admin or dashboard profile edit can update a registered user (name + photo)
     case "UPDATE_REGISTERED_USER": {
       next = {
         ...state,
@@ -149,7 +150,7 @@ function reducer(state, action) {
       break;
     }
 
-    // FIX: AdminPanel uses "APPROVE_REQUEST" with just id → status flip only
+    // FIX: AdminPanel dispatches APPROVE_REQUEST with just { id }
     case "APPROVE_REQUEST": {
       next = {
         ...state,
@@ -161,28 +162,42 @@ function reducer(state, action) {
     }
 
     case "REJECT_REQUEST": {
-      next = { ...state, requests: state.requests.map((r) => r.id === action.id ? { ...r, status: "Rejected" } : r) };
+      next = {
+        ...state,
+        requests: state.requests.map((r) =>
+          r.id === action.id ? { ...r, status: "Rejected" } : r
+        ),
+      };
       break;
     }
 
     case "ACTIVATE_REQUEST": {
-      next = { ...state, requests: state.requests.map((r) => r.id === action.id ? { ...r, status: "Active" } : r) };
+      next = {
+        ...state,
+        requests: state.requests.map((r) =>
+          r.id === action.id ? { ...r, status: "Active" } : r
+        ),
+      };
       break;
     }
 
     case "COMPLETE_REQUEST": {
-      const updated  = state.requests.map((r) => r.id === action.id ? { ...r, status: "Completed" } : r);
+      const updated  = state.requests.map((r) =>
+        r.id === action.id ? { ...r, status: "Completed" } : r
+      );
       const req      = state.requests.find((r) => r.id === action.id);
       const freedIds = req?.assignedStaff?.map((s) => s.id) ?? [];
       next = {
         ...state,
         requests: updated,
-        staff:    state.staff.map((s) => freedIds.includes(s.id) ? { ...s, status: "Available", currentJobId: null } : s),
+        staff:    state.staff.map((s) =>
+          freedIds.includes(s.id) ? { ...s, status: "Available", currentJobId: null } : s
+        ),
       };
       break;
     }
 
-    // FIX: AdminPanel calls SET_DATES — now handled correctly
+    // FIX: AdminPanel calls SET_DATES — now handled; also flips status to Active
     case "SET_DATES":
     case "UPDATE_DATES": {
       const { id, startDate, endDate } = action;
@@ -216,7 +231,7 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Review ────────────────────────────────────────────────────────────────
+    // ── Review / Rating ────────────────────────────────────────────────────────
     case "SUBMIT_REVIEW": {
       const { reqId, staffId, rating, comment } = action;
       const review = { rating, comment, submittedAt: new Date().toISOString(), reviewedReqId: reqId };
@@ -239,22 +254,60 @@ function reducer(state, action) {
       next = { ...state, staff: [...state.staff, s], nextStaffId: state.nextStaffId + 1 };
       break;
     }
-    case "UPDATE_STAFF": { next = { ...state, staff: state.staff.map((s) => s.id === action.payload.id ? { ...s, ...action.payload } : s) }; break; }
-    case "REMOVE_STAFF": { next = { ...state, staff: state.staff.filter((s) => s.id !== action.id) }; break; }
+    case "UPDATE_STAFF": {
+      next = { ...state, staff: state.staff.map((s) => s.id === action.payload.id ? { ...s, ...action.payload } : s) };
+      break;
+    }
+    case "REMOVE_STAFF": {
+      next = { ...state, staff: state.staff.filter((s) => s.id !== action.id) };
+      break;
+    }
 
     // ── Blog ──────────────────────────────────────────────────────────────────
-    case "ADD_BLOG":    { next = { ...state, blog: [...state.blog,    { ...action.payload, id: state.nextBlogId  }], nextBlogId:  state.nextBlogId  + 1 }; break; }
-    case "UPDATE_BLOG": { next = { ...state, blog: state.blog.map((p)  => p.id === action.payload.id ? { ...p, ...action.payload } : p) }; break; }
-    case "DELETE_BLOG": { next = { ...state, blog: state.blog.filter((p) => p.id !== action.id) }; break; }
+    case "ADD_BLOG": {
+      next = { ...state, blog: [...state.blog, { ...action.payload, id: state.nextBlogId }], nextBlogId: state.nextBlogId + 1 };
+      break;
+    }
+    case "UPDATE_BLOG": {
+      next = { ...state, blog: state.blog.map((p) => p.id === action.payload.id ? { ...p, ...action.payload } : p) };
+      break;
+    }
+    case "DELETE_BLOG": {
+      next = { ...state, blog: state.blog.filter((p) => p.id !== action.id) };
+      break;
+    }
 
     // ── Testimonials ──────────────────────────────────────────────────────────
-    case "ADD_TESTI":    { next = { ...state, testimonials: [...state.testimonials, { ...action.payload, id: state.nextTestiId, visible: true }], nextTestiId: state.nextTestiId + 1 }; break; }
-    case "UPDATE_TESTI": { next = { ...state, testimonials: state.testimonials.map((t) => t.id === action.payload.id ? { ...t, ...action.payload } : t) }; break; }
-    case "DELETE_TESTI": { next = { ...state, testimonials: state.testimonials.filter((t) => t.id !== action.id) }; break; }
+    case "ADD_TESTI": {
+      next = {
+        ...state,
+        testimonials: [...state.testimonials, { ...action.payload, id: action.payload.id ?? state.nextTestiId, visible: action.payload.visible ?? true }],
+        nextTestiId: state.nextTestiId + 1,
+      };
+      break;
+    }
+    case "UPDATE_TESTI": {
+      next = { ...state, testimonials: state.testimonials.map((t) => t.id === action.payload.id ? { ...t, ...action.payload } : t) };
+      break;
+    }
+    case "DELETE_TESTI": {
+      next = { ...state, testimonials: state.testimonials.filter((t) => t.id !== action.id) };
+      break;
+    }
 
     // ── Messages ──────────────────────────────────────────────────────────────
-    case "MARK_MSG_READ": { next = { ...state, messages: state.messages.map((m) => m.id === action.id ? { ...m, read: true } : m) }; break; }
-    case "ADD_MSG":       { next = { ...state, messages: [...state.messages, { ...action.payload, id: state.nextMsgId, read: false, time: "Just now" }], nextMsgId: state.nextMsgId + 1 }; break; }
+    case "MARK_MSG_READ": {
+      next = { ...state, messages: state.messages.map((m) => m.id === action.id ? { ...m, read: true } : m) };
+      break;
+    }
+    case "ADD_MSG": {
+      next = {
+        ...state,
+        messages: [...state.messages, { ...action.payload, id: state.nextMsgId, read: false, time: "Just now" }],
+        nextMsgId: state.nextMsgId + 1,
+      };
+      break;
+    }
 
     default: return state;
   }
@@ -292,7 +345,8 @@ export function saveProfile(profile) {
 }
 
 // ─── Helper: build ADD_REQUEST payload from form payload ──────────────────────
-// FIX: was incorrectly receiving `data` (API response) as second arg — removed it.
+// FIX: removed stale second `data` argument — it was the API response object
+// and was overwriting clientName/email with undefined fields.
 export function buildRequestPayload(apiPayload) {
   const isOrg = apiPayload.clientType === "Organisation";
   return {

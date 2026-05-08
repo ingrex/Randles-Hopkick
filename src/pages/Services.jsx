@@ -928,14 +928,14 @@ const serviceData = [
             name: "Cooking & Culinary Skills",
             brief: "Kitchen mastery from preparation to plating.",
             description:
-              "Practical culinary training designed for domestic cooks and private chefs — covering meal planning, food hygiene, dietary considerations, recipe execution and kitchen organisation to enable consistently high-quality home cooking.",
+              "Practical culinary training designed for domestic cooks and private chefs  covering meal planning, food hygiene, dietary considerations, recipe execution and kitchen organisation to enable consistently high-quality home cooking.",
             image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=700&q=80",
           },
           {
             name: "Elderly Care & Support",
             brief: "Compassionate care techniques for senior support staff.",
             description:
-              "Specialist training focused on the physical and emotional needs of elderly individuals — including safe mobility assistance, medication awareness, communication with family members and maintaining dignity and independence in daily care routines.",
+              "Specialist training focused on the physical and emotional needs of elderly individuals  including safe mobility assistance, medication awareness, communication with family members and maintaining dignity and independence in daily care routines.",
             image: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=700&q=80",
           },
           {
@@ -954,21 +954,21 @@ const serviceData = [
             name: "Customer Service Excellence",
             brief: "Delivering outstanding client experiences every time.",
             description:
-              "An intensive programme developing communication skills, conflict resolution, empathy, active listening and brand-aligned service delivery — equipping customer-facing staff to consistently exceed client expectations across all touchpoints.",
+              "An intensive programme developing communication skills, conflict resolution, empathy, active listening and brand-aligned service delivery equipping customer-facing staff to consistently exceed client expectations across all touchpoints.",
             image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=700&q=80",
           },
           {
             name: "Office Administration & Productivity",
             brief: "Structured workflows and administrative best practices.",
             description:
-              "Practical training covering office organisation, document management, scheduling, email communication, time management and administrative best practices — enabling office staff to operate with greater efficiency and professionalism.",
+              "Practical training covering office organisation, document management, scheduling, email communication, time management and administrative best practices enabling office staff to operate with greater efficiency and professionalism.",
             image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=700&q=80",
           },
           {
             name: "Sales & Business Development",
             brief: "Proven techniques to drive revenue and client growth.",
             description:
-              "A results-oriented programme covering prospecting, needs analysis, persuasive communication, objection handling, negotiation and closing techniques — designed to sharpen the commercial instincts of sales teams and drive measurable revenue growth.",
+              "A results-oriented programme covering prospecting, needs analysis, persuasive communication, objection handling, negotiation and closing techniques designed to sharpen the commercial instincts of sales teams and drive measurable revenue growth.",
             image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=700&q=80",
           },
           {
@@ -994,7 +994,7 @@ const serviceData = [
     title: "Domestic Outsourcing Services",
     shortTitle: "Domestic",
     description:
-      "We connect homes with thoroughly vetted household professionals — from housekeepers to private chefs — ensuring comfort, order and peace of mind every day.",
+      "We connect homes with thoroughly vetted household professionals, from housekeepers to private chefs — ensuring comfort, order and peace of mind every day.",
     categoryImage:
       "https://images.unsplash.com/photo-1527515545081-5db817172677?w=500&q=80",
     subcategories: [
@@ -1026,14 +1026,14 @@ const serviceData = [
             name: "Laundry Assistants",
             brief: "Expert garment care and wardrobe management.",
             description:
-              "Skilled laundry professionals handling the full wash cycle — sorting, washing, pressing, folding and wardrobe organisation — with special care for delicate and premium garments.",
+              "Skilled laundry professionals handling the full wash cycle sorting, washing, pressing, folding and wardrobe organisation with special care for delicate and premium garments.",
             image: "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=700&q=80",
           },
           {
             name: "Elderly & Health Support",
             brief: "Compassionate daily care for your loved ones at home.",
             description:
-              "Compassionate and trained caregivers providing daily living assistance, medication reminders, mobility support and companionship for elderly family members — all in the comfort of home.",
+              "Compassionate and trained caregivers providing daily living assistance, medication reminders, mobility support and companionship for elderly family members, all in the comfort of home.",
             image: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=700&q=80",
           },
           {
@@ -1047,7 +1047,7 @@ const serviceData = [
             name: "Cooks (Event)",
             brief: "High-quality event catering for any scale.",
             description:
-              "Experienced event cooks who execute high-volume, high-quality meal preparation for private gatherings, celebrations and corporate events of any scale — seamlessly and professionally.",
+              "Experienced event cooks who execute high-volume, high-quality meal preparation for private gatherings, celebrations and corporate events of any scale; seamlessly and professionally.",
             image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=700&q=80",
           },
           {
@@ -1061,7 +1061,7 @@ const serviceData = [
             name: "Security Guard / Gatekeeper",
             brief: "Round-the-clock access control and residential protection.",
             description:
-              "Trained and vetted security personnel providing vigilant, round-the-clock access control and protection for your residence — ensuring complete peace of mind for your household at all times.",
+              "Trained and vetted security personnel providing vigilant, round-the-clock access control and protection for your residence; ensuring complete peace of mind for your household at all times.",
             image: "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=700&q=80",
           },
         ],
@@ -1073,7 +1073,7 @@ const serviceData = [
     title: "Corporate Outsourcing Services",
     shortTitle: "Corporate",
     description:
-      "From front-desk reception to IT support and logistics — we supply skilled corporate professionals who integrate seamlessly into your organisation and deliver results from day one.",
+      "From front-desk reception to IT support and logistics. we supply skilled corporate professionals who integrate seamlessly into your organisation and deliver results from day one.",
     categoryImage:
       "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=500&q=80",
     subcategories: [
