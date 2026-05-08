@@ -2,9 +2,9 @@
 // Wrap your app: <StoreProvider> in App.jsx
 // Any component: const { state, dispatch } = useStore();
 
-import { createContext, useContext, useReducer, useEffect } from "react";
+import { createContext, useContext, useReducer } from "react";
 
-// ─── Seed staff (always present; not user-submitted) ─────────────────────────
+// ─── Seed staff ───────────────────────────────────────────────────────────────
 const SEED_STAFF = [
   { id: 1, name: "Tunde Adeyemi",  role: "Electricians",        phone: "08011223344", email: "tunde.a@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.7, totalReviews: 12 },
   { id: 2, name: "Chioma Nwosu",   role: "Housekeepers",         phone: "08022334455", email: "chioma.n@staff.ng",  status: "Available", currentJobId: null, averageRating: 4.9, totalReviews: 8  },
@@ -17,9 +17,9 @@ const SEED_STAFF = [
 ];
 
 const SEED_BLOG = [
-  { id: 1, title: "How to find reliable household staff in Lagos", date: "2026-04-18", status: "Published", excerpt: "Finding trustworthy domestic staff can be challenging in a busy city..." },
-  { id: 2, title: "Top 5 benefits of outsourcing facility management",  date: "2026-04-05", status: "Published", excerpt: "Businesses across Nigeria are discovering the advantages..." },
-  { id: 3, title: "Understanding labour regulations for domestic workers", date: "2026-03-22", status: "Draft", excerpt: "The Nigerian Labour Act outlines specific provisions..." },
+  { id: 1, title: "How to find reliable household staff in Lagos",           date: "2026-04-18", status: "Published", excerpt: "Finding trustworthy domestic staff can be challenging in a busy city..." },
+  { id: 2, title: "Top 5 benefits of outsourcing facility management",       date: "2026-04-05", status: "Published", excerpt: "Businesses across Nigeria are discovering the advantages..." },
+  { id: 3, title: "Understanding labour regulations for domestic workers",   date: "2026-03-22", status: "Draft",     excerpt: "The Nigerian Labour Act outlines specific provisions..." },
 ];
 
 const SEED_TESTIMONIALS = [
@@ -33,38 +33,53 @@ const SEED_MESSAGES = [
   { id: 2, from: "Tobi Alabi",   subject: "Change of address",                  body: "I need to update the location for my pending request to Ajah instead of Lekki.",                              type: "contact", time: "1d ago", read: true  },
 ];
 
-// ─── default state factory ────────────────────────────────────────────────────
+// ─── default state ────────────────────────────────────────────────────────────
 function defaultState() {
   return {
-    requests:     [],
-    staff:        SEED_STAFF,
-    blog:         SEED_BLOG,
-    testimonials: SEED_TESTIMONIALS,
-    messages:     SEED_MESSAGES,
-    // profile is per-user; stored separately in localStorage under "userProfile"
-    nextReqId:    1,
-    nextStaffId:  SEED_STAFF.length + 1,
-    nextBlogId:   SEED_BLOG.length + 1,
-    nextTestiId:  SEED_TESTIMONIALS.length + 1,
-    nextMsgId:    SEED_MESSAGES.length + 1,
+    requests:         [],
+    staff:            SEED_STAFF,
+    blog:             SEED_BLOG,
+    testimonials:     SEED_TESTIMONIALS,
+    messages:         SEED_MESSAGES,
+    // FIX: registeredUsers holds every account created via Register.jsx
+    registeredUsers:  [],
+    nextReqId:        1,
+    nextStaffId:      SEED_STAFF.length + 1,
+    nextBlogId:       SEED_BLOG.length + 1,
+    nextTestiId:      SEED_TESTIMONIALS.length + 1,
+    nextMsgId:        SEED_MESSAGES.length + 1,
   };
 }
 
-// ─── persist / rehydrate helpers ─────────────────────────────────────────────
-const STORE_KEY = "stafflink_store_v2";
+// ─── persist / rehydrate ──────────────────────────────────────────────────────
+const STORE_KEY = "stafflink_store_v3"; // bumped to v3 to avoid stale shape issues
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return defaultState();
     const saved = JSON.parse(raw);
-    // Always merge seed staff so admin-added staff survive but seeds are always present
-    const savedIds = new Set((saved.staff || []).map((s) => s.id));
+
+    // Always merge seed staff so seeds survive but admin additions are kept
+    const savedIds   = new Set((saved.staff || []).map((s) => s.id));
     const mergedStaff = [
       ...SEED_STAFF.filter((s) => !savedIds.has(s.id)),
       ...(saved.staff || []),
     ];
-    return { ...defaultState(), ...saved, staff: mergedStaff };
+
+    // Keep seed testimonials merged with any admin-added ones
+    const savedTestiIds = new Set((saved.testimonials || []).map((t) => t.id));
+    const mergedTestis  = [
+      ...SEED_TESTIMONIALS.filter((t) => !savedTestiIds.has(t.id)),
+      ...(saved.testimonials || []),
+    ];
+
+    return {
+      ...defaultState(),
+      ...saved,
+      staff:        mergedStaff,
+      testimonials: mergedTestis,
+    };
   } catch {
     return defaultState();
   }
@@ -73,16 +88,45 @@ function loadState() {
 function saveState(state) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
-  } catch {
-    // storage quota — silently ignore
-  }
+  } catch { /* quota — ignore */ }
 }
 
-// ─── reducer ─────────────────────────────────────────────────────────────────
+// ─── reducer ──────────────────────────────────────────────────────────────────
 function reducer(state, action) {
   let next = state;
 
   switch (action.type) {
+
+    // ── Registered users (from Register.jsx on success) ───────────────────────
+    case "REGISTER_USER": {
+      // action.payload: { surname, otherNames, email, phoneNumber, registeredAt }
+      const exists = state.registeredUsers.some((u) => u.email === action.payload.email);
+      if (exists) return state; // deduplicate if called twice
+      next = {
+        ...state,
+        registeredUsers: [
+          ...state.registeredUsers,
+          {
+            ...action.payload,
+            id:           Date.now(),
+            photoUrl:     "",
+            registeredAt: action.payload.registeredAt || new Date().toISOString(),
+          },
+        ],
+      };
+      break;
+    }
+
+    // Allow admin/profile to update a registered user's details & photo
+    case "UPDATE_REGISTERED_USER": {
+      next = {
+        ...state,
+        registeredUsers: state.registeredUsers.map((u) =>
+          u.email === action.payload.email ? { ...u, ...action.payload } : u
+        ),
+      };
+      break;
+    }
 
     // ── Requests ──────────────────────────────────────────────────────────────
     case "ADD_REQUEST": {
@@ -93,29 +137,24 @@ function reducer(state, action) {
         email:         action.payload.email,
         phone:         action.payload.phone,
         location:      action.payload.location,
-        roles:         action.payload.roles,        // [{ role, quantity }]
-        // Approval flow:
-        //   Pending → (admin approves + sets dates) → Approved
-        //   Approved → (job start date reached / admin activates) → Active
-        //   Active → (admin marks complete) → Completed
+        roles:         action.payload.roles,
         status:        "Pending",
         startDate:     "",
         endDate:       "",
         assignedStaff: [],
-        reviews:       [],   // [{ rating, comment, submittedAt }]
+        reviews:       [],
         submittedAt:   new Date().toISOString(),
       };
       next = { ...state, requests: [...state.requests, req], nextReqId: state.nextReqId + 1 };
       break;
     }
 
+    // FIX: AdminPanel uses "APPROVE_REQUEST" with just id → status flip only
     case "APPROVE_REQUEST": {
-      // Admin approves — sets dates at same time (required before approval)
-      const { id, startDate, endDate } = action;
       next = {
         ...state,
         requests: state.requests.map((r) =>
-          r.id === id ? { ...r, status: "Approved", startDate, endDate } : r
+          r.id === action.id ? { ...r, status: "Approved" } : r
         ),
       };
       break;
@@ -127,18 +166,13 @@ function reducer(state, action) {
     }
 
     case "ACTIVATE_REQUEST": {
-      // Admin manually marks as Active (job has started)
       next = { ...state, requests: state.requests.map((r) => r.id === action.id ? { ...r, status: "Active" } : r) };
       break;
     }
 
     case "COMPLETE_REQUEST": {
-      // Admin marks job as Completed — unlocks review button on dashboard
-      const updated = state.requests.map((r) =>
-        r.id === action.id ? { ...r, status: "Completed" } : r
-      );
-      // Free assigned staff
-      const req = state.requests.find((r) => r.id === action.id);
+      const updated  = state.requests.map((r) => r.id === action.id ? { ...r, status: "Completed" } : r);
+      const req      = state.requests.find((r) => r.id === action.id);
       const freedIds = req?.assignedStaff?.map((s) => s.id) ?? [];
       next = {
         ...state,
@@ -148,12 +182,16 @@ function reducer(state, action) {
       break;
     }
 
+    // FIX: AdminPanel calls SET_DATES — now handled correctly
+    case "SET_DATES":
     case "UPDATE_DATES": {
-      // Update dates without changing status
+      const { id, startDate, endDate } = action;
       next = {
         ...state,
         requests: state.requests.map((r) =>
-          r.id === action.id ? { ...r, startDate: action.startDate, endDate: action.endDate } : r
+          r.id === id
+            ? { ...r, startDate, endDate, status: startDate && endDate ? "Active" : r.status }
+            : r
         ),
       };
       break;
@@ -178,49 +216,43 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Review / Rating ────────────────────────────────────────────────────────
+    // ── Review ────────────────────────────────────────────────────────────────
     case "SUBMIT_REVIEW": {
-      // { reqId, staffId, rating, comment }
       const { reqId, staffId, rating, comment } = action;
       const review = { rating, comment, submittedAt: new Date().toISOString(), reviewedReqId: reqId };
-
-      // Attach review to the request
       const updatedReqs = state.requests.map((r) =>
         r.id === reqId ? { ...r, reviews: [...(r.reviews || []), review], reviewed: true } : r
       );
-
-      // Recalculate staff average rating
       const updatedStaff = state.staff.map((s) => {
         if (s.id !== staffId) return s;
         const allReviews = [...(s.reviews || []), review];
         const avg = allReviews.reduce((sum, rv) => sum + rv.rating, 0) / allReviews.length;
         return { ...s, reviews: allReviews, averageRating: Math.round(avg * 10) / 10, totalReviews: allReviews.length };
       });
-
       next = { ...state, requests: updatedReqs, staff: updatedStaff };
       break;
     }
 
-    // ── Staff ──────────────────────────────────────────────────────────────────
+    // ── Staff ─────────────────────────────────────────────────────────────────
     case "ADD_STAFF": {
       const s = { ...action.payload, id: state.nextStaffId, status: "Available", currentJobId: null, averageRating: 0, totalReviews: 0, reviews: [] };
       next = { ...state, staff: [...state.staff, s], nextStaffId: state.nextStaffId + 1 };
       break;
     }
-    case "UPDATE_STAFF":   { next = { ...state, staff: state.staff.map((s) => s.id === action.payload.id ? { ...s, ...action.payload } : s) }; break; }
-    case "REMOVE_STAFF":   { next = { ...state, staff: state.staff.filter((s) => s.id !== action.id) }; break; }
+    case "UPDATE_STAFF": { next = { ...state, staff: state.staff.map((s) => s.id === action.payload.id ? { ...s, ...action.payload } : s) }; break; }
+    case "REMOVE_STAFF": { next = { ...state, staff: state.staff.filter((s) => s.id !== action.id) }; break; }
 
-    // ── Blog ───────────────────────────────────────────────────────────────────
-    case "ADD_BLOG":    { next = { ...state, blog: [...state.blog, { ...action.payload, id: state.nextBlogId }], nextBlogId: state.nextBlogId + 1 }; break; }
-    case "UPDATE_BLOG": { next = { ...state, blog: state.blog.map((p) => p.id === action.payload.id ? { ...p, ...action.payload } : p) }; break; }
+    // ── Blog ──────────────────────────────────────────────────────────────────
+    case "ADD_BLOG":    { next = { ...state, blog: [...state.blog,    { ...action.payload, id: state.nextBlogId  }], nextBlogId:  state.nextBlogId  + 1 }; break; }
+    case "UPDATE_BLOG": { next = { ...state, blog: state.blog.map((p)  => p.id === action.payload.id ? { ...p, ...action.payload } : p) }; break; }
     case "DELETE_BLOG": { next = { ...state, blog: state.blog.filter((p) => p.id !== action.id) }; break; }
 
-    // ── Testimonials ───────────────────────────────────────────────────────────
+    // ── Testimonials ──────────────────────────────────────────────────────────
     case "ADD_TESTI":    { next = { ...state, testimonials: [...state.testimonials, { ...action.payload, id: state.nextTestiId, visible: true }], nextTestiId: state.nextTestiId + 1 }; break; }
     case "UPDATE_TESTI": { next = { ...state, testimonials: state.testimonials.map((t) => t.id === action.payload.id ? { ...t, ...action.payload } : t) }; break; }
     case "DELETE_TESTI": { next = { ...state, testimonials: state.testimonials.filter((t) => t.id !== action.id) }; break; }
 
-    // ── Messages ───────────────────────────────────────────────────────────────
+    // ── Messages ──────────────────────────────────────────────────────────────
     case "MARK_MSG_READ": { next = { ...state, messages: state.messages.map((m) => m.id === action.id ? { ...m, read: true } : m) }; break; }
     case "ADD_MSG":       { next = { ...state, messages: [...state.messages, { ...action.payload, id: state.nextMsgId, read: false, time: "Just now" }], nextMsgId: state.nextMsgId + 1 }; break; }
 
@@ -231,7 +263,7 @@ function reducer(state, action) {
   return next;
 }
 
-// ─── context ─────────────────────────────────────────────────────────────────
+// ─── context ──────────────────────────────────────────────────────────────────
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
@@ -245,14 +277,13 @@ export function useStore() {
   return ctx;
 }
 
-// ─── Profile persistence (separate key, image as base64) ─────────────────────
+// ─── Profile persistence ──────────────────────────────────────────────────────
 const PROFILE_KEY = "stafflink_profile_v2";
 
 export function loadProfile() {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
+    return raw ? JSON.parse(raw) : null;
   } catch { return null; }
 }
 
@@ -260,7 +291,8 @@ export function saveProfile(profile) {
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
 }
 
-// ─── Helper: build ADD_REQUEST payload from form data ────────────────────────
+// ─── Helper: build ADD_REQUEST payload from form payload ──────────────────────
+// FIX: was incorrectly receiving `data` (API response) as second arg — removed it.
 export function buildRequestPayload(apiPayload) {
   const isOrg = apiPayload.clientType === "Organisation";
   return {

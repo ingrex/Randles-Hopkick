@@ -47,22 +47,22 @@ const coreValues = [
   {
     title: "INTEGRITY",
     description:
-      "We have a strong commitment to honesty and transparency in all dealings with clients and potential employees.",
+      "We have a strong commitment to honesty and transparency in all dealings with clients and potential employees. This includes maintaining confidentiality of sensitive information, following ethical recruitment practices, and being upfront about any potential conflicts of interest. Same is pass onto our staff.",
   },
   {
     title: "DEDICATION",
     description:
-      "Our culture is loyalty — we make it a priority to imbibe this in our workforce.",
+      "Our culture is loyalty, hence, we make it a priority to imbibe this culture in our workforce. We treats all clients and employees with dignity and respect, valuing their unique perspectives and experiences while fostering a work environment that is free from discrimination and harassment.",
   },
   {
     title: "COMPETENCE",
     description:
-      "We strive for excellence in all aspects of our operations and service delivery.",
+      "We strive for excellence in all aspects of our operations, from the quality of its candidate screening and placement services, to its customer service and follow-up support. Our culture of excellence drives us to deliver exceptional results and always strive for improvement.",
   },
   {
     title: "PROFESSIONALISM",
     description:
-      "We are known for professional conduct in every dealing and process.",
+      "We want to be know for our professional conduct and approach in our dealings and process. This is what make us stand out. Our workforce can be trusted in what ever capacity or role assigned to them, because they are trained to be act professionally while delivering their task.",
   },
 ];
 

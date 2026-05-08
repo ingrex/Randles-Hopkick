@@ -1,18 +1,13 @@
 // src/api/auth.js
 
-const BASE_URL =
-  import.meta.env.MODE === "development"
-    ? "https://randnhop.onrender.com"
-    : "https://randnhop.onrender.com";
-
+const BASE_URL = "https://randnhop.onrender.com";
 const API = `${BASE_URL}/api/v1`;
 
-// ── Internal request helper ───────────────────────────────────────────────
+// ── Internal request helper ────────────────────────────────────────────────
 async function request(path, options = {}) {
   const res = await fetch(`${API}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      /* spread any extra headers passed in (e.g. Authorization) */
       ...(options.headers || {}),
     },
     ...options,
@@ -22,15 +17,13 @@ async function request(path, options = {}) {
   const data = text ? JSON.parse(text) : {};
 
   if (!res.ok) {
-    throw new Error(
-      data?.message || data?.error || `Request failed (${res.status})`
-    );
+    throw new Error(data?.message || data?.error || `Request failed (${res.status})`);
   }
 
   return data;
 }
 
-// ── Auth header helper ────────────────────────────────────────────────────
+// ── Auth header helper ─────────────────────────────────────────────────────
 function authHeaders() {
   const token = localStorage.getItem("authToken");
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -45,24 +38,10 @@ export async function apiLogin({ email, password }) {
 }
 
 /* ── Register ── */
-export async function apiRegister({
-  surname,
-  otherNames,
-  phoneNumber,
-  email,
-  password,
-  confirmPassword,
-}) {
+export async function apiRegister({ surname, otherNames, phoneNumber, email, password, confirmPassword }) {
   return request("/auth/register", {
     method: "POST",
-    body: JSON.stringify({
-      surname,
-      otherNames,
-      phoneNumber,
-      email,
-      password,
-      confirmPassword,
-    }),
+    body: JSON.stringify({ surname, otherNames, phoneNumber, email, password, confirmPassword }),
   });
 }
 
@@ -70,25 +49,54 @@ export async function apiRegister({
 export async function apiGetProfile() {
   return request("/auth/profile", {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
-    },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
   });
 }
 
-/* ── Staff Request (authenticated) ───────────────────────────────────────
-   Endpoint: POST /api/v1/profile
-   Confirmed 200 OK via Postman.
-   Requires Bearer token — 401 is thrown without it.
-──────────────────────────────────────────────────────────────────────────── */
+/* ── Staff Request (authenticated) ── */
 export async function apiStaffRequest(payload) {
   return request("/profile", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),            /* ← fixes the 401 */
-    },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TESTIMONIALS — confirm these routes with your colleague
+// Assumed: GET/POST /api/v1/testimonials  |  PUT/DELETE /api/v1/testimonials/:id
+// ─────────────────────────────────────────────────────────────────────────────
+
+/* ── Fetch all testimonials ── */
+export async function apiFetchTestimonials() {
+  return request("/testimonials", {
+    method: "GET",
+  });
+}
+
+/* ── Create testimonial (admin) ── */
+export async function apiCreateTestimonial(payload) {
+  // payload: { name, role, text, rating, visible }
+  return request("/testimonials", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+}
+
+/* ── Update testimonial (admin) ── */
+export async function apiUpdateTestimonial(id, payload) {
+  return request(`/testimonials/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+}
+
+/* ── Delete testimonial (admin) ── */
+export async function apiDeleteTestimonial(id) {
+  return request(`/testimonials/${id}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
   });
 }
