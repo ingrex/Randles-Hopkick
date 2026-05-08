@@ -1,6 +1,6 @@
 // src/App.jsx
 import React from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 
 import Header from "./components/Header";
@@ -17,17 +17,29 @@ import ApplicantForm from "./pages/ApplicantForm";
 import Login    from "./pages/Login";
 import Register from "./pages/Register";
 
-import { AuthProvider }  from "./pages/AuthContext";
-import ProtectedRoute    from "./pages/ProtectedRoute";
+import { AuthProvider } from "./pages/AuthContext";
+import ProtectedRoute   from "./pages/ProtectedRoute";
 import { StoreProvider } from "./store";
-import AdminPanel from "./pages/Adminpanel";
+import AdminPanel        from "./pages/Adminpanel";
+import AdminGate         from "./pages/AdminGate";
+
+// ── Admin-only guard ──────────────────────────────────────────────────────────
+// Reads the session flag set by AdminGate after the owner enters the password.
+// If not present → silently redirect to the gate. No error, no hint to users.
+function AdminRoute({ children }) {
+  const admitted = sessionStorage.getItem("sl_admin_admitted") === "true";
+  return admitted ? children : <Navigate to="/admin-gate" replace />;
+}
 
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const authRoutes = ["/login", "/register"];
-  const isAuthPage = authRoutes.includes(location.pathname.toLowerCase());
+  const authRoutes  = ["/login", "/register"];
+  const adminRoutes = ["/admin-gate", "/adminpanel"];
+  const isAuthPage  = authRoutes.includes(location.pathname.toLowerCase());
+  const isAdminPage = adminRoutes.includes(location.pathname.toLowerCase());
+  const hideChrome  = isAuthPage || isAdminPage;   // no Header/Footer on admin screens
 
   return (
     <StoreProvider>
@@ -35,7 +47,7 @@ function App() {
         <ScrollToTopOnNavigate />
 
         <div className="flex flex-col min-h-screen">
-          {!isAuthPage && <Header />}
+          {!hideChrome && <Header />}
 
           <main className="grow">
             <AnimatePresence mode="wait">
@@ -47,7 +59,6 @@ function App() {
                 <Route path="/contact"       element={<Contact />} />
                 <Route path="/services"      element={<Services />} />
                 <Route path="/applicantform" element={<ApplicantForm />} />
-                <Route path="/Adminpanel" element={<AdminPanel />} />
 
                 {/* ── AUTH ── */}
                 <Route
@@ -71,7 +82,7 @@ function App() {
                   }
                 />
 
-                {/* ── PROTECTED ── */}
+                {/* ── PROTECTED (regular users) ── */}
                 <Route
                   path="/dashboard"
                   element={
@@ -81,14 +92,36 @@ function App() {
                   }
                 />
 
+                {/* ── ADMIN GATE ────────────────────────────────────────────
+                    Password screen. This URL is NOT linked anywhere on the
+                    site — only you know it. Visiting /adminpanel directly
+                    without passing through here redirects back to this gate.
+                    Live URL:  https://yourdomain.com/admin-gate
+                ── */}
+                <Route path="/admin-gate" element={<AdminGate />} />
+
+                {/* ── ADMIN PANEL ───────────────────────────────────────────
+                    Only reachable after AdminGate sets sl_admin_admitted in
+                    sessionStorage. Refreshing the tab keeps you in (session
+                    is alive). Closing the browser tab logs you out.
+                ── */}
+                <Route
+                  path="/adminpanel"
+                  element={
+                    <AdminRoute>
+                      <AdminPanel />
+                    </AdminRoute>
+                  }
+                />
+
               </Routes>
             </AnimatePresence>
           </main>
 
-          {!isAuthPage && <Footer />}
+          {!hideChrome && <Footer />}
         </div>
 
-        {!isAuthPage && <ScrollToTopButton />}
+        {!hideChrome && <ScrollToTopButton />}
       </AuthProvider>
     </StoreProvider>
   );
