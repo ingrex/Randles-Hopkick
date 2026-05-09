@@ -1,4 +1,4 @@
-// src/pages/AdminPanel.jsx
+// src/pages/AdminPanel.jsx  — MOBILE-RESPONSIVE EDITION
 // ─── Sections ─────────────────────────────────────────────────────────────────
 // 1. Requests      — approve/reject, set dates (auto-flips to Active), assign staff, complete
 //                    → Assign modal has PRIMARY SKILL / OTHER SKILLS filter toggle
@@ -11,7 +11,7 @@
 // 7. Profiles      — clients derived from submitted requests
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../store";
 import {
@@ -29,7 +29,7 @@ import {
   ClipboardList, Users, UserCheck, Newspaper, MessageSquare, Mail, BadgeCheck,
   Check, X, CheckCheck, Plus, Pencil, Trash2, Eye, CalendarDays, Save,
   UserPlus, Send, ArrowRightCircle, StopCircle, Star, AlertTriangle,
-  ShieldAlert,
+  ShieldAlert, Menu, ChevronLeft, MoreHorizontal,
 } from "lucide-react";
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
@@ -71,24 +71,25 @@ function Avatar({ src, name, size = "sm" }) {
   );
 }
 
+// Modal — full-screen on mobile, centered card on desktop
 function Modal({ open, title, onClose, children, footer }) {
   if (!open) return null;
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}>
         <motion.div
-          initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
+          initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+          className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-xl max-h-[92vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#eaf4fc]">
-            <h3 className="font-semibold text-gray-900">{title}</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-[#2385cd] transition"><X size={18} /></button>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#eaf4fc] sticky top-0 bg-white z-10">
+            <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-[#2385cd] transition p-1 -mr-1"><X size={18} /></button>
           </div>
           <div className="px-5 py-4 space-y-3">{children}</div>
-          {footer && <div className="px-5 py-3 border-t border-[#eaf4fc] flex justify-end gap-2 flex-wrap">{footer}</div>}
+          {footer && <div className="px-5 py-3 border-t border-[#eaf4fc] flex justify-end gap-2 flex-wrap sticky bottom-0 bg-white">{footer}</div>}
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -134,29 +135,21 @@ function StarRating({ rating, max = 5 }) {
   );
 }
 
-// ── Tag/chip input for otherSkills ────────────────────────────────────────────
 function SkillTagInput({ value = [], onChange }) {
   const [input, setInput] = useState("");
-
   const add = () => {
     const trimmed = input.trim();
     if (!trimmed || value.includes(trimmed)) { setInput(""); return; }
     onChange([...value, trimmed]);
     setInput("");
   };
-
   const remove = (skill) => onChange(value.filter((s) => s !== skill));
-
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <input
-          className={inputCls}
-          placeholder="Type a skill and press Add…"
-          value={input}
+        <input className={inputCls} placeholder="Type a skill and press Add…" value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-        />
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
         <button type="button" onClick={add}
           className="px-3 py-2 rounded-lg bg-[#eaf4fc] text-[#2385cd] text-xs font-medium hover:bg-[#b8d9f0] transition flex-shrink-0">
           Add
@@ -167,9 +160,7 @@ function SkillTagInput({ value = [], onChange }) {
           {value.map((sk) => (
             <span key={sk} className="flex items-center gap-1 text-xs bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-2.5 py-0.5">
               {sk}
-              <button type="button" onClick={() => remove(sk)} className="text-[#2385cd] hover:text-red-500 transition leading-none">
-                ×
-              </button>
+              <button type="button" onClick={() => remove(sk)} className="text-[#2385cd] hover:text-red-500 transition leading-none">×</button>
             </span>
           ))}
         </div>
@@ -189,6 +180,9 @@ const NAV = [
   { key: "profiles",     label: "Client Profiles", Icon: BadgeCheck    },
 ];
 
+// ── Mobile nav bottom bar items (most used 5, rest in drawer) ─────────────────
+const BOTTOM_NAV = ["requests", "staff", "messages", "profiles", "registered"];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Requests
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,7 +192,6 @@ function RequestsSection({ state, dispatch }) {
   const [activeReq,   setActiveReq]   = useState(null);
   const [dates,       setDates]       = useState({ startDate: "", endDate: "" });
   const [selected,    setSelected]    = useState({});
-  // "primary" | "other" — which skill filter is active in Assign modal
   const [skillFilter, setSkillFilter] = useState("primary");
 
   const shown = filter === "All" ? state.requests : state.requests.filter((r) => r.status === filter);
@@ -236,12 +229,10 @@ function RequestsSection({ state, dispatch }) {
     dispatch({ type: "APPROVE_REQUEST", id: r.id });
     try { await apiApproveRequest(r.backendId ?? r.id); } catch { /* local-only */ }
   };
-
   const handleReject = async (r) => {
     dispatch({ type: "REJECT_REQUEST", id: r.id });
     try { await apiRejectRequest(r.backendId ?? r.id); } catch { /* local-only */ }
   };
-
   const handleComplete = async (r) => {
     dispatch({ type: "COMPLETE_REQUEST", id: r.id });
     try { await apiCompleteRequest(r.backendId ?? r.id); } catch { /* local-only */ }
@@ -254,21 +245,11 @@ function RequestsSection({ state, dispatch }) {
     active:   state.requests.filter((r) => r.status === "Active").length,
   };
 
-  // ── Skill-filtered staff for assign modal ───────────────────────────────────
-  // Collects all role keywords from the request's roles to match against staff
   const roleKeywords = activeReq?.roles?.map((x) => x.role.toLowerCase()) ?? [];
-
   const filteredStaff = state.staff.filter((s) => {
-    if (skillFilter === "primary") {
-      return roleKeywords.some((kw) => s.role.toLowerCase().includes(kw));
-    }
-    // "other" — staff whose otherSkills include any role keyword
-    return roleKeywords.some((kw) =>
-      (s.otherSkills || []).some((sk) => sk.toLowerCase().includes(kw))
-    );
+    if (skillFilter === "primary") return roleKeywords.some((kw) => s.role.toLowerCase().includes(kw));
+    return roleKeywords.some((kw) => (s.otherSkills || []).some((sk) => sk.toLowerCase().includes(kw)));
   });
-
-  // If no keyword match at all, just show all staff so admin isn't stuck
   const staffToShow = filteredStaff.length > 0 ? filteredStaff : state.staff;
 
   return (
@@ -276,10 +257,10 @@ function RequestsSection({ state, dispatch }) {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Total",    value: stats.total,    color: "text-gray-900", bg: "bg-white"     },
-          { label: "Pending",  value: stats.pending,  color: "text-yellow-600", bg: "bg-yellow-50" },
-          { label: "Approved", value: stats.approved, color: "text-[#2385cd]", bg: "bg-[#eaf4fc]" },
-          { label: "Active",   value: stats.active,   color: "text-[#1a6fa8]", bg: "bg-[#eaf4fc]" },
+          { label: "Total",    value: stats.total,    color: "text-gray-900",   bg: "bg-white"      },
+          { label: "Pending",  value: stats.pending,  color: "text-yellow-600", bg: "bg-yellow-50"  },
+          { label: "Approved", value: stats.approved, color: "text-[#2385cd]",  bg: "bg-[#eaf4fc]"  },
+          { label: "Active",   value: stats.active,   color: "text-[#1a6fa8]",  bg: "bg-[#eaf4fc]"  },
         ].map((s) => (
           <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-[#b8d9f0]/40`}>
             <p className="text-xs text-gray-400">{s.label}</p>
@@ -288,11 +269,11 @@ function RequestsSection({ state, dispatch }) {
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-4 flex-wrap">
+      {/* Filters — horizontally scrollable on mobile */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
         {["All","Pending","Approved","Active","Completed","Rejected"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex-shrink-0 ${
               filter === f
                 ? "bg-[#2385cd] text-white shadow-sm"
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
@@ -300,82 +281,134 @@ function RequestsSection({ state, dispatch }) {
         ))}
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        {shown.length === 0 ? (
-          <p className="text-gray-400 text-sm p-6 text-center">No requests match this filter.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
-                  {["Client","Roles","Status","Dates","Assigned","Actions"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
+      {shown.length === 0 && (
+        <p className="text-gray-400 text-sm p-6 text-center bg-white rounded-xl border border-gray-100">
+          No requests match this filter.
+        </p>
+      )}
+
+      {/* ── MOBILE: Card list ── */}
+      <div className="block md:hidden space-y-3">
+        {shown.map((r) => {
+          const displayStatus = r.status === "Completed" && !r.reviewed ? "Awaiting Review" : r.status;
+          return (
+            <div key={r.id} className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">{r.clientName}</p>
+                  <p className="text-xs text-gray-400">{r.clientType} · {r.phone}</p>
+                  <p className="text-xs text-gray-400">{r.email}</p>
+                </div>
+                <Pill label={displayStatus} color={statusColor(displayStatus)} />
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {r.roles.map((x, i) => (
+                  <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
+                    {x.role} ×{x.quantity}
+                  </span>
+                ))}
+              </div>
+              {r.startDate && (
+                <div className="text-xs text-gray-500 flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1"><ArrowRightCircle size={11} className="text-green-500" />{r.startDate}</div>
+                  <div className="flex items-center gap-1"><StopCircle size={11} className="text-red-400" />{r.endDate}</div>
+                </div>
+              )}
+              {r.assignedStaff?.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {r.assignedStaff.map((s) => (
+                    <span key={s.id} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((r) => {
-                  // Show "Awaiting Review" if completed but not yet reviewed
-                  const displayStatus = r.status === "Completed" && !r.reviewed ? "Awaiting Review" : r.status;
-                  return (
-                    <tr key={r.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{r.clientName}</p>
-                        <p className="text-xs text-gray-400">{r.clientType} · {r.phone}</p>
-                        <p className="text-xs text-gray-400">{r.email}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {r.roles.map((x, i) => (
-                            <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
-                              {x.role} ×{x.quantity}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Pill label={displayStatus} color={statusColor(displayStatus)} />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
-                        {r.startDate ? (
-                          <>
-                            <div className="flex items-center gap-1"><ArrowRightCircle size={11} className="text-green-500 flex-shrink-0" />{r.startDate}</div>
-                            <div className="flex items-center gap-1 mt-0.5"><StopCircle size={11} className="text-red-400 flex-shrink-0" />{r.endDate}</div>
-                          </>
-                        ) : <span className="text-gray-300">Not set</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {r.assignedStaff?.length
-                          ? <div className="flex flex-wrap gap-1">{r.assignedStaff.map((s) => (
-                              <span key={s.id} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
-                            ))}</div>
-                          : <span className="text-xs text-gray-300">Unassigned</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {r.status === "Pending" && <>
-                            <Btn variant="success" onClick={() => handleApprove(r)}><Check size={12} /> Approve</Btn>
-                            <Btn variant="danger"  onClick={() => handleReject(r)}><X size={12} /> Reject</Btn>
-                          </>}
-                          {/* Complete is only available when status is Active */}
-                          {r.status === "Active" && (
-                            <Btn variant="primary" onClick={() => handleComplete(r)}><CheckCheck size={12} /> Complete</Btn>
-                          )}
-                          {(r.status === "Approved" || r.status === "Active") && <>
-                            <Btn variant="primary" onClick={() => open("assign", r)}><UserPlus size={12} /> Assign</Btn>
-                            <Btn variant="brand"   onClick={() => open("dates",  r)}><CalendarDays size={12} /> Dates</Btn>
-                          </>}
-                          <Btn variant="ghost" onClick={() => open("detail", r)}><Eye size={12} /></Btn>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </div>
+              )}
+              {/* Actions */}
+              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-50">
+                {r.status === "Pending" && <>
+                  <Btn variant="success" onClick={() => handleApprove(r)}><Check size={12} /> Approve</Btn>
+                  <Btn variant="danger"  onClick={() => handleReject(r)}><X size={12} /> Reject</Btn>
+                </>}
+                {r.status === "Active" && (
+                  <Btn variant="primary" onClick={() => handleComplete(r)}><CheckCheck size={12} /> Complete</Btn>
+                )}
+                {(r.status === "Approved" || r.status === "Active") && <>
+                  <Btn variant="primary" onClick={() => open("assign", r)}><UserPlus size={12} /> Assign</Btn>
+                  <Btn variant="brand"   onClick={() => open("dates",  r)}><CalendarDays size={12} /> Dates</Btn>
+                </>}
+                <Btn variant="ghost" onClick={() => open("detail", r)}><Eye size={12} /> View</Btn>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── DESKTOP: Table ── */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
+                {["Client","Roles","Status","Dates","Assigned","Actions"].map((h) => (
+                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((r) => {
+                const displayStatus = r.status === "Completed" && !r.reviewed ? "Awaiting Review" : r.status;
+                return (
+                  <tr key={r.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">{r.clientName}</p>
+                      <p className="text-xs text-gray-400">{r.clientType} · {r.phone}</p>
+                      <p className="text-xs text-gray-400">{r.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {r.roles.map((x, i) => (
+                          <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
+                            {x.role} ×{x.quantity}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3"><Pill label={displayStatus} color={statusColor(displayStatus)} /></td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {r.startDate ? (
+                        <>
+                          <div className="flex items-center gap-1"><ArrowRightCircle size={11} className="text-green-500 flex-shrink-0" />{r.startDate}</div>
+                          <div className="flex items-center gap-1 mt-0.5"><StopCircle size={11} className="text-red-400 flex-shrink-0" />{r.endDate}</div>
+                        </>
+                      ) : <span className="text-gray-300">Not set</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {r.assignedStaff?.length
+                        ? <div className="flex flex-wrap gap-1">{r.assignedStaff.map((s) => (
+                            <span key={s.id} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
+                          ))}</div>
+                        : <span className="text-xs text-gray-300">Unassigned</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {r.status === "Pending" && <>
+                          <Btn variant="success" onClick={() => handleApprove(r)}><Check size={12} /> Approve</Btn>
+                          <Btn variant="danger"  onClick={() => handleReject(r)}><X size={12} /> Reject</Btn>
+                        </>}
+                        {r.status === "Active" && (
+                          <Btn variant="primary" onClick={() => handleComplete(r)}><CheckCheck size={12} /> Complete</Btn>
+                        )}
+                        {(r.status === "Approved" || r.status === "Active") && <>
+                          <Btn variant="primary" onClick={() => open("assign", r)}><UserPlus size={12} /> Assign</Btn>
+                          <Btn variant="brand"   onClick={() => open("dates",  r)}><CalendarDays size={12} /> Dates</Btn>
+                        </>}
+                        <Btn variant="ghost" onClick={() => open("detail", r)}><Eye size={12} /></Btn>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Detail modal */}
@@ -386,7 +419,7 @@ function RequestsSection({ state, dispatch }) {
             <div className="grid grid-cols-2 gap-3">
               {[["Name",activeReq.clientName],["Type",activeReq.clientType],["Email",activeReq.email],
                 ["Phone",activeReq.phone],["Location",activeReq.location],["Status",activeReq.status]].map(([l,v]) => (
-                <div key={l}><p className="text-xs text-gray-400">{l}</p><p className="font-medium">{v}</p></div>
+                <div key={l}><p className="text-xs text-gray-400">{l}</p><p className="font-medium break-all">{v}</p></div>
               ))}
             </div>
             <div>
@@ -414,7 +447,7 @@ function RequestsSection({ state, dispatch }) {
           </>
         }>
         <p className="text-xs text-gray-400">Setting both dates flips the request to <strong>Active</strong>.</p>
-        <div className="grid grid-cols-2 gap-3 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
           <FormField label="Start date">
             <input type="date" className={inputCls} value={dates.startDate}
               onChange={(e) => setDates((p) => ({ ...p, startDate: e.target.value }))} />
@@ -426,7 +459,7 @@ function RequestsSection({ state, dispatch }) {
         </div>
       </Modal>
 
-      {/* Assign modal — with skill filter toggle ──────────────────────────── */}
+      {/* Assign modal */}
       <Modal open={modal === "assign"} title={`Assign staff — ${activeReq?.clientName}`} onClose={close}
         footer={
           <>
@@ -439,36 +472,26 @@ function RequestsSection({ state, dispatch }) {
             <p className="text-xs text-gray-500 mb-2">
               Roles needed: {activeReq.roles.map((x) => `${x.role} ×${x.quantity}`).join(", ")}
             </p>
-
-            {/* Skill filter toggle */}
             <div className="flex gap-2 mb-3">
-              <button
-                onClick={() => setSkillFilter("primary")}
+              <button onClick={() => setSkillFilter("primary")}
                 className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition ${
                   skillFilter === "primary"
                     ? "bg-[#2385cd] text-white border-[#2385cd]"
                     : "bg-white text-gray-600 border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
-                }`}>
-                🎯 Primary Skill Match
-              </button>
-              <button
-                onClick={() => setSkillFilter("other")}
+                }`}>🎯 Primary Skill</button>
+              <button onClick={() => setSkillFilter("other")}
                 className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition ${
                   skillFilter === "other"
                     ? "bg-[#2385cd] text-white border-[#2385cd]"
                     : "bg-white text-gray-600 border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
-                }`}>
-                🔄 Alternative Skills
-              </button>
+                }`}>🔄 Alt. Skills</button>
             </div>
-
             {filteredStaff.length === 0 && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">
-                No exact skill match found — showing all staff below.
+                No exact skill match — showing all staff.
               </p>
             )}
-
-            <div className="space-y-2 max-h-72 overflow-y-auto">
+            <div className="space-y-2 max-h-64 overflow-y-auto">
               {staffToShow.map((s) => {
                 const isSel = !!selected[s.id];
                 return (
@@ -480,7 +503,6 @@ function RequestsSection({ state, dispatch }) {
                     <div className="flex-1 min-w-0">
                       <p className={`font-medium text-sm ${isSel ? "text-[#2385cd]" : "text-gray-900"}`}>{s.name}</p>
                       <p className="text-xs text-gray-400">{s.role}</p>
-                      {/* Show other skills as chips */}
                       {s.otherSkills?.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {s.otherSkills.map((sk) => (
@@ -506,7 +528,7 @@ function RequestsSection({ state, dispatch }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION: Staff Registry — now includes otherSkills management
+// SECTION: Staff Registry
 // ─────────────────────────────────────────────────────────────────────────────
 function StaffSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(null);
@@ -536,12 +558,51 @@ function StaffSection({ state, dispatch }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-3">
-        <input className={inputCls + " max-w-xs"} placeholder="Search name, role, or skill…"
+        <input className={inputCls + " flex-1 max-w-xs"} placeholder="Search name, role, or skill…"
           value={search} onChange={(e) => setSearch(e.target.value)} />
         <Btn variant="primary" onClick={openAdd}><Plus size={13} /> Add staff</Btn>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      {/* ── MOBILE: Cards ── */}
+      <div className="block md:hidden space-y-3">
+        {shown.map((s) => (
+          <div key={s.id} className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar name={s.name} size="md" />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 text-sm">{s.name}</p>
+                <p className="text-xs text-gray-500">{s.role}</p>
+              </div>
+              <Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} />
+            </div>
+            {s.otherSkills?.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {s.otherSkills.map((sk) => (
+                  <span key={sk} className="text-[10px] bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-1.5 py-0.5">{sk}</span>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <StarRating rating={s.averageRating} />
+                <span className="text-xs text-gray-400">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
+              </div>
+              <div className="flex gap-1">
+                <Btn variant="ghost" onClick={() => openEdit(s)}><Pencil size={13} /></Btn>
+                <Btn variant="danger" onClick={() => dispatch({ type: "REMOVE_STAFF", id: s.id })}><Trash2 size={13} /></Btn>
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 mt-2 flex gap-3">
+              <span>{s.phone}</span>
+              <span className="truncate">{s.email}</span>
+            </div>
+          </div>
+        ))}
+        {shown.length === 0 && <p className="text-gray-400 text-sm text-center p-6 bg-white rounded-xl border border-gray-100">No staff found.</p>}
+      </div>
+
+      {/* ── DESKTOP: Table ── */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -593,13 +654,8 @@ function StaffSection({ state, dispatch }) {
       </div>
 
       <Modal open={!!modal} title={editing ? `Edit — ${editing.name}` : "Add new staff"} onClose={close}
-        footer={
-          <>
-            <Btn onClick={close}>Cancel</Btn>
-            <Btn variant="primary" onClick={save}><Save size={12} /> Save</Btn>
-          </>
-        }>
-        <div className="grid grid-cols-2 gap-3">
+        footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={save}><Save size={12} /> Save</Btn></>}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Full name">    <input name="name"  className={inputCls} value={form.name  || ""} onChange={handle} /></FormField>
           <FormField label="Primary role"> <input name="role"  className={inputCls} value={form.role  || ""} onChange={handle} /></FormField>
           <FormField label="Phone">        <input name="phone" className={inputCls} value={form.phone || ""} onChange={handle} /></FormField>
@@ -613,12 +669,8 @@ function StaffSection({ state, dispatch }) {
             </FormField>
           )}
         </div>
-        {/* Other / alternative skills */}
         <FormField label="Other / alternative skills">
-          <SkillTagInput
-            value={form.otherSkills || []}
-            onChange={(tags) => setForm((p) => ({ ...p, otherSkills: tags }))}
-          />
+          <SkillTagInput value={form.otherSkills || []} onChange={(tags) => setForm((p) => ({ ...p, otherSkills: tags }))} />
         </FormField>
       </Modal>
     </div>
@@ -626,7 +678,7 @@ function StaffSection({ state, dispatch }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION: Registered Users (synced from marketplace API)
+// SECTION: Registered Users
 // ─────────────────────────────────────────────────────────────────────────────
 function RegisteredSection({ state }) {
   const [search,  setSearch]  = useState("");
@@ -646,12 +698,46 @@ function RegisteredSection({ state }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-3">
-        <input className={inputCls + " max-w-xs"} placeholder="Search name or email…"
+        <input className={inputCls + " flex-1 max-w-xs"} placeholder="Search name or email…"
           value={search} onChange={(e) => setSearch(e.target.value)} />
-        <span className="text-xs text-gray-400">{users.length} registered user{users.length !== 1 ? "s" : ""}</span>
+        <span className="text-xs text-gray-400 flex-shrink-0">{users.length} user{users.length !== 1 ? "s" : ""}</span>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      {/* ── MOBILE: Cards ── */}
+      <div className="block md:hidden space-y-3">
+        {shown.length === 0 && (
+          <p className="text-gray-400 text-sm text-center p-6 bg-white rounded-xl border border-gray-100">No registered users yet.</p>
+        )}
+        {shown.map((u) => {
+          const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
+          return (
+            <div key={u.id} className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <Avatar src={u.photoUrl} name={fullName} size="md" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 text-sm">{fullName}</p>
+                  <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                  <p className="text-xs text-gray-400">{u.phoneNumber || "—"}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-gray-400">
+                  {u.registeredAt
+                    ? new Date(u.registeredAt).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })
+                    : "—"}
+                  <span className="ml-2 font-medium text-[#2385cd]">{reqCount(u.email)} requests</span>
+                </div>
+                <Btn variant="ghost" onClick={() => { setViewing(u); setModal(true); }}>
+                  <Eye size={13} /> View
+                </Btn>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── DESKTOP: Table ── */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -663,9 +749,7 @@ function RegisteredSection({ state }) {
             </thead>
             <tbody>
               {shown.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-gray-400 text-sm text-center">
-                  No registered users yet.
-                </td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-gray-400 text-sm text-center">No registered users yet.</td></tr>
               )}
               {shown.map((u) => {
                 const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
@@ -688,9 +772,7 @@ function RegisteredSection({ state }) {
                       <span className="font-medium text-[#2385cd]">{reqCount(u.email)}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <Btn variant="ghost" onClick={() => { setViewing(u); setModal(true); }}>
-                        <Eye size={13} /> View
-                      </Btn>
+                      <Btn variant="ghost" onClick={() => { setViewing(u); setModal(true); }}><Eye size={13} /> View</Btn>
                     </td>
                   </tr>
                 );
@@ -714,7 +796,7 @@ function RegisteredSection({ state }) {
                 <Avatar src={viewing.photoUrl} name={fullName} size="md" />
                 <div>
                   <p className="font-semibold text-gray-900">{fullName}</p>
-                  <p className="text-xs text-gray-400">{viewing.email}</p>
+                  <p className="text-xs text-gray-400 break-all">{viewing.email}</p>
                   <p className="text-xs text-gray-400">{viewing.phoneNumber || "—"}</p>
                 </div>
               </div>
@@ -785,7 +867,7 @@ function BlogSection({ state, dispatch }) {
             </div>
             <p className="text-xs text-[#2385cd]/70">{p.date}</p>
             <p className="text-xs text-gray-500 line-clamp-2">{p.excerpt}</p>
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-1 flex-wrap">
               <Btn variant="ghost" onClick={() => openEdit(p)}><Pencil size={13} /> Edit</Btn>
               <Btn variant="brand" onClick={() => dispatch({ type: "UPDATE_BLOG", payload: { ...p, status: p.status === "Published" ? "Draft" : "Published" } })}>
                 {p.status === "Published" ? "Unpublish" : "Publish"}
@@ -802,7 +884,7 @@ function BlogSection({ state, dispatch }) {
         <FormField label="Excerpt / body">
           <textarea name="excerpt" className={inputCls + " resize-none"} rows={4} value={form.excerpt} onChange={handle} />
         </FormField>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Date"><input type="date" name="date" className={inputCls} value={form.date} onChange={handle} /></FormField>
           <FormField label="Status">
             <select name="status" className={inputCls} value={form.status} onChange={handle}>
@@ -878,8 +960,8 @@ function TestimonialsSection({ state, dispatch }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-xs text-gray-400">Changes sync to the backend and reflect on the public site immediately.</p>
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <p className="text-xs text-gray-400 hidden sm:block">Changes sync to the backend and reflect on the public site immediately.</p>
         <Btn variant="primary" onClick={openNew}><Plus size={13} /> Add testimonial</Btn>
       </div>
 
@@ -895,8 +977,8 @@ function TestimonialsSection({ state, dispatch }) {
               </div>
               <p className="text-xs text-gray-400 mb-1">{t.role}</p>
               <div className="mb-1"><StarRating rating={t.rating} /></div>
-              <p className="text-sm text-gray-600 italic">"{t.text}"</p>
-              <div className="flex gap-2 mt-2">
+              <p className="text-sm text-gray-600 italic line-clamp-2">"{t.text}"</p>
+              <div className="flex gap-2 mt-2 flex-wrap">
                 <Btn variant="ghost" onClick={() => openEdit(t)}><Pencil size={13} /> Edit</Btn>
                 <Btn variant="brand" onClick={() => toggleVisible(t)}>{t.visible ? "Hide" : "Show"}</Btn>
                 <Btn variant="danger" onClick={() => remove(t)}><Trash2 size={13} /></Btn>
@@ -914,7 +996,7 @@ function TestimonialsSection({ state, dispatch }) {
             <Btn variant="primary" onClick={save} disabled={saving}>{saving ? "Saving…" : <><Save size={12} /> Save</>}</Btn>
           </>
         }>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Name"><input name="name" className={inputCls} value={form.name} onChange={handle} /></FormField>
           <FormField label="Role / company"><input name="role" className={inputCls} value={form.role} onChange={handle} /></FormField>
         </div>
@@ -938,17 +1020,25 @@ function TestimonialsSection({ state, dispatch }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION: Messages — with threaded replies
+// SECTION: Messages — mobile-friendly single-pane with back nav
 // ─────────────────────────────────────────────────────────────────────────────
 function MessagesSection({ state, dispatch }) {
-  const [filter, setFilter] = useState("all");
-  const [active, setActive] = useState(null);
-  const [reply,  setReply]  = useState("");
+  const [filter,      setFilter]      = useState("all");
+  const [active,      setActive]      = useState(null);
+  const [reply,       setReply]       = useState("");
+  // Mobile: "list" | "detail"
+  const [mobilePane,  setMobilePane]  = useState("list");
 
   const shown  = filter === "all" ? state.messages : state.messages.filter((m) => m.type === filter);
   const unread = state.messages.filter((m) => !m.read).length;
 
-  const openMsg = (m) => { dispatch({ type: "MARK_MSG_READ", id: m.id }); setActive(m); setReply(""); };
+  const openMsg = (m) => {
+    dispatch({ type: "MARK_MSG_READ", id: m.id });
+    setActive(m);
+    setReply("");
+    setMobilePane("detail");
+  };
+
   const liveActive = active ? state.messages.find((m) => m.id === active.id) ?? active : null;
 
   const sendReply = () => {
@@ -957,88 +1047,103 @@ function MessagesSection({ state, dispatch }) {
     setReply("");
   };
 
-  return (
-    <div className="flex gap-4 min-h-0">
-      {/* List */}
-      <div className="flex-1 min-w-0">
-        <div className="flex gap-2 mb-3 flex-wrap items-center">
-          {[["all","All"],["contact","Contact"],["staff","Staff requests"]].map(([k,l]) => (
-            <button key={k} onClick={() => setFilter(k)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                filter === k ? "bg-[#2385cd] text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
-              }`}>{l}</button>
-          ))}
-          {unread > 0 && <span className="ml-auto text-xs text-red-500 font-medium">{unread} unread</span>}
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
-          {shown.map((m) => (
-            <div key={m.id} onClick={() => openMsg(m)}
-              className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-[#eaf4fc]/40 transition ${
-                liveActive?.id === m.id ? "bg-[#eaf4fc]/60 border-l-2 border-[#2385cd]" : ""
-              }`}>
-              <Avatar name={m.from} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <p className={`text-sm truncate ${!m.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>{m.subject}</p>
-                  <span className="text-xs text-gray-400 flex-shrink-0">{m.time}</span>
-                </div>
-                <p className="text-xs text-gray-400 truncate"><strong>{m.from}</strong> — {m.body}</p>
-                {m.replies?.length > 0 && (
-                  <span className="text-xs text-[#2385cd] font-medium mt-0.5 inline-block">
-                    {m.replies.length} repl{m.replies.length > 1 ? "ies" : "y"} sent
-                  </span>
-                )}
-              </div>
-              {!m.read && <span className="w-2 h-2 rounded-full bg-[#2385cd] flex-shrink-0 mt-1.5" />}
-            </div>
-          ))}
-          {shown.length === 0 && <p className="text-gray-400 text-sm p-4">No messages.</p>}
-        </div>
+  const MessageList = (
+    <div className="flex-1 min-w-0">
+      <div className="flex gap-2 mb-3 flex-wrap items-center overflow-x-auto pb-1">
+        {[["all","All"],["contact","Contact"],["staff","Staff requests"]].map(([k,l]) => (
+          <button key={k} onClick={() => setFilter(k)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex-shrink-0 ${
+              filter === k ? "bg-[#2385cd] text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
+            }`}>{l}</button>
+        ))}
+        {unread > 0 && <span className="ml-auto text-xs text-red-500 font-medium flex-shrink-0">{unread} unread</span>}
       </div>
+      <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+        {shown.map((m) => (
+          <div key={m.id} onClick={() => openMsg(m)}
+            className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-[#eaf4fc]/40 transition ${
+              liveActive?.id === m.id ? "bg-[#eaf4fc]/60 border-l-2 border-[#2385cd]" : ""
+            }`}>
+            <Avatar name={m.from} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <p className={`text-sm truncate ${!m.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>{m.subject}</p>
+                <span className="text-xs text-gray-400 flex-shrink-0">{m.time}</span>
+              </div>
+              <p className="text-xs text-gray-400 truncate"><strong>{m.from}</strong> — {m.body}</p>
+              {m.replies?.length > 0 && (
+                <span className="text-xs text-[#2385cd] font-medium mt-0.5 inline-block">
+                  {m.replies.length} repl{m.replies.length > 1 ? "ies" : "y"} sent
+                </span>
+              )}
+            </div>
+            {!m.read && <span className="w-2 h-2 rounded-full bg-[#2385cd] flex-shrink-0 mt-1.5" />}
+          </div>
+        ))}
+        {shown.length === 0 && <p className="text-gray-400 text-sm p-4">No messages.</p>}
+      </div>
+    </div>
+  );
 
-      {/* Detail pane */}
-      {liveActive && (
-        <div className="w-80 flex-shrink-0 bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-[#eaf4fc] bg-[#eaf4fc]/40">
-            <div className="flex items-center gap-2 mb-1">
-              <Avatar name={liveActive.from} size="md" />
-              <div>
-                <p className="font-medium text-sm text-gray-900">{liveActive.from}</p>
-                <p className="text-xs text-gray-400">{liveActive.time}</p>
-              </div>
-            </div>
-            <p className="font-semibold text-sm text-gray-900 mt-2">{liveActive.subject}</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            <div className="flex gap-2">
-              <Avatar name={liveActive.from} size="sm" />
-              <div className="bg-gray-50 rounded-xl rounded-tl-none px-3 py-2 text-sm text-gray-600 leading-relaxed max-w-[85%]">
-                {liveActive.body}
-              </div>
-            </div>
-            {liveActive.replies?.map((r, i) => (
-              <div key={i} className="flex gap-2 justify-end">
-                <div className="bg-[#2385cd] rounded-xl rounded-tr-none px-3 py-2 text-sm text-white leading-relaxed max-w-[85%]">
-                  <p>{r.text}</p>
-                  <p className="text-[10px] text-white/60 mt-1 text-right">
-                    {new Date(r.sentAt).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" })}
-                  </p>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-[#0f1e2e] text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">SA</div>
-              </div>
-            ))}
-          </div>
-          <div className="p-3 border-t border-[#eaf4fc] space-y-2">
-            <textarea className={inputCls + " resize-none"} rows={3} placeholder="Type a reply…"
-              value={reply} onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendReply(); }} />
-            <Btn variant="primary" className="w-full justify-center" onClick={sendReply} disabled={!reply.trim()}>
-              <Send size={13} /> Send reply
-            </Btn>
+  const MessageDetail = liveActive && (
+    <div className="flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden" style={{ minHeight: 400 }}>
+      <div className="p-4 border-b border-[#eaf4fc] bg-[#eaf4fc]/40">
+        {/* Back button on mobile */}
+        <button className="flex items-center gap-1 text-xs text-[#2385cd] font-medium mb-3 md:hidden"
+          onClick={() => setMobilePane("list")}>
+          <ChevronLeft size={14} /> Back to messages
+        </button>
+        <div className="flex items-center gap-2 mb-1">
+          <Avatar name={liveActive.from} size="md" />
+          <div>
+            <p className="font-medium text-sm text-gray-900">{liveActive.from}</p>
+            <p className="text-xs text-gray-400">{liveActive.time}</p>
           </div>
         </div>
-      )}
+        <p className="font-semibold text-sm text-gray-900 mt-2">{liveActive.subject}</p>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex gap-2">
+          <Avatar name={liveActive.from} size="sm" />
+          <div className="bg-gray-50 rounded-xl rounded-tl-none px-3 py-2 text-sm text-gray-600 leading-relaxed max-w-[85%]">
+            {liveActive.body}
+          </div>
+        </div>
+        {liveActive.replies?.map((r, i) => (
+          <div key={i} className="flex gap-2 justify-end">
+            <div className="bg-[#2385cd] rounded-xl rounded-tr-none px-3 py-2 text-sm text-white leading-relaxed max-w-[85%]">
+              <p>{r.text}</p>
+              <p className="text-[10px] text-white/60 mt-1 text-right">
+                {new Date(r.sentAt).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" })}
+              </p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#0f1e2e] text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">SA</div>
+          </div>
+        ))}
+      </div>
+      <div className="p-3 border-t border-[#eaf4fc] space-y-2">
+        <textarea className={inputCls + " resize-none"} rows={3} placeholder="Type a reply…"
+          value={reply} onChange={(e) => setReply(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendReply(); }} />
+        <Btn variant="primary" className="w-full justify-center" onClick={sendReply} disabled={!reply.trim()}>
+          <Send size={13} /> Send reply
+        </Btn>
+      </div>
     </div>
+  );
+
+  return (
+    <>
+      {/* Mobile: toggle between list and detail */}
+      <div className="block md:hidden">
+        {mobilePane === "list" ? MessageList : (MessageDetail || MessageList)}
+      </div>
+      {/* Desktop: side-by-side */}
+      <div className="hidden md:flex gap-4 min-h-0">
+        {MessageList}
+        {liveActive && <div className="w-80 flex-shrink-0">{MessageDetail}</div>}
+      </div>
+    </>
   );
 }
 
@@ -1056,12 +1161,39 @@ function ProfilesSection({ state }) {
       regUser:  (state.registeredUsers || []).find((u) => u.email === r.email),
     }));
 
-  const [modal, setModal]   = useState(false);
+  const [modal,   setModal]   = useState(false);
   const [viewing, setViewing] = useState(null);
 
   return (
     <div>
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      {/* ── MOBILE: Cards ── */}
+      <div className="block md:hidden space-y-3">
+        {clients.length === 0 && (
+          <p className="text-gray-400 text-sm text-center p-6 bg-white rounded-xl border border-gray-100">No profiles yet.</p>
+        )}
+        {clients.map((c, i) => (
+          <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <Avatar src={c.regUser?.photoUrl} name={c.name} size="md" />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 text-sm">{c.name}</p>
+                <p className="text-xs text-gray-400 truncate">{c.email}</p>
+                <p className="text-xs text-gray-400">{c.phone}</p>
+              </div>
+              <Pill label={c.type} color="sky" />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                {c.location} · <span className="font-medium text-[#2385cd]">{c.requests} requests</span>
+              </div>
+              <Btn variant="ghost" onClick={() => { setViewing(c); setModal(true); }}><Eye size={13} /> View</Btn>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── DESKTOP: Table ── */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -1106,7 +1238,7 @@ function ProfilesSection({ state }) {
               <Avatar src={viewing.regUser?.photoUrl} name={viewing.name} size="md" />
               <div>
                 <p className="font-semibold text-gray-900">{viewing.name}</p>
-                <p className="text-xs text-gray-400">{viewing.email}</p>
+                <p className="text-xs text-gray-400 break-all">{viewing.email}</p>
                 <p className="text-xs text-gray-400">{viewing.phone}</p>
               </div>
             </div>
@@ -1128,11 +1260,12 @@ function ProfilesSection({ state }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROOT: AdminPanel
+// ROOT: AdminPanel — with mobile sidebar drawer + bottom nav
 // ─────────────────────────────────────────────────────────────────────────────
 export function AdminPanel() {
   const { state, dispatch } = useStore();
-  const [section, setSection] = useState("requests");
+  const [section,     setSection]     = useState("requests");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const pendingCount  = state.requests.filter((r) => r.status === "Pending").length;
   const unreadCount   = state.messages.filter((m) => !m.read).length;
@@ -1140,6 +1273,9 @@ export function AdminPanel() {
     if (!u.registeredAt) return false;
     return Date.now() - new Date(u.registeredAt).getTime() < 24 * 60 * 60 * 1000;
   }).length;
+
+  const getBadge = (key) =>
+    key === "requests" ? pendingCount : key === "messages" ? unreadCount : key === "registered" ? newUsersCount : 0;
 
   const sectionContent = {
     requests:     <RequestsSection     state={state} dispatch={dispatch} />,
@@ -1156,36 +1292,82 @@ export function AdminPanel() {
     blog:"Blog Manager", testimonials:"Testimonials", messages:"Messages", profiles:"Client Profiles",
   };
 
+  const navigate = (key) => { setSection(key); setSidebarOpen(false); };
+
+  // Sidebar nav items — shared between desktop sidebar and mobile drawer
+  const SidebarNav = (
+    <nav className="flex-1 py-2 overflow-y-auto">
+      {NAV.map(({ key, label, Icon }) => {
+        const badge    = getBadge(key);
+        const isActive = section === key;
+        return (
+          <button key={key} onClick={() => navigate(key)}
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs transition text-left relative"
+            style={{
+              color:           isActive ? "#ffffff" : "rgba(255,255,255,0.55)",
+              backgroundColor: isActive ? "rgba(35,133,205,0.18)" : "transparent",
+              borderRight:     isActive ? "2px solid #2385cd" : "2px solid transparent",
+            }}>
+            <Icon size={14} className="flex-shrink-0" style={{ color: isActive ? "#2385cd" : undefined }} />
+            <span className="flex-1 truncate font-medium">{label}</span>
+            {badge > 0 && (
+              <span className="text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold flex-shrink-0"
+                style={{ backgroundColor: "#2385cd" }}>{badge}</span>
+            )}
+          </button>
+        );
+      })}
+    </nav>
+  );
+
   return (
     <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-44 flex-shrink-0 flex flex-col" style={{ backgroundColor: "#0f1e2e" }}>
+
+      {/* ── Mobile sidebar overlay ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-40 bg-black/50 md:hidden"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)} />
+            <motion.aside
+              className="fixed inset-y-0 left-0 z-50 flex flex-col w-56 md:hidden"
+              initial={{ x: -224 }} animate={{ x: 0 }} exit={{ x: -224 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              style={{ backgroundColor: "#0f1e2e" }}>
+              <div className="px-4 py-5 border-b border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-white text-sm leading-tight">Randle&amp;Hopkick</p>
+                  <p className="text-xs font-medium mt-0.5" style={{ color: "#2385cd" }}>Admin Panel</p>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="text-white/50 hover:text-white p-1">
+                  <X size={16} />
+                </button>
+              </div>
+              {SidebarNav}
+              <div className="px-3 py-4 border-t border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                    style={{ backgroundColor: "#2385cd" }}>SA</div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-white truncate">Super Admin</p>
+                    <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>admin@randlehopkick.ng</p>
+                  </div>
+                </div>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Desktop sidebar ────────────────────────────────────────────────── */}
+      <aside className="hidden md:flex w-44 flex-shrink-0 flex-col" style={{ backgroundColor: "#0f1e2e" }}>
         <div className="px-4 py-5 border-b border-white/10">
           <p className="font-bold text-white text-sm leading-tight">Randle&amp;Hopkick</p>
           <p className="text-xs font-medium mt-0.5" style={{ color: "#2385cd" }}>Admin Panel</p>
         </div>
-        <nav className="flex-1 py-2 overflow-y-auto">
-          {NAV.map(({ key, label, Icon }) => {
-            const badge    = key === "requests" ? pendingCount : key === "messages" ? unreadCount : key === "registered" ? newUsersCount : 0;
-            const isActive = section === key;
-            return (
-              <button key={key} onClick={() => setSection(key)}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs transition text-left relative"
-                style={{
-                  color:           isActive ? "#ffffff" : "rgba(255,255,255,0.55)",
-                  backgroundColor: isActive ? "rgba(35,133,205,0.18)" : "transparent",
-                  borderRight:     isActive ? "2px solid #2385cd" : "2px solid transparent",
-                }}>
-                <Icon size={14} className="flex-shrink-0" style={{ color: isActive ? "#2385cd" : undefined }} />
-                <span className="flex-1 truncate font-medium">{label}</span>
-                {badge > 0 && (
-                  <span className="text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold flex-shrink-0"
-                    style={{ backgroundColor: "#2385cd" }}>{badge}</span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        {SidebarNav}
         <div className="px-3 py-4 border-t border-white/10">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
@@ -1198,30 +1380,41 @@ export function AdminPanel() {
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between flex-shrink-0">
-          <div>
-            <h1 className="font-semibold text-gray-900">{titles[section]}</h1>
-            <p className="text-xs text-gray-400">
-              {new Date().toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
-              {state.lastSyncedAt && (
-                <span className="ml-2 text-[#2385cd]">
-                  · Synced {new Date(state.lastSyncedAt).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" })}
-                </span>
-              )}
-            </p>
+      {/* ── Main ───────────────────────────────────────────────────────────── */}
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+
+        {/* Header */}
+        <header className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Hamburger — mobile only */}
+            <button className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 transition flex-shrink-0"
+              onClick={() => setSidebarOpen(true)}>
+              <Menu size={18} className="text-gray-600" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{titles[section]}</h1>
+              <p className="text-xs text-gray-400 hidden sm:block">
+                {new Date().toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
+                {state.lastSyncedAt && (
+                  <span className="ml-2 text-[#2385cd]">
+                    · Synced {new Date(state.lastSyncedAt).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" })}
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {pendingCount > 0 && (
               <button onClick={() => setSection("requests")}
-                className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-3 py-1 font-medium flex items-center gap-1">
-                <ShieldAlert size={12} /> {pendingCount} pending
+                className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-2.5 py-1 font-medium flex items-center gap-1">
+                <ShieldAlert size={12} />
+                <span className="hidden sm:inline">{pendingCount} pending</span>
+                <span className="sm:hidden">{pendingCount}</span>
               </button>
             )}
             {newUsersCount > 0 && (
               <button onClick={() => setSection("registered")}
-                className="text-xs rounded-full px-3 py-1 font-medium flex items-center gap-1 border"
+                className="text-xs rounded-full px-2.5 py-1 font-medium flex items-center gap-1 border hidden sm:flex"
                 style={{ color:"#2385cd", backgroundColor:"#eaf4fc", borderColor:"#b8d9f0" }}>
                 <UserCheck size={12} /> {newUsersCount} new user{newUsersCount > 1 ? "s" : ""}
               </button>
@@ -1229,7 +1422,8 @@ export function AdminPanel() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-6">
           <AnimatePresence mode="wait">
             <motion.div key={section}
               initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}
@@ -1239,6 +1433,42 @@ export function AdminPanel() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* ── Mobile bottom navigation bar ───────────────────────────────────── */}
+      <nav className="fixed bottom-0 inset-x-0 z-30 md:hidden bg-white border-t border-gray-100 flex items-stretch"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {BOTTOM_NAV.map((key) => {
+          const { label, Icon } = NAV.find((n) => n.key === key);
+          const badge     = getBadge(key);
+          const isActive  = section === key;
+          return (
+            <button key={key} onClick={() => setSection(key)}
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition relative"
+              style={{ color: isActive ? "#2385cd" : "rgba(0,0,0,0.35)" }}>
+              <div className="relative">
+                <Icon size={18} />
+                {badge > 0 && (
+                  <span className="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-[#2385cd] text-white text-[8px] font-bold flex items-center justify-center">
+                    {badge}
+                  </span>
+                )}
+              </div>
+              <span className="text-[9px] font-medium leading-none">{label.split(" ")[0]}</span>
+              {isActive && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#2385cd]" />
+              )}
+            </button>
+          );
+        })}
+        {/* "More" button for remaining nav items */}
+        <button onClick={() => setSidebarOpen(true)}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition"
+          style={{ color: "rgba(0,0,0,0.35)" }}>
+          <MoreHorizontal size={18} />
+          <span className="text-[9px] font-medium leading-none">More</span>
+        </button>
+      </nav>
+
     </div>
   );
 }

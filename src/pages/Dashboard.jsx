@@ -503,7 +503,7 @@ export function Dashboard() {
               <button
                 onClick={() => setShowCompleted((v) => !v)}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl shadow font-semibold text-sm transition ${
-                  showCompleted ? "bg-purple-600 text-white" : "bg-white text-gray-700 hover:bg-purple-50"
+                  showCompleted ? "bg-sky-600 text-white" : "bg-white text-gray-700 hover:bg-purple-50"
                 }`}>
                 <span>📋 Completed Job History ({staffCompletedJobs.length})</span>
                 <span>{showCompleted ? "▲" : "▼"}</span>
@@ -524,7 +524,7 @@ export function Dashboard() {
                             <p className="font-semibold text-gray-900">{r.clientName}</p>
                             <p className="text-xs text-gray-400">{r.clientType} · {r.location}</p>
                           </div>
-                          <span className="text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-full px-2.5 py-0.5 font-semibold">
+                          <span className="text-xs bg-purple-50 text-sky-700 border border-purple-200 rounded-full px-2.5 py-0.5 font-semibold">
                             Completed
                           </span>
                         </div>
@@ -615,7 +615,7 @@ export function Dashboard() {
                       {/* Review button: only when Completed + not yet reviewed */}
                       {r.status === "Completed" && !r.reviewed && (
                         <button onClick={() => { setReviewReq(r); setModalType("review"); }}
-                          className="px-3 py-1 text-xs bg-purple-50 text-purple-700 rounded-full border border-purple-200 hover:bg-purple-100 transition font-medium">
+                          className="px-3 py-1 text-xs bg-purple-50 text-sky-700 rounded-full border border-purple-200 hover:bg-purple-100 transition font-medium">
                           ⭐ Leave Review
                         </button>
                       )}
