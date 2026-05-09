@@ -1384,16 +1384,16 @@ export function AdminPanel() {
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
 
         {/* Header */}
-        <header className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0 gap-3">
+        <header className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0 gap-3 bg-[#0f1e2e] md:bg-white border-b border-white/10 md:border-gray-100">
           <div className="flex items-center gap-3 min-w-0">
             {/* Hamburger — mobile only */}
-            <button className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 transition flex-shrink-0"
+            <button className="md:hidden p-1.5 rounded-lg hover:bg-white/10 transition flex-shrink-0"
               onClick={() => setSidebarOpen(true)}>
-              <Menu size={18} className="text-gray-600" />
+              <Menu size={18} className="text-white md:text-gray-600" />
             </button>
             <div className="min-w-0">
-              <h1 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{titles[section]}</h1>
-              <p className="text-xs text-gray-400 hidden sm:block">
+              <h1 className="font-semibold text-white md:text-gray-900 text-sm sm:text-base truncate">{titles[section]}</h1>
+              <p className="text-xs text-white/40 md:text-gray-400 hidden sm:block">
                 {new Date().toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
                 {state.lastSyncedAt && (
                   <span className="ml-2 text-[#2385cd]">
@@ -1406,7 +1406,7 @@ export function AdminPanel() {
           <div className="flex items-center gap-2 flex-shrink-0">
             {pendingCount > 0 && (
               <button onClick={() => setSection("requests")}
-                className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-2.5 py-1 font-medium flex items-center gap-1">
+                className="text-xs text-yellow-300 bg-yellow-500/20 border border-yellow-400/30 md:text-yellow-700 md:bg-yellow-50 md:border-yellow-200 rounded-full px-2.5 py-1 font-medium flex items-center gap-1">
                 <ShieldAlert size={12} />
                 <span className="hidden sm:inline">{pendingCount} pending</span>
                 <span className="sm:hidden">{pendingCount}</span>
@@ -1414,7 +1414,7 @@ export function AdminPanel() {
             )}
             {newUsersCount > 0 && (
               <button onClick={() => setSection("registered")}
-                className="text-xs rounded-full px-2.5 py-1 font-medium flex items-center gap-1 border hidden sm:flex"
+                className="text-xs rounded-full px-2.5 py-1 font-medium items-center gap-1 border hidden sm:flex"
                 style={{ color:"#2385cd", backgroundColor:"#eaf4fc", borderColor:"#b8d9f0" }}>
                 <UserCheck size={12} /> {newUsersCount} new user{newUsersCount > 1 ? "s" : ""}
               </button>
@@ -1435,8 +1435,8 @@ export function AdminPanel() {
       </main>
 
       {/* ── Mobile bottom navigation bar ───────────────────────────────────── */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 md:hidden bg-white border-t border-gray-100 flex items-stretch"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <nav className="fixed bottom-0 inset-x-0 z-30 md:hidden border-t border-white/10 flex items-stretch"
+        style={{ backgroundColor: "#0f1e2e", paddingBottom: "env(safe-area-inset-bottom)" }}>
         {BOTTOM_NAV.map((key) => {
           const { label, Icon } = NAV.find((n) => n.key === key);
           const badge     = getBadge(key);
@@ -1444,7 +1444,7 @@ export function AdminPanel() {
           return (
             <button key={key} onClick={() => setSection(key)}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition relative"
-              style={{ color: isActive ? "#2385cd" : "rgba(0,0,0,0.35)" }}>
+              style={{ color: isActive ? "#2385cd" : "rgba(255,255,255,0.4)" }}>
               <div className="relative">
                 <Icon size={18} />
                 {badge > 0 && (
@@ -1463,7 +1463,7 @@ export function AdminPanel() {
         {/* "More" button for remaining nav items */}
         <button onClick={() => setSidebarOpen(true)}
           className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition"
-          style={{ color: "rgba(0,0,0,0.35)" }}>
+          style={{ color: "rgba(255,255,255,0.4)" }}>
           <MoreHorizontal size={18} />
           <span className="text-[9px] font-medium leading-none">More</span>
         </button>
