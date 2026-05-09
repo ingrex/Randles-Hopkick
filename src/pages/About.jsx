@@ -329,7 +329,7 @@ export function AboutPage() {
     {
       label: "MISSION",
       text:
-        "To redefine the perception of service delivery and professionalism by domestic employees and local service providers — raising the standard of what clients can expect from every interaction.",
+        "To redefine the perception of service delivery and professionalism by domestic employees and local service providers, raising the standard of what clients can expect from every interaction.",
       img:
         "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=700&q=80",
       alt: "Mission — team collaboration",
@@ -470,7 +470,7 @@ export function AboutPage() {
 
           <p className="mt-5 max-w-2xl mx-auto text-sm md:text-base opacity-70 leading-relaxed">
             Built on experience, professionalism and global
-            service standards — our people are the strength
+            service standards; our people are the strength
             behind every successful delivery.
           </p>
         </motion.div>

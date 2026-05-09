@@ -5,26 +5,31 @@
 //
 // KEY DESIGN DECISIONS
 // ────────────────────
-// 1.  All backend data is normalised into this store so every page (Dashboard,
-//     AdminPanel, public site) reads from ONE source of truth.
-// 2.  localStorage is used as a cache.  Backend is always the authority.
-//     On mount, components should call apiAdminFetchRequests / apiFetchMyRequests
-//     and dispatch SET_REQUESTS / SET_MY_REQUESTS to overwrite cached data.
-// 3.  STORE_KEY is versioned; bumping it clears stale shapes automatically.
+// 1.  All backend data is normalised into this store so every page reads from
+//     ONE source of truth.
+// 2.  localStorage is a cache. Backend is always the authority.
+// 3.  useRealtimeSync() polls the marketplace endpoint every POLL_INTERVAL ms
+//     so changes made by the admin (assign staff, set dates, complete) propagate
+//     to all connected clients automatically.
+// 4.  STORE_KEY is versioned; bumping it clears stale shapes automatically.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { createContext, useContext, useReducer } from "react";
+import { createContext, useContext, useReducer, useEffect, useRef, useCallback } from "react";
+import { apiGetMarketplace } from "./api/auth";   // ✅ was "../api/auth"
 
-// ─── Seed data (always present, never wiped) ──────────────────────────────────
+// ── Poll interval (ms) — 15 s is a good balance for near-real-time ───────────
+const POLL_INTERVAL = 15_000;
+
+// ─── Seed data ────────────────────────────────────────────────────────────────
 const SEED_STAFF = [
-  { id: 1, name: "Tunde Adeyemi",  role: "Electricians",        phone: "08011223344", email: "tunde.a@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.7, totalReviews: 12, reviews: [] },
-  { id: 2, name: "Chioma Nwosu",   role: "Housekeepers",         phone: "08022334455", email: "chioma.n@staff.ng",  status: "Available", currentJobId: null, averageRating: 4.9, totalReviews: 8,  reviews: [] },
-  { id: 3, name: "Ibrahim Musa",   role: "Masons / Bricklayers", phone: "08033445566", email: "ibrahim.m@staff.ng", status: "Available", currentJobId: null, averageRating: 4.5, totalReviews: 20, reviews: [] },
-  { id: 4, name: "Fatima Bello",   role: "Private Chefs",        phone: "08044556677", email: "fatima.b@staff.ng",  status: "Available", currentJobId: null, averageRating: 5.0, totalReviews: 5,  reviews: [] },
-  { id: 5, name: "Grace Okonkwo",  role: "Receptionists",        phone: "08055667788", email: "grace.o@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.3, totalReviews: 15, reviews: [] },
-  { id: 6, name: "Emeka Eze",      role: "Security Guards",      phone: "08066778899", email: "emeka.e@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.6, totalReviews: 9,  reviews: [] },
-  { id: 7, name: "Amina Yusuf",    role: "Nannies",              phone: "08077889900", email: "amina.y@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.8, totalReviews: 11, reviews: [] },
-  { id: 8, name: "Biodun Lawal",   role: "Plumbers",             phone: "08088990011", email: "biodun.l@staff.ng",  status: "Available", currentJobId: null, averageRating: 4.2, totalReviews: 7,  reviews: [] },
+  { id: 1, name: "Tunde Adeyemi",  role: "Electricians",        otherSkills: [],                              phone: "08011223344", email: "tunde.a@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.7, totalReviews: 12, reviews: [] },
+  { id: 2, name: "Chioma Nwosu",   role: "Housekeepers",         otherSkills: ["Laundry", "Ironing"],          phone: "08022334455", email: "chioma.n@staff.ng",  status: "Available", currentJobId: null, averageRating: 4.9, totalReviews: 8,  reviews: [] },
+  { id: 3, name: "Ibrahim Musa",   role: "Masons / Bricklayers", otherSkills: ["Tiling", "Plastering"],        phone: "08033445566", email: "ibrahim.m@staff.ng", status: "Available", currentJobId: null, averageRating: 4.5, totalReviews: 20, reviews: [] },
+  { id: 4, name: "Fatima Bello",   role: "Private Chefs",        otherSkills: ["Catering", "Baking"],          phone: "08044556677", email: "fatima.b@staff.ng",  status: "Available", currentJobId: null, averageRating: 5.0, totalReviews: 5,  reviews: [] },
+  { id: 5, name: "Grace Okonkwo",  role: "Receptionists",        otherSkills: ["Customer Service", "Admin"],   phone: "08055667788", email: "grace.o@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.3, totalReviews: 15, reviews: [] },
+  { id: 6, name: "Emeka Eze",      role: "Security Guards",      otherSkills: ["CCTV Operation"],              phone: "08066778899", email: "emeka.e@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.6, totalReviews: 9,  reviews: [] },
+  { id: 7, name: "Amina Yusuf",    role: "Nannies",              otherSkills: ["Teaching", "First Aid"],       phone: "08077889900", email: "amina.y@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.8, totalReviews: 11, reviews: [] },
+  { id: 8, name: "Biodun Lawal",   role: "Plumbers",             otherSkills: ["Tiling", "Waterproofing"],     phone: "08088990011", email: "biodun.l@staff.ng",  status: "Available", currentJobId: null, averageRating: 4.2, totalReviews: 7,  reviews: [] },
 ];
 
 const SEED_BLOG = [
@@ -40,38 +45,31 @@ const SEED_TESTIMONIALS = [
 ];
 
 const SEED_MESSAGES = [
-  { id: 1, from: "Kemi Adeyemi", subject: "Inquiry about generator technician", body: "Hello, do you have experienced generator technicians for a short-term contract?", type: "contact", time: "2h ago", read: false },
-  { id: 2, from: "Tobi Alabi",   subject: "Change of address",                  body: "I need to update the location for my pending request to Ajah instead of Lekki.",  type: "contact", time: "1d ago", read: true  },
+  { id: 1, from: "Kemi Adeyemi", subject: "Inquiry about generator technician", body: "Hello, do you have experienced generator technicians for a short-term contract?", type: "contact", time: "2h ago", read: false, replies: [] },
+  { id: 2, from: "Tobi Alabi",   subject: "Change of address",                  body: "I need to update the location for my pending request to Ajah instead of Lekki.",  type: "contact", time: "1d ago", read: true,  replies: [] },
 ];
 
 // ─── Default state factory ────────────────────────────────────────────────────
 function defaultState() {
   return {
-    // ── backend-authoritative ──
-    requests:        [],   // all requests visible to current user / admin
-    registeredUsers: [],   // populated from /admin/users (admin) or REGISTER_USER dispatch
-
-    // ── local / seeded ──
+    requests:        [],
+    registeredUsers: [],
     staff:           SEED_STAFF,
     blog:            SEED_BLOG,
     testimonials:    SEED_TESTIMONIALS,
     messages:        SEED_MESSAGES,
-
-    // ── counters (used only when backend is unavailable) ──
     nextReqId:       1,
     nextStaffId:     SEED_STAFF.length + 1,
     nextBlogId:      SEED_BLOG.length + 1,
     nextTestiId:     SEED_TESTIMONIALS.length + 1,
     nextMsgId:       SEED_MESSAGES.length + 1,
-
-    // ── sync metadata ──
-    lastSyncedAt:    null,   // ISO string; set by SET_REQUESTS
+    lastSyncedAt:    null,
   };
 }
 
-// ─── localStorage persistence ─────────────────────────────────────────────────
-// Bump version string to clear stale data after breaking schema changes.
-const STORE_KEY = "rnh_store_v1";
+// ─── localStorage persistence ──────────────────────────────────────────────────
+// Bump version string to auto-clear stale shapes after breaking changes.
+const STORE_KEY = "rnh_store_v3";
 
 function loadState() {
   try {
@@ -83,10 +81,10 @@ function loadState() {
     const savedIds    = new Set((saved.staff || []).map((s) => s.id));
     const mergedStaff = [
       ...SEED_STAFF.filter((s) => !savedIds.has(s.id)),
-      ...(saved.staff || []),
+      ...(saved.staff || []).map((s) => ({ otherSkills: [], ...s })),
     ];
 
-    // Merge seed testimonials — server overrides on mount via TestimonialsSection
+    // Merge seed testimonials
     const savedTestiIds = new Set((saved.testimonials || []).map((t) => t.id));
     const mergedTestis  = [
       ...SEED_TESTIMONIALS.filter((t) => !savedTestiIds.has(t.id)),
@@ -100,6 +98,8 @@ function loadState() {
       testimonials:    mergedTestis,
       registeredUsers: saved.registeredUsers || [],
       requests:        saved.requests        || [],
+      // Ensure messages always have replies array
+      messages: (saved.messages || SEED_MESSAGES).map((m) => ({ replies: [], ...m })),
     };
   } catch {
     return defaultState();
@@ -112,49 +112,67 @@ function persistState(state) {
   } catch { /* storage quota — silently ignore */ }
 }
 
-// ─── Normalise a backend request object into our store shape ──────────────────
-// Backend may use _id vs id, different field names, etc.
+// ─── Normalise a backend request object ──────────────────────────────────────
 export function normaliseRequest(raw) {
   return {
-    // identity
-    id:            raw._id        ?? raw.id,
-    backendId:     raw._id        ?? raw.id,  // always keep the Mongo _id separately
-
-    // client info
-    clientType:    raw.clientType ?? (raw.personalDetails ? "Individual" : "Organisation"),
-    clientName:    raw.clientName
-                    ?? raw.companyDetails?.companyName
-                    ?? `${raw.personalDetails?.surname ?? ""} ${raw.personalDetails?.otherName ?? ""}`.trim(),
-    email:         raw.email        ?? raw.companyDetails?.companyEmail   ?? raw.personalDetails?.email,
-    phone:         raw.phone        ?? raw.companyDetails?.companyPhone   ?? raw.personalDetails?.phoneNo,
+    id:            raw._id          ?? raw.id,
+    backendId:     raw._id          ?? raw.id,
+    clientType:    raw.clientType   ?? (raw.personalDetails ? "Individual" : "Organisation"),
+    clientName:
+      raw.clientName
+      ?? raw.companyDetails?.companyName
+      ?? `${raw.personalDetails?.surname ?? ""} ${raw.personalDetails?.otherName ?? ""}`.trim(),
+    email:         raw.email        ?? raw.companyDetails?.companyEmail   ?? raw.personalDetails?.email   ?? "",
+    phone:         raw.phone        ?? raw.companyDetails?.companyPhone   ?? raw.personalDetails?.phoneNo ?? "",
     location:      raw.location     ?? raw.companyDetails?.companyAddress ?? raw.personalDetails?.businessLocation ?? "",
-
-    // staff roles
-    roles:         raw.roles         ?? raw.requestedStaff ?? [],
-
-    // workflow
-    status:        raw.status        ?? "Pending",
-    startDate:     raw.startDate     ?? "",
-    endDate:       raw.endDate       ?? "",
+    roles:         raw.roles        ?? raw.requestedStaff ?? [],
+    status:        raw.status       ?? "Pending",
+    startDate:     raw.startDate    ?? "",
+    endDate:       raw.endDate      ?? "",
     assignedStaff: raw.assignedStaff ?? [],
-    reviews:       raw.reviews       ?? [],
-    reviewed:      raw.reviewed      ?? false,
-
-    // timestamps
-    submittedAt:   raw.submittedAt   ?? raw.createdAt ?? new Date().toISOString(),
+    reviews:       raw.reviews      ?? [],
+    // reviewed = true only after a review has been submitted
+    reviewed:      raw.reviewed     ?? false,
+    submittedAt:   raw.submittedAt  ?? raw.createdAt ?? new Date().toISOString(),
   };
 }
 
-// ─── Helper exposed to forms: build a store payload from the API form payload ─
-// Call this right after apiStaffRequest() succeeds.
-// buildRequestPayload(formPayload, apiResponse?)
+// Normalise a backend staff object
+export function normaliseStaff(raw) {
+  return {
+    id:            raw._id          ?? raw.id,
+    backendId:     raw._id          ?? raw.id,
+    name:          raw.name         ?? `${raw.surname ?? ""} ${raw.otherNames ?? ""}`.trim(),
+    role:          raw.role         ?? raw.primarySkill ?? "",
+    otherSkills:   raw.otherSkills  ?? [],
+    phone:         raw.phone        ?? raw.phoneNumber ?? "",
+    email:         raw.email        ?? "",
+    status:        raw.status       ?? "Available",
+    currentJobId:  raw.currentJobId ?? null,
+    averageRating: raw.averageRating ?? 0,
+    totalReviews:  raw.totalReviews  ?? 0,
+    reviews:       raw.reviews       ?? [],
+  };
+}
+
+// Normalise a backend user object
+export function normaliseUser(raw) {
+  return {
+    id:           raw._id         ?? raw.id,
+    surname:      raw.surname     ?? "",
+    otherNames:   raw.otherNames  ?? "",
+    email:        raw.email       ?? "",
+    phoneNumber:  raw.phoneNumber ?? raw.phone ?? "",
+    photoUrl:     raw.photoUrl    ?? "",
+    registeredAt: raw.createdAt   ?? raw.registeredAt ?? new Date().toISOString(),
+  };
+}
+
+// ─── buildRequestPayload (used by forms after API call) ──────────────────────
 export function buildRequestPayload(apiPayload, apiResponse) {
-  // If the backend returned a full request object, normalise and use it
   if (apiResponse && (apiResponse._id || apiResponse.id)) {
     return normaliseRequest({ ...apiPayload, ...apiResponse });
   }
-
-  // Otherwise, build from the form payload alone (optimistic)
   const isOrg = apiPayload.clientType === "Organisation";
   return {
     id:            apiResponse?.id  ?? Date.now(),
@@ -183,53 +201,74 @@ function reducer(state, action) {
 
   switch (action.type) {
 
-    // ── Backend sync — bulk replace requests (called on mount from Dashboard / AdminPanel) ──
-    case "SET_REQUESTS": {
-      // Merge: backend wins for status/dates, local wins for unsyncable fields (reviews, reviewed)
-      const incoming = (action.payload || []).map(normaliseRequest);
-      const localMap = new Map(state.requests.map((r) => [String(r.id), r]));
+    // ── Marketplace bulk sync — replaces users, requests, staff from backend ──
+    case "SYNC_MARKETPLACE": {
+      const { users = [], requests = [], staff = [] } = action.payload;
 
-      const merged = incoming.map((r) => {
+      // ── Users ──
+      const incomingUsers = users.map(normaliseUser);
+      const serverEmails  = new Set(incomingUsers.map((u) => u.email));
+      const localOnlyUsers = state.registeredUsers.filter((u) => !serverEmails.has(u.email));
+      const mergedUsers    = [...incomingUsers, ...localOnlyUsers];
+
+      // ── Requests — backend wins for status/dates, local wins for reviews ──
+      const incomingReqs = requests.map(normaliseRequest);
+      const localMap     = new Map(state.requests.map((r) => [String(r.id), r]));
+      const mergedReqs   = incomingReqs.map((r) => {
         const local = localMap.get(String(r.id));
         return local
           ? { ...r, reviews: local.reviews ?? r.reviews, reviewed: local.reviewed ?? r.reviewed }
           : r;
       });
-
-      // Keep any local-only requests that haven't synced yet (backendId === null)
-      const localOnly = state.requests.filter(
-        (r) => !r.backendId && !incoming.some((i) => String(i.id) === String(r.id))
+      // Keep local-only optimistic requests not yet acknowledged
+      const localOnlyReqs = state.requests.filter(
+        (r) => !r.backendId && !incomingReqs.some((i) => String(i.id) === String(r.id))
       );
+
+      // ── Staff — merge with seed; backend wins for ratings/status ──
+      const incomingStaff = staff.map(normaliseStaff);
+      const serverStaffIds = new Set(incomingStaff.map((s) => String(s.id)));
+      // Keep any locally added seed/admin staff not on backend yet
+      const localOnlyStaff = state.staff.filter((s) => !serverStaffIds.has(String(s.id)));
+      const mergedStaff    = [...incomingStaff, ...localOnlyStaff];
 
       next = {
         ...state,
-        requests:     [...merged, ...localOnly],
-        lastSyncedAt: new Date().toISOString(),
+        registeredUsers: mergedUsers,
+        requests:        [...mergedReqs, ...localOnlyReqs],
+        staff:           mergedStaff,
+        lastSyncedAt:    new Date().toISOString(),
       };
       break;
     }
 
-    // ── Backend sync — replace registered users list (admin only) ──
-    case "SET_REGISTERED_USERS": {
-      const incoming = (action.payload || []).map((u) => ({
-        id:           u._id         ?? u.id,
-        surname:      u.surname     ?? "",
-        otherNames:   u.otherNames  ?? "",
-        email:        u.email       ?? "",
-        phoneNumber:  u.phoneNumber ?? u.phone ?? "",
-        photoUrl:     u.photoUrl    ?? "",
-        registeredAt: u.createdAt   ?? u.registeredAt ?? new Date().toISOString(),
-      }));
+    // ── Backend sync — bulk replace requests only ─────────────────────────────
+    case "SET_REQUESTS": {
+      const incoming = (action.payload || []).map(normaliseRequest);
+      const localMap = new Map(state.requests.map((r) => [String(r.id), r]));
+      const merged   = incoming.map((r) => {
+        const local = localMap.get(String(r.id));
+        return local
+          ? { ...r, reviews: local.reviews ?? r.reviews, reviewed: local.reviewed ?? r.reviewed }
+          : r;
+      });
+      const localOnly = state.requests.filter(
+        (r) => !r.backendId && !incoming.some((i) => String(i.id) === String(r.id))
+      );
+      next = { ...state, requests: [...merged, ...localOnly], lastSyncedAt: new Date().toISOString() };
+      break;
+    }
 
-      // Preserve any locally-registered users not yet on the backend
+    // ── Registered users (admin bulk set) ────────────────────────────────────
+    case "SET_REGISTERED_USERS": {
+      const incoming     = (action.payload || []).map(normaliseUser);
       const serverEmails = new Set(incoming.map((u) => u.email));
       const localOnly    = state.registeredUsers.filter((u) => !serverEmails.has(u.email));
-
       next = { ...state, registeredUsers: [...incoming, ...localOnly] };
       break;
     }
 
-    // ── Registration (dispatched from Register.jsx on successful signup) ──
+    // ── Registration ──────────────────────────────────────────────────────────
     case "REGISTER_USER": {
       const exists = state.registeredUsers.some((u) => u.email === action.payload.email);
       if (exists) return state;
@@ -237,18 +276,12 @@ function reducer(state, action) {
         ...state,
         registeredUsers: [
           ...state.registeredUsers,
-          {
-            id:           Date.now(),
-            photoUrl:     "",
-            ...action.payload,
-            registeredAt: action.payload.registeredAt ?? new Date().toISOString(),
-          },
+          { id: Date.now(), photoUrl: "", ...action.payload, registeredAt: action.payload.registeredAt ?? new Date().toISOString() },
         ],
       };
       break;
     }
 
-    // Admin / profile edit can update a registered user's record
     case "UPDATE_REGISTERED_USER": {
       next = {
         ...state,
@@ -259,15 +292,15 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Requests — optimistic add (forms dispatch this right after the API call) ──
+    // ── Add request (optimistic) ──────────────────────────────────────────────
     case "ADD_REQUEST": {
-      // Avoid duplicates if the backend sync arrives before we clean up
       const id = action.payload.id ?? action.payload.backendId ?? Date.now();
       const alreadyExists = state.requests.some(
-        (r) => String(r.id) === String(id) || (action.payload.backendId && String(r.backendId) === String(action.payload.backendId))
+        (r) =>
+          String(r.id) === String(id) ||
+          (action.payload.backendId && String(r.backendId) === String(action.payload.backendId))
       );
       if (alreadyExists) return state;
-
       const req = {
         id,
         backendId:     action.payload.backendId ?? null,
@@ -289,36 +322,27 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Request status transitions ──
-    case "APPROVE_REQUEST": {
+    // ── Request status transitions ─────────────────────────────────────────────
+    case "APPROVE_REQUEST":
       next = {
         ...state,
-        requests: state.requests.map((r) =>
-          String(r.id) === String(action.id) ? { ...r, status: "Approved" } : r
-        ),
+        requests: state.requests.map((r) => String(r.id) === String(action.id) ? { ...r, status: "Approved" } : r),
       };
       break;
-    }
 
-    case "REJECT_REQUEST": {
+    case "REJECT_REQUEST":
       next = {
         ...state,
-        requests: state.requests.map((r) =>
-          String(r.id) === String(action.id) ? { ...r, status: "Rejected" } : r
-        ),
+        requests: state.requests.map((r) => String(r.id) === String(action.id) ? { ...r, status: "Rejected" } : r),
       };
       break;
-    }
 
-    case "ACTIVATE_REQUEST": {
+    case "ACTIVATE_REQUEST":
       next = {
         ...state,
-        requests: state.requests.map((r) =>
-          String(r.id) === String(action.id) ? { ...r, status: "Active" } : r
-        ),
+        requests: state.requests.map((r) => String(r.id) === String(action.id) ? { ...r, status: "Active" } : r),
       };
       break;
-    }
 
     case "COMPLETE_REQUEST": {
       const updated  = state.requests.map((r) =>
@@ -336,7 +360,6 @@ function reducer(state, action) {
       break;
     }
 
-    // SET_DATES — used by AdminPanel; also flips status → Active when both dates present
     case "SET_DATES":
     case "UPDATE_DATES": {
       const { id, startDate, endDate } = action;
@@ -382,20 +405,21 @@ function reducer(state, action) {
           : r
       );
       const updatedStaff = state.staff.map((s) => {
-        if (s.id !== staffId) return s;
+        if (String(s.id) !== String(staffId)) return s;
         const allReviews = [...(s.reviews || []), review];
-        const avg = allReviews.reduce((sum, rv) => sum + rv.rating, 0) / allReviews.length;
+        const avg        = allReviews.reduce((sum, rv) => sum + rv.rating, 0) / allReviews.length;
         return { ...s, reviews: allReviews, averageRating: Math.round(avg * 10) / 10, totalReviews: allReviews.length };
       });
       next = { ...state, requests: updatedReqs, staff: updatedStaff };
       break;
     }
 
-    // ── Staff registry ────────────────────────────────────────────────────────
+    // ── Staff registry ─────────────────────────────────────────────────────────
     case "ADD_STAFF": {
       const s = {
         ...action.payload,
         id:            state.nextStaffId,
+        otherSkills:   action.payload.otherSkills ?? [],
         status:        "Available",
         currentJobId:  null,
         averageRating: 0,
@@ -405,83 +429,65 @@ function reducer(state, action) {
       next = { ...state, staff: [...state.staff, s], nextStaffId: state.nextStaffId + 1 };
       break;
     }
-    case "UPDATE_STAFF": {
+    case "UPDATE_STAFF":
       next = {
         ...state,
         staff: state.staff.map((s) => s.id === action.payload.id ? { ...s, ...action.payload } : s),
       };
       break;
-    }
-    case "REMOVE_STAFF": {
+    case "REMOVE_STAFF":
       next = { ...state, staff: state.staff.filter((s) => s.id !== action.id) };
       break;
-    }
 
     // ── Blog ──────────────────────────────────────────────────────────────────
-    case "ADD_BLOG": {
-      next = {
-        ...state,
-        blog:       [...state.blog, { ...action.payload, id: state.nextBlogId }],
-        nextBlogId: state.nextBlogId + 1,
-      };
+    case "ADD_BLOG":
+      next = { ...state, blog: [...state.blog, { ...action.payload, id: state.nextBlogId }], nextBlogId: state.nextBlogId + 1 };
       break;
-    }
-    case "UPDATE_BLOG": {
-      next = {
-        ...state,
-        blog: state.blog.map((p) => p.id === action.payload.id ? { ...p, ...action.payload } : p),
-      };
+    case "UPDATE_BLOG":
+      next = { ...state, blog: state.blog.map((p) => p.id === action.payload.id ? { ...p, ...action.payload } : p) };
       break;
-    }
-    case "DELETE_BLOG": {
+    case "DELETE_BLOG":
       next = { ...state, blog: state.blog.filter((p) => p.id !== action.id) };
       break;
-    }
 
     // ── Testimonials ──────────────────────────────────────────────────────────
     case "ADD_TESTI": {
-      // Avoid duplicate if server already included it in a SET_REQUESTS-style sync
       const id = action.payload.id ?? state.nextTestiId;
       if (state.testimonials.some((t) => t.id === id)) {
         return { ...state, testimonials: state.testimonials.map((t) => t.id === id ? { ...t, ...action.payload } : t) };
       }
-      next = {
-        ...state,
-        testimonials: [...state.testimonials, { visible: true, ...action.payload, id }],
-        nextTestiId:  state.nextTestiId + 1,
-      };
+      next = { ...state, testimonials: [...state.testimonials, { visible: true, ...action.payload, id }], nextTestiId: state.nextTestiId + 1 };
       break;
     }
-    case "UPDATE_TESTI": {
-      next = {
-        ...state,
-        testimonials: state.testimonials.map((t) =>
-          t.id === action.payload.id ? { ...t, ...action.payload } : t
-        ),
-      };
+    case "UPDATE_TESTI":
+      next = { ...state, testimonials: state.testimonials.map((t) => t.id === action.payload.id ? { ...t, ...action.payload } : t) };
       break;
-    }
-    case "DELETE_TESTI": {
+    case "DELETE_TESTI":
       next = { ...state, testimonials: state.testimonials.filter((t) => t.id !== action.id) };
       break;
-    }
 
     // ── Messages ──────────────────────────────────────────────────────────────
-    case "MARK_MSG_READ": {
-      next = {
-        ...state,
-        messages: state.messages.map((m) => m.id === action.id ? { ...m, read: true } : m),
-      };
+    case "MARK_MSG_READ":
+      next = { ...state, messages: state.messages.map((m) => m.id === action.id ? { ...m, read: true } : m) };
       break;
-    }
-    case "ADD_MSG": {
+    case "ADD_MSG":
       next = {
         ...state,
-        messages:  [...state.messages, { ...action.payload, id: state.nextMsgId, read: false, time: "Just now" }],
+        messages:  [...state.messages, { replies: [], ...action.payload, id: state.nextMsgId, read: false, time: "Just now" }],
         nextMsgId: state.nextMsgId + 1,
       };
       break;
-    }
+    // ── Threaded replies — push { text, sentAt, from:"Admin" } into msg.replies[] ──
+    case "REPLY_MSG":
+      next = {
+        ...state,
+        messages: state.messages.map((m) =>
+          m.id === action.id
+            ? { ...m, replies: [...(m.replies ?? []), { text: action.text, sentAt: Date.now(), from: "Admin" }] }
+            : m
+        ),
+      };
+      break;
 
     default:
       return state;
@@ -496,8 +502,34 @@ const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadState);
+
+  // ── Real-time polling: fetch marketplace every POLL_INTERVAL ms ──
+  const timerRef = useRef(null);
+
+  const syncMarketplace = useCallback(async () => {
+    try {
+      const data = await apiGetMarketplace();
+      // The endpoint returns something like { users, requests, staff } — adjust
+      // field names here if your backend uses different keys.
+      const users    = data.users    ?? data.registeredUsers ?? [];
+      const requests = data.requests ?? data.staffRequests   ?? [];
+      const staff    = data.staff    ?? data.staffMembers    ?? [];
+      dispatch({ type: "SYNC_MARKETPLACE", payload: { users, requests, staff } });
+    } catch {
+      // Silently swallow — we still have cached state; try again next interval
+    }
+  }, []);
+
+  useEffect(() => {
+    // Initial fetch on mount
+    syncMarketplace();
+    // Set up polling
+    timerRef.current = setInterval(syncMarketplace, POLL_INTERVAL);
+    return () => clearInterval(timerRef.current);
+  }, [syncMarketplace]);
+
   return (
-    <StoreContext.Provider value={{ state, dispatch }}>
+    <StoreContext.Provider value={{ state, dispatch, syncMarketplace }}>
       {children}
     </StoreContext.Provider>
   );
@@ -509,17 +541,16 @@ export function useStore() {
   return ctx;
 }
 
-// ─── Profile helpers (separate localStorage key — contains base64 photos) ─────
+// ─── Profile helpers ──────────────────────────────────────────────────────────
 const PROFILE_KEY = "rnh_profile_v1";
 
 export function loadProfile() {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  try { const raw = localStorage.getItem(PROFILE_KEY); return raw ? JSON.parse(raw) : null; }
+  catch { return null; }
 }
 
 export function saveProfile(profile) {
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
 }
+
 export default normaliseRequest;
