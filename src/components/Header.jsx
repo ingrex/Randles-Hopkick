@@ -134,7 +134,7 @@ const Header = () => {
       <div className="relative max-w-7xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
 
         {/* ── LEFT: LOGO ── */}
-        <div className="flex items-center min-w-[140px]">
+        <div className="flex items-center pt-4 min-w-[140px]">
           <NavLink to="/" className="flex items-center">
             <Logo className="w-auto" />
           </NavLink>

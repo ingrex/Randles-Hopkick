@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Invalid credentials");
+      if (!res.ok) throw new Error(data.message || "Invalid credential");
 
       const userData = data.user || data;
 

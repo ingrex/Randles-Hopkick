@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiStaffRequest } from "../api/auth";
 
 /* ─── date option arrays ─────────────────────────────────────── */
@@ -33,14 +34,29 @@ select option       { background: #0d1e35; color: #ddeeff; }
   /* DOB row: stack day/month/year vertically */
   .dob-grid { grid-template-columns: 1fr !important; }
   /* tighten inner card padding */
-  .sf-inner { padding: 8px 18px 28px !important; }
+  .sf-inner { padding: 8px 14px 24px !important; }
   /* step label: allow wrap and shrink font */
   .step-lbl { font-size: 8px !important; white-space: normal !important; text-align: center; max-width: 52px; }
   /* h1 title: shrink on small screens */
-  .sf-title { font-size: 22px !important; }
+  .sf-title { font-size: 20px !important; }
   /* nav buttons: stack vertically */
   .sf-nav { flex-direction: column !important; }
   .sf-nav button { width: 100% !important; flex: none !important; }
+  /* ensure inputs/selects never overflow */
+  input, select, textarea {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    font-size: 14px !important;
+  }
+  /* progress step circle: slightly smaller */
+  .step-circle { width: 26px !important; height: 26px !important; font-size: 10px !important; }
+  /* gender toggle buttons: shrink text */
+  .gender-btn { font-size: 12px !important; padding: 10px 4px !important; }
+}
+
+@media (max-width: 380px) {
+  .sf-inner { padding: 6px 10px 20px !important; }
+  .sf-title { font-size: 18px !important; }
 }
 `;
 
@@ -51,7 +67,9 @@ const SKY   = { 300:"#7dd3fc", 400:"#38bdf8", 500:"#0ea5e9", 600:"#0284c7", 700:
 
 /* ── shared field styles ── */
 const BASE = {
-  width:"100%", fontFamily:FONT, fontSize:13, fontWeight:400,
+  width:"100%",
+  minWidth:0,          /* ← prevents flex/grid blowout on mobile */
+  fontFamily:FONT, fontSize:13, fontWeight:400,
   color:"#ddeeff", borderRadius:20, outline:"none", transition:"all .28s ease",
 };
 
@@ -123,7 +141,7 @@ function validate(form, keys) {
 function InputField({ label, value, onChange, placeholder, type="text", err, req:r }) {
   const [f, setF] = useState(false);
   return (
-    <div style={{ display:"flex", flexDirection:"column" }}>
+    <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
       <label style={LBL_ST}>{label}{r && <span style={{color:SKY[300]}}> *</span>}</label>
       <input
         style={err ? iErr : f ? iFocus : iRest}
@@ -138,9 +156,9 @@ function InputField({ label, value, onChange, placeholder, type="text", err, req
 function SelectField({ label, value, onChange, opts, placeholder, err, req:r }) {
   const [f, setF] = useState(false);
   return (
-    <div style={{ display:"flex", flexDirection:"column" }}>
+    <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
       <label style={LBL_ST}>{label}{r && <span style={{color:SKY[300]}}> *</span>}</label>
-      <div style={{ position:"relative" }}>
+      <div style={{ position:"relative", minWidth:0 }}>
         <select
           style={err ? sErr : f ? sFocus : sRest}
           value={value} onChange={onChange}
@@ -159,7 +177,7 @@ function SelectField({ label, value, onChange, opts, placeholder, err, req:r }) 
 function DOBSelect({ value, onChange, placeholder, opts, hasErr }) {
   const [f, setF] = useState(false);
   return (
-    <div style={{ position:"relative" }}>
+    <div style={{ position:"relative", minWidth:0 }}>
       <select
         style={hasErr ? sErr : f ? sFocus : sRest}
         value={value} onChange={onChange}
@@ -176,7 +194,7 @@ function DOBSelect({ value, onChange, placeholder, opts, hasErr }) {
 function TextareaField({ label, value, onChange, placeholder, err, req:r, rows=4 }) {
   const [f, setF] = useState(false);
   return (
-    <div style={{ display:"flex", flexDirection:"column" }}>
+    <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
       <label style={LBL_ST}>{label}{r && <span style={{color:SKY[300]}}> *</span>}</label>
       <textarea
         style={err ? tErr : f ? tFocus : tRest}
@@ -206,6 +224,7 @@ function GenderBtn({ label, active, onClick }) {
     <button
       type="button" onClick={onClick}
       onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      className="gender-btn"
       style={{
         flex:1, padding:"11px 8px", borderRadius:20, fontFamily:FONT,
         fontSize:13, fontWeight:500, cursor:"pointer", transition:"all .28s ease",
@@ -236,19 +255,23 @@ function Progress({ step, pct }) {
           return (
             <div key={s} style={{ display:"flex", alignItems:"center", flex: i < 2 ? 1 : "none" }}>
               <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
-                <div style={{
-                  width:32, height:32, borderRadius:"50%",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontFamily:FONT, fontSize:12, fontWeight:600, transition:"all .4s ease",
-                  background: done   ? `linear-gradient(135deg,${SKY[700]},${SKY[400]})`
-                               : active ? `linear-gradient(135deg,${SKY[500]},${SKY[300]})`
-                                        : "rgba(255,255,255,.1)",
-                  border: active ? `2px solid ${SKY[300]}aa`
-                          : done  ? "2px solid transparent"
-                                  : "2px solid rgba(255,255,255,.2)",
-                  color: done||active ? "#fff" : "rgba(180,215,255,.5)",
-                  boxShadow: active ? `0 0 16px rgba(14,165,233,.45)` : "none",
-                }}>
+                <div
+                  className="step-circle"
+                  style={{
+                    width:32, height:32, borderRadius:"50%",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontFamily:FONT, fontSize:12, fontWeight:600, transition:"all .4s ease",
+                    background: done   ? `linear-gradient(135deg,${SKY[700]},${SKY[400]})`
+                                 : active ? `linear-gradient(135deg,${SKY[500]},${SKY[300]})`
+                                          : "rgba(255,255,255,.1)",
+                    border: active ? `2px solid ${SKY[300]}aa`
+                            : done  ? "2px solid transparent"
+                                    : "2px solid rgba(255,255,255,.2)",
+                    color: done||active ? "#fff" : "rgba(180,215,255,.5)",
+                    boxShadow: active ? `0 0 16px rgba(14,165,233,.45)` : "none",
+                    flexShrink: 0,
+                  }}
+                >
                   {done ? (
                     <svg width="13" height="11" viewBox="0 0 13 11" fill="none">
                       <path d="M1.5 5.5L5 9L11.5 2" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -338,8 +361,8 @@ function SecondaryBtn({ children, onClick }) {
 }
 
 /* ═══════════════════════ SUCCESS MODAL ════════════════════════ */
-// Unchanged — SuccessModal is a portal overlay, not part of the page bg
-function SuccessModal({ onAction }) {
+// FIX: accepts onDashboard + onHome as separate handlers
+function SuccessModal({ onDashboard, onHome }) {
   return (
     <div style={{
       position:"fixed", inset:0, zIndex:100,
@@ -376,8 +399,10 @@ function SuccessModal({ onAction }) {
           Your details have been submitted successfully. Our team at Randle &amp; Hopkins will review your application and be in touch shortly.
         </p>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          <PrimaryBtn onClick={onAction}>Go to Dashboard →</PrimaryBtn>
-          <SecondaryBtn onClick={onAction}>Back to Home</SecondaryBtn>
+          {/* FIX: navigates to /dashboard */}
+          <PrimaryBtn onClick={onDashboard}>Go to Dashboard →</PrimaryBtn>
+          {/* FIX: navigates to / */}
+          <SecondaryBtn onClick={onHome}>Back to Home</SecondaryBtn>
         </div>
       </div>
     </div>
@@ -421,6 +446,8 @@ const QUALIFICATION_OPTIONS = [
 
 /* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
 export function StaffForm() {
+  const navigate = useNavigate(); // FIX: add navigation
+
   const [step,    setStep]    = useState(1);
   const [form,    setForm]    = useState(INIT);
   const [errs,    setErrs]    = useState({});
@@ -505,14 +532,12 @@ export function StaffForm() {
     { title:"Professional Details",  sub:"Your skills and qualifications help us match you." },
   ];
 
-  // CHANGED: removed full-page layout (minHeight 100vh, bgImage, overlay divs, ambient orbs,
-  // blurred bg panel). Now renders as a self-contained glass modal card matching ClientForm1.
   return (
     <div style={{
       width: "100%",
       maxHeight: "85vh",
       overflowY: "auto",
-      overflowX: "hidden",
+      overflowX: "hidden",   /* FIX: hard-stop horizontal overflow */
       borderRadius: 20,
       background: "rgba(255,255,255,0.08)",
       backdropFilter: "blur(28px) saturate(130%)",
@@ -523,15 +548,18 @@ export function StaffForm() {
     }}>
       <style>{KEYFRAMES}</style>
 
-      {/* sky-blue top accent line — preserved from original card */}
+      {/* sky-blue top accent line */}
       <div style={{ height:2, background:`linear-gradient(90deg,transparent,${SKY[500]}cc,${SKY[400]}88,transparent)` }}/>
 
       {/* Spacer so parent modal close button never overlaps card content */}
       <div style={{ height: 48 }} aria-hidden="true" />
 
-      <div className="sf-inner" style={{ padding:"4px 40px 40px", fontFamily:FONT }}>
+      <div
+        className="sf-inner"
+        style={{ padding:"4px 40px 40px", fontFamily:FONT }}
+      >
 
-        {/* brand header — unchanged */}
+        {/* brand header */}
         <div style={{ marginBottom:24 }}>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:8 }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:`linear-gradient(135deg,${SKY[500]},${SKY[300]})`, boxShadow:`0 0 8px ${SKY[500]}88` }}/>
@@ -549,7 +577,7 @@ export function StaffForm() {
 
         <Progress step={step} pct={pct}/>
 
-        {/* animated step content — all unchanged */}
+        {/* animated step content */}
         <div key={animKey} style={stepAnim}>
 
           {/* ── STEP 1: Personal Information ── */}
@@ -560,9 +588,9 @@ export function StaffForm() {
               <InputField label="Email Address" type="email" value={form.email} onChange={set("email")} placeholder="you@example.com" err={errs.email} req/>
               <InputField label="Phone Number" type="tel" value={form.phone} onChange={set("phone")} placeholder="+234 800 000 0000" err={errs.phone} req/>
 
-              <div style={{ display:"flex", flexDirection:"column" }}>
+              <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
                 <label style={LBL_ST}>Nationality<span style={{color:SKY[300]}}> *</span></label>
-                <div style={{ position:"relative" }}>
+                <div style={{ position:"relative", minWidth:0 }}>
                   <select style={errs.nationality ? sErr : sRest} value={form.nationality} onChange={set("nationality")}>
                     <option value="">Select nationality</option>
                     {NATIONALITY_OPTIONS.map(o => (
@@ -619,9 +647,9 @@ export function StaffForm() {
               </div>
 
               <div className="ff" style={{ gridColumn:"1/-1" }}>
-                <div style={{ display:"flex", flexDirection:"column" }}>
+                <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
                   <label style={LBL_ST}>Educational Qualification<span style={{color:SKY[300]}}> *</span></label>
-                  <div style={{ position:"relative" }}>
+                  <div style={{ position:"relative", minWidth:0 }}>
                     <select style={errs.qualification ? sErr : sRest} value={form.qualification} onChange={set("qualification")}>
                       <option value="">Select qualification</option>
                       {QUALIFICATION_OPTIONS.map(o => (
@@ -665,7 +693,7 @@ export function StaffForm() {
           )}
         </div>
 
-        {/* navigation — unchanged */}
+        {/* navigation */}
         <div className="sf-nav" style={{ display:"flex", gap:12, marginTop:28 }}>
           {step > 1 && <SecondaryBtn onClick={goBack}>← Back</SecondaryBtn>}
           <PrimaryBtn onClick={goNext} disabled={loading}>
@@ -683,10 +711,16 @@ export function StaffForm() {
         </p>
       </div>
 
-      {/* bottom shimmer — preserved */}
+      {/* bottom shimmer */}
       <div style={{ height:1, background:"linear-gradient(90deg,transparent,rgba(14,165,233,.1),transparent)" }}/>
 
-      {done && <SuccessModal onAction={() => setDone(false)}/>}
+      {/* FIX: pass separate handlers — dashboard navigates, home navigates to / */}
+      {done && (
+        <SuccessModal
+          onDashboard={() => navigate("/dashboard")}
+          onHome={() => navigate("/")}
+        />
+      )}
     </div>
   );
 }

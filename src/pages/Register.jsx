@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./AuthContext";
-import { useStore } from "../store";       // ← NEW
+import { useStore } from "../store";
 import { Home } from "lucide-react";
 import Logo from "../components/Logo";
 
@@ -66,14 +66,68 @@ function validateField(f, val, all) {
   return null;
 }
 
+/* ───────── AVATAR UPLOAD (step 0 extra UI) ───────── */
+function AvatarUpload({ photoUrl, surname, otherNames, onPhotoChange }) {
+  const fileRef = useRef();
+  const initials = [surname?.[0], otherNames?.[0]]
+    .filter(Boolean).join("").toUpperCase() || "?";
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onPhotoChange(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="flex items-center gap-3 mb-4 p-2.5 rounded-xl bg-white/5 border border-white/10">
+      {/* Small avatar */}
+      <div className="relative cursor-pointer group flex-shrink-0" onClick={() => fileRef.current?.click()}>
+        {photoUrl ? (
+          <img src={photoUrl} alt="avatar"
+            className="w-10 h-10 rounded-full object-cover border border-[#2385cd]/60" />
+        ) : (
+          <div className="w-10 h-10 rounded-full border border-dashed border-white/30 bg-white/10 flex items-center justify-center text-sm font-bold text-white/50 group-hover:border-[#2385cd]/60 transition-all duration-200">
+            {initials}
+          </div>
+        )}
+        {/* Camera dot */}
+        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#2385cd] flex items-center justify-center shadow">
+          <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"
+            fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </div>
+      </div>
+
+      {/* Text + button inline */}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-white/50 leading-tight">
+          Profile photo <span className="text-white/25">(optional)</span>
+        </p>
+        {photoUrl && <p className="text-[10px] text-white/30 truncate mt-0.5">Photo selected</p>}
+      </div>
+      <button type="button" onClick={() => fileRef.current?.click()}
+        className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white/60 hover:text-white hover:border-[#2385cd]/60 transition-all duration-200">
+        {photoUrl ? "Change" : "Upload"}
+      </button>
+
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+    </div>
+  );
+}
+
 /* ───────── COMPONENT ───────── */
 export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
   const { register }  = useAuth();
-  const { dispatch }  = useStore();    // ← NEW: save to shared store
+  const { dispatch }  = useStore();
 
   const [step,        setStep]        = useState(0);
   const [data,        setData]        = useState({
-    surname: "", otherNames: "", phoneNumber: "", email: "", password: "", confirmPassword: "",
+    surname: "", otherNames: "", phoneNumber: "", email: "",
+    password: "", confirmPassword: "", photoUrl: "",
   });
   const [errors,      setErrors]      = useState({});
   const [apiError,    setApiError]    = useState("");
@@ -82,7 +136,6 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
   const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const rootRef = useRef(null);
   const curStep = STEPS[step];
   const isLast  = step === STEPS.length - 1;
   const pct     = ((step + 1) / STEPS.length) * 100;
@@ -111,7 +164,7 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
         return;
       }
 
-      // ── Save registered user into the shared store so AdminPanel lists them ──
+      // Save registered user into shared store (+ photo)
       dispatch({
         type: "REGISTER_USER",
         payload: {
@@ -119,9 +172,18 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
           otherNames:   data.otherNames,
           email:        data.email,
           phoneNumber:  data.phoneNumber,
+          photoUrl:     data.photoUrl,
           registeredAt: new Date().toISOString(),
         },
       });
+
+      // Persist photo for dashboard to pick up
+      if (data.photoUrl) {
+        try {
+          const existing = JSON.parse(localStorage.getItem("userProfile") || "{}");
+          localStorage.setItem("userProfile", JSON.stringify({ ...existing, photoUrl: data.photoUrl }));
+        } catch {}
+      }
 
       setDone(true);
     } catch (e) {
@@ -134,7 +196,7 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
   const back = () => step > 0 && setStep((s) => s - 1);
 
   return (
-    <div ref={rootRef} className="min-h-screen flex items-center justify-center bg-[#030410] text-white relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#030410] text-white relative overflow-hidden">
       {/* BACKGROUND GLOW */}
       <motion.div
         className="absolute w-[400px] h-[400px] rounded-full blur-[90px]"
@@ -221,6 +283,16 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
               <p className="text-xs text-white/30 mb-1 uppercase tracking-widest">Step {step + 1} of {STEPS.length}</p>
               <h2 className="text-xl mb-1">{curStep.title}</h2>
               <p className="text-sm text-white/50 mb-4">{curStep.sub}</p>
+
+              {/* ── Optional photo upload on step 1 only ── */}
+              {step === 0 && (
+                <AvatarUpload
+                  photoUrl={data.photoUrl}
+                  surname={data.surname}
+                  otherNames={data.otherNames}
+                  onPhotoChange={(url) => setData((p) => ({ ...p, photoUrl: url }))}
+                />
+              )}
 
               {apiError && (
                 <div className="bg-red-500/10 border border-red-400 p-3 rounded mb-4 text-sm text-red-300">⚠ {apiError}</div>

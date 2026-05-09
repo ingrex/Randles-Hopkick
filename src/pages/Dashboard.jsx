@@ -1,16 +1,11 @@
 // src/pages/Dashboard.jsx
-// ─── Features ─────────────────────────────────────────────────────────────────
-// • Data persists via store (localStorage) — survives page refresh
-// • "Switch Mode" bold label above mode dropdown
-// • Staff mode: shows average star rating
-// • Individual mode: personal info in header
-// • Organization mode: company/position info in header
-// • Pending tab: shows pending requests
-// • Approved tab: shows approved (admin set dates visible)
-// • Active tab: shows active jobs (Review button available when Completed)
-// • Completed tab: Review button → star rating modal → updates staff rating
-// • Edit Profile: photo upload, marital status, skill, experience, position, etc.
-// • Admin panel link in header (top-right corner)
+// ─── Changes from previous version ───────────────────────────────────────────
+// • Header now shows the authenticated user's name (from AuthContext)
+// • Avatar uses registered photo (if uploaded) or username initials
+// • "Edit Profile" removed; replaced by mode-specific behaviour:
+//     – Staff mode   → opens StaffForm (professional details)
+//     – Other modes  → opens PhotoEditModal (avatar / initials only)
+// • photoUrl persisted to localStorage "userProfile" key
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect } from "react";
@@ -19,7 +14,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import ClientForm1 from "../ApplicationForms/ClientForm1";
 import StaffForm   from "../ApplicationForms/StaffForm";
 import PrivateForm from "../ApplicationForms/PrivateForm";
-import { useStore, loadProfile, saveProfile } from "../store";
+import { useStore } from "../store";
+import { useAuth }  from "./AuthContext";
 
 const MODES = ["Private", "Organization", "Staff"];
 
@@ -69,6 +65,23 @@ function StarRating({ value, max = 5, size = "sm" }) {
   );
 }
 
+// ── Avatar — photo or initials ────────────────────────────────────────────────
+function UserAvatar({ photoUrl, initials, size = "md", onClick }) {
+  const dim = size === "lg" ? "w-16 h-16 sm:w-20 sm:h-20 text-2xl" : "w-14 h-14 sm:w-16 sm:h-16 text-xl";
+  return (
+    <motion.div whileHover={{ scale: 1.05 }} onClick={onClick}
+      className={`${dim} rounded-full border-2 border-white flex-shrink-0 ${onClick ? "cursor-pointer" : ""} overflow-hidden`}>
+      {photoUrl ? (
+        <img src={photoUrl} alt="avatar" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full bg-sky-400/30 flex items-center justify-center font-bold text-white">
+          {initials}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 // ── Modal shell ───────────────────────────────────────────────────────────────
 function Modal({ open, onClose, children }) {
   if (!open) return null;
@@ -85,13 +98,87 @@ function Modal({ open, onClose, children }) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="absolute inset-0 bg-sky-400/10 blur-3xl rounded-xl pointer-events-none" />
-          <button onClick={onClose} className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-slate-700 border border-white/20 text-white flex items-center justify-center hover:bg-slate-600 transition">
+          <button onClick={onClose}
+            className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-slate-700 border border-white/20 text-white flex items-center justify-center hover:bg-slate-600 transition">
             ✕
           </button>
           <div className="relative">{children}</div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+// ── Photo-only Edit Modal (for Private / Organization mode) ───────────────────
+function PhotoEditModal({ photoUrl, initials, onSave, onClose }) {
+  const [preview, setPreview] = useState(photoUrl || "");
+  const fileRef = useRef();
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="w-full p-8 text-white rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-white/10 shadow-xl">
+      <h2 className="text-lg font-semibold mb-1">Profile Picture</h2>
+      <p className="text-sm text-white/40 mb-6">Upload a photo or keep your initials avatar.</p>
+
+      <div className="flex flex-col items-center gap-4 mb-8">
+        {/* Preview */}
+        <div className="relative group cursor-pointer" onClick={() => fileRef.current?.click()}>
+          {preview ? (
+            <img src={preview} alt="preview"
+              className="w-28 h-28 rounded-full object-cover border-2 border-sky-400/60 shadow-lg" />
+          ) : (
+            <div className="w-28 h-28 rounded-full bg-sky-400/20 border-2 border-dashed border-sky-400/40 flex items-center justify-center text-3xl font-bold text-sky-300">
+              {initials}
+            </div>
+          )}
+          {/* Camera overlay */}
+          <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"
+              fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+        </div>
+
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+
+        <div className="flex gap-3">
+          <button onClick={() => fileRef.current?.click()}
+            className="px-4 py-2 bg-sky-400/20 border border-sky-400/40 text-sky-300 rounded-xl text-sm hover:bg-sky-400/30 transition-colors">
+            {preview ? "Change Photo" : "Upload Photo"}
+          </button>
+          {preview && (
+            <button onClick={() => setPreview("")}
+              className="px-4 py-2 bg-white/10 border border-white/20 text-white/50 rounded-xl text-sm hover:bg-white/20 transition-colors">
+              Remove
+            </button>
+          )}
+        </div>
+
+        <p className="text-xs text-white/25 text-center">
+          If no photo is uploaded, your initials (<span className="text-sky-400 font-semibold">{initials}</span>) will be shown.
+        </p>
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <button onClick={onClose}
+          className="px-5 py-2 bg-white/10 text-white rounded-xl font-medium text-sm hover:bg-white/20 transition">
+          Cancel
+        </button>
+        <button onClick={() => onSave(preview)}
+          className="px-5 py-2 bg-sky-400 text-black rounded-xl font-medium text-sm hover:bg-sky-300 transition">
+          Save
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -114,7 +201,6 @@ function ReviewModal({ request, staffList, onSubmit, onClose }) {
       <h2 className="text-xl font-semibold">Review completed job</h2>
       <p className="text-white/60 text-sm">Your rating helps us match the best staff with future clients.</p>
 
-      {/* Staff selector (if multiple assigned) */}
       {request.assignedStaff?.length > 1 && (
         <div>
           <p className="text-xs text-white/50 mb-2">Rate which staff member?</p>
@@ -129,7 +215,6 @@ function ReviewModal({ request, staffList, onSubmit, onClose }) {
         </div>
       )}
 
-      {/* Stars */}
       <div>
         <p className="text-xs text-white/50 mb-2">Overall rating *</p>
         <div className="flex gap-1">
@@ -138,8 +223,9 @@ function ReviewModal({ request, staffList, onSubmit, onClose }) {
               onMouseEnter={() => setHover(star)}
               onMouseLeave={() => setHover(0)}
               onClick={() => setRating(star)}
-              className={`text-3xl transition ${star <= (hover || rating) ? "text-yellow-400" : "text-white/20"}`}
-            >★</button>
+              className={`text-3xl transition ${star <= (hover || rating) ? "text-yellow-400" : "text-white/20"}`}>
+              ★
+            </button>
           ))}
         </div>
         {rating > 0 && (
@@ -149,7 +235,6 @@ function ReviewModal({ request, staffList, onSubmit, onClose }) {
         )}
       </div>
 
-      {/* Comment */}
       <div>
         <p className="text-xs text-white/50 mb-2">Comments (optional)</p>
         <textarea
@@ -172,209 +257,50 @@ function ReviewModal({ request, staffList, onSubmit, onClose }) {
   );
 }
 
-// ── Edit Profile Modal ────────────────────────────────────────────────────────
-const MARITAL_OPTIONS   = ["Single", "Married", "Divorced", "Widowed", "Prefer not to say"];
-const EXPERIENCE_LEVELS = ["Under 1 year", "1–2 years", "3–5 years", "5–10 years", "Over 10 years"];
-
-function EditProfileModal({ profile, mode, onSave, onClose }) {
-  const [form, setForm] = useState({ ...profile });
-  const fileRef = useRef();
-
-  const handle = (e) => {
-    const { name, value } = e.target;
-    setForm((p) => ({ ...p, [name]: value }));
-  };
-
-  const handlePhoto = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setForm((p) => ({ ...p, photoUrl: reader.result }));
-    reader.readAsDataURL(file);
-  };
-
-  const initials = (form.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
-
-  const fieldCls = "w-full rounded-xl px-3 py-2 bg-white/10 border border-white/20 text-white outline-none focus:border-sky-400/60 transition text-sm placeholder-white/30";
-  const selectCls = fieldCls + " appearance-none cursor-pointer";
-  const Label = ({ children }) => <label className="text-xs text-white/50 mb-1 block">{children}</label>;
-
-  return (
-    <div className="w-full max-h-[88vh] overflow-y-auto p-6 text-white rounded-xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-white/10 shadow-lg">
-      <h2 className="text-xl font-semibold mb-5">Edit Profile</h2>
-
-      {/* Photo upload */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="relative cursor-pointer" onClick={() => fileRef.current?.click()}>
-          {form.photoUrl ? (
-            <img src={form.photoUrl} alt="avatar" className="w-20 h-20 rounded-full object-cover border-2 border-sky-400/60" />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-sky-400/20 border-2 border-sky-400/40 flex items-center justify-center text-2xl font-bold text-sky-300">
-              {initials}
-            </div>
-          )}
-          <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-sky-400 flex items-center justify-center text-black text-xs font-bold">✏️</div>
-        </div>
-        <div>
-          <p className="font-semibold">{form.name || "Your Name"}</p>
-          <button onClick={() => fileRef.current?.click()} className="text-xs text-sky-400 hover:text-sky-300 transition mt-0.5">
-            Change profile photo
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-        </div>
-      </div>
-
-      {/* Common fields */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="col-span-2">
-          <Label>Full name *</Label>
-          <input name="name" value={form.name || ""} onChange={handle} className={fieldCls} placeholder="e.g. Eze Emeka" />
-        </div>
-        <div>
-          <Label>Email address *</Label>
-          <input name="email" type="email" value={form.email || ""} onChange={handle} className={fieldCls} placeholder="you@example.com" />
-        </div>
-        <div>
-          <Label>Phone number *</Label>
-          <input name="phone" value={form.phone || ""} onChange={handle} className={fieldCls} placeholder="080..." />
-        </div>
-        <div className="col-span-2">
-          <Label>Home / residential address</Label>
-          <input name="homeAddress" value={form.homeAddress || ""} onChange={handle} className={fieldCls} placeholder="Street, city, state" />
-        </div>
-        <div>
-          <Label>Date of birth</Label>
-          <input name="dob" type="date" value={form.dob || ""} onChange={handle} className={fieldCls} />
-        </div>
-        <div>
-          <Label>Marital status</Label>
-          <select name="maritalStatus" value={form.maritalStatus || ""} onChange={handle} className={selectCls}>
-            <option value="">Select…</option>
-            {MARITAL_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* Mode-specific fields */}
-      {mode === "Private" && (
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="col-span-2">
-            <Label>Occupation / job title</Label>
-            <input name="occupation" value={form.occupation || ""} onChange={handle} className={fieldCls} placeholder="e.g. Business owner" />
-          </div>
-        </div>
-      )}
-
-      {mode === "Organization" && (
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <Label>Company / organisation name</Label>
-            <input name="companyName" value={form.companyName || ""} onChange={handle} className={fieldCls} placeholder="Acme Ltd" />
-          </div>
-          <div>
-            <Label>Your position / role</Label>
-            <input name="position" value={form.position || ""} onChange={handle} className={fieldCls} placeholder="e.g. HR Manager" />
-          </div>
-          <div>
-            <Label>Industry</Label>
-            <input name="industry" value={form.industry || ""} onChange={handle} className={fieldCls} placeholder="e.g. Finance" />
-          </div>
-          <div>
-            <Label>Company registration no.</Label>
-            <input name="regNo" value={form.regNo || ""} onChange={handle} className={fieldCls} placeholder="RC-..." />
-          </div>
-        </div>
-      )}
-
-      {mode === "Staff" && (
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <Label>Primary skill / trade *</Label>
-            <input name="skill" value={form.skill || ""} onChange={handle} className={fieldCls} placeholder="e.g. Electrician" />
-          </div>
-          <div>
-            <Label>Years of experience</Label>
-            <select name="experience" value={form.experience || ""} onChange={handle} className={selectCls}>
-              <option value="">Select…</option>
-              {EXPERIENCE_LEVELS.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div className="col-span-2">
-            <Label>Other skills / specialisations</Label>
-            <input name="otherSkills" value={form.otherSkills || ""} onChange={handle} className={fieldCls} placeholder="e.g. Solar installation, CCTV" />
-          </div>
-          <div className="col-span-2">
-            <Label>Brief bio / professional summary</Label>
-            <textarea name="bio" value={form.bio || ""} onChange={handle} rows={3}
-              className={fieldCls + " resize-none"} placeholder="Tell clients about yourself…" />
-          </div>
-          <div>
-            <Label>Availability</Label>
-            <select name="availability" value={form.availability || ""} onChange={handle} className={selectCls}>
-              <option value="">Select…</option>
-              <option>Full-time</option>
-              <option>Part-time</option>
-              <option>Contract only</option>
-            </select>
-          </div>
-          <div>
-            <Label>NIN / ID number</Label>
-            <input name="nin" value={form.nin || ""} onChange={handle} className={fieldCls} placeholder="NIN or national ID" />
-          </div>
-        </div>
-      )}
-
-      {/* Emergency contact */}
-      <div className="grid grid-cols-2 gap-3 mb-5 pt-2 border-t border-white/10">
-        <p className="col-span-2 text-xs text-white/40 font-semibold uppercase tracking-wide pt-1">Emergency contact</p>
-        <div>
-          <Label>Name</Label>
-          <input name="emergencyName" value={form.emergencyName || ""} onChange={handle} className={fieldCls} placeholder="Full name" />
-        </div>
-        <div>
-          <Label>Phone</Label>
-          <input name="emergencyPhone" value={form.emergencyPhone || ""} onChange={handle} className={fieldCls} placeholder="080..." />
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-3">
-        <button onClick={onClose} className="px-5 py-2 bg-white/10 text-white rounded-xl font-medium text-sm hover:bg-white/20 transition">
-          Cancel
-        </button>
-        <button onClick={() => onSave(form)} className="px-5 py-2 bg-sky-400 text-black rounded-xl font-medium text-sm">
-          Save changes
-        </button>
-      </div>
-    </div>
-  );
+// ── Load / save photo from localStorage ──────────────────────────────────────
+function loadPhoto() {
+  try { return JSON.parse(localStorage.getItem("userProfile") || "{}")?.photoUrl || ""; }
+  catch { return ""; }
 }
 
-// ── Default profile ───────────────────────────────────────────────────────────
-const DEFAULT_PROFILE = {
-  name: "Eze Emeka", email: "", phone: "", homeAddress: "",
-  dob: "", maritalStatus: "", occupation: "", companyName: "", position: "",
-  industry: "", regNo: "", skill: "", experience: "", otherSkills: "",
-  bio: "", availability: "", nin: "", emergencyName: "", emergencyPhone: "",
-  photoUrl: "",
-};
+function savePhoto(url) {
+  try {
+    const existing = JSON.parse(localStorage.getItem("userProfile") || "{}");
+    localStorage.setItem("userProfile", JSON.stringify({ ...existing, photoUrl: url }));
+  } catch {}
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN Dashboard
 // ─────────────────────────────────────────────────────────────────────────────
 export function Dashboard() {
-  const location             = useLocation();
-  const navigate             = useNavigate();
+  const location                   = useLocation();
+  const navigate                   = useNavigate();
   const { state: store, dispatch } = useStore();
+  const { user }                   = useAuth();   // ← registered user data
 
   const [mode,      setMode]      = useState("Private");
   const [activeTab, setActiveTab] = useState("Pending");
   const [modalType, setModalType] = useState(null);
   const [reviewReq, setReviewReq] = useState(null);
 
-  // Persist profile separately (includes base64 photo)
-  const [profile, setProfile] = useState(() => loadProfile() ?? DEFAULT_PROFILE);
+  // Only the photo is stored locally — all other identity comes from AuthContext
+  const [photoUrl, setPhotoUrl]   = useState(() => loadPhoto());
 
-  const saveAndSetProfile = (p) => { setProfile(p); saveProfile(p); };
+  const saveAndSetPhoto = (url) => { setPhotoUrl(url); savePhoto(url); };
+
+  // Build display name from registered user
+  const displayName = user
+    ? `${user.surname || ""} ${user.otherNames || ""}`.trim()
+    : "User";
+
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "?";
 
   // Auto-open modal from navigation state
   useEffect(() => {
@@ -387,16 +313,28 @@ export function Dashboard() {
     }
   }, [location.state]);
 
+  // Primary action button (+ Request Staff / + Get Job)
   const handlePrimaryAction = () => {
-    if (mode === "Staff")        setModalType("staff");
-    else if (mode === "Organization") setModalType("organization");
-    else                          setModalType("private");
+    if (mode === "Staff")              setModalType("staff");
+    else if (mode === "Organization")  setModalType("organization");
+    else                               setModalType("private");
+  };
+
+  // Edit Profile button — behaviour depends on mode
+  const handleEditProfile = () => {
+    if (mode === "Staff") {
+      // Open full StaffForm for professional details
+      setModalType("staffProfile");
+    } else {
+      // Open photo-only modal for Private / Organization
+      setModalType("photoEdit");
+    }
   };
 
   const closeModal = () => { setModalType(null); setReviewReq(null); };
 
   // ── Derived data ────────────────────────────────────────────────────────
-  const myRequests = store.requests; // In a real app, filter by user id
+  const myRequests = store.requests;
 
   const filtered = myRequests.filter((r) => {
     if (activeTab === "Pending")   return r.status === "Pending";
@@ -413,16 +351,15 @@ export function Dashboard() {
     completed: myRequests.filter((r) => r.status === "Completed").length,
   };
 
-  // Staff mode: find the matching staff record for rating display
-  const staffRecord = store.staff.find((s) => s.name === profile.name || s.email === profile.email);
+  const staffRecord = store.staff.find(
+    (s) => s.name === displayName || s.email === user?.email
+  );
 
-  // Profile display
-  const initials   = (profile.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
-  const subTitle   = mode === "Staff"        ? (profile.skill || "Staff Member")
-                   : mode === "Organization" ? (profile.position || "Organisation")
-                   : (profile.occupation || "Private Client");
+  const subTitle =
+    mode === "Staff"        ? "Staff Member"
+    : mode === "Organization" ? "Organisation"
+    : "Private Client";
 
-  // Handle review submission
   const handleReviewSubmit = ({ reqId, staffId, rating, comment }) => {
     dispatch({ type: "SUBMIT_REVIEW", reqId, staffId, rating, comment });
     closeModal();
@@ -433,7 +370,8 @@ export function Dashboard() {
 
       {/* ── HEADER ── */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative w-full">
-        <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e" alt="header" className="absolute inset-0 w-full h-full object-cover" />
+        <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e" alt="header"
+          className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/60" />
 
         <div className="relative z-10 px-4 pt-5 pb-6 sm:px-6 text-white">
@@ -442,29 +380,48 @@ export function Dashboard() {
           <div className="flex items-center justify-between mb-6 pt-16">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">DASHBOARD</h1>
             <div className="flex gap-2">
-              <motion.button whileHover={{ scale: 1.05 }} onClick={() => setModalType("editProfile")}
-                className="px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-white/20 border border-white/30 backdrop-blur">
-                Edit Profile
+              {/* Edit Profile — label changes by mode */}
+              <motion.button whileHover={{ scale: 1.05 }} onClick={handleEditProfile}
+                className="px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-white/20 border border-white/30 backdrop-blur flex items-center gap-1.5">
+                {mode === "Staff" ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Edit Staff Profile
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Profile Photo
+                  </>
+                )}
               </motion.button>
-              {/* Admin panel link — visible for admin users; in production guard with role check */}
             </div>
           </div>
 
           {/* Profile row */}
           <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <motion.div whileHover={{ scale: 1.05 }} onClick={() => setModalType("editProfile")} className="cursor-pointer">
-                {profile.photoUrl ? (
-                  <img src={profile.photoUrl} alt="avatar" className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white object-cover" />
-                ) : (
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white bg-sky-400/30 flex items-center justify-center text-xl font-bold">
-                    {initials}
-                  </div>
-                )}
-              </motion.div>
+              {/* Avatar — click to open appropriate editor */}
+              <UserAvatar
+                photoUrl={photoUrl}
+                initials={initials}
+                onClick={handleEditProfile}
+              />
               <div>
-                <h2 className="font-bold text-base sm:text-lg">{profile.name}</h2>
+                <h2 className="font-bold text-base sm:text-lg">{displayName}</h2>
                 <p className="text-sm opacity-80">{subTitle}</p>
+                {/* Show email from auth */}
+                {user?.email && (
+                  <p className="text-xs text-white/40 mt-0.5">{user.email}</p>
+                )}
                 {/* Staff: show rating */}
                 {mode === "Staff" && staffRecord && (
                   <div className="mt-0.5">
@@ -480,15 +437,13 @@ export function Dashboard() {
               <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Switch Mode</p>
               <select
                 value={mode} onChange={(e) => setMode(e.target.value)}
-                className="px-3 py-2 text-sm rounded-lg bg-white/10 text-white border border-white/30 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-sky-300/50"
-              >
+                className="px-3 py-2 text-sm rounded-lg bg-white/10 text-white border border-white/30 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-sky-300/50">
                 {MODES.map((m) => <option key={m} value={m} className="bg-slate-900 text-white">{m}</option>)}
               </select>
               <motion.button
                 onClick={handlePrimaryAction}
                 whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="px-5 py-2 rounded-lg text-sm font-semibold text-white shadow-lg bg-gradient-to-r from-sky-600 to-sky-400"
-              >
+                className="px-5 py-2 rounded-lg text-sm font-semibold text-white shadow-lg bg-gradient-to-r from-sky-600 to-sky-400">
                 {mode === "Staff" ? "+ Get Job" : "+ Request Staff"}
               </motion.button>
             </div>
@@ -496,9 +451,9 @@ export function Dashboard() {
 
           {/* Stats */}
           <div className="mt-5 flex gap-3 overflow-x-auto pb-1">
-            <Stat label="Pending"  value={stats.pending} />
-            <Stat label="Approved" value={stats.approved} />
-            <Stat label="Active"   value={stats.active} />
+            <Stat label="Pending"   value={stats.pending} />
+            <Stat label="Approved"  value={stats.approved} />
+            <Stat label="Active"    value={stats.active} />
             <Stat label="Completed" value={stats.completed} />
           </div>
         </div>
@@ -522,7 +477,7 @@ export function Dashboard() {
           ))}
         </div>
 
-        {/* Empty state hint */}
+        {/* Empty state */}
         {filtered.length === 0 && (
           <div className="bg-white p-6 rounded-xl shadow text-center">
             <p className="text-gray-400 text-sm mb-1">
@@ -542,7 +497,6 @@ export function Dashboard() {
           <motion.div key={r.id} whileHover={{ scale: 1.005 }}
             className="bg-white p-4 rounded-xl shadow mb-3 space-y-3">
 
-            {/* Header row */}
             <div className="flex items-start justify-between flex-wrap gap-2">
               <div>
                 <p className="font-semibold text-gray-900">{r.clientName}</p>
@@ -551,7 +505,6 @@ export function Dashboard() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <StatusBadge status={r.status} />
-                {/* Review button — only for Completed and not yet reviewed */}
                 {r.status === "Completed" && !r.reviewed && (
                   <button onClick={() => { setReviewReq(r); setModalType("review"); }}
                     className="px-3 py-1 text-xs bg-purple-50 text-purple-700 rounded-full border border-purple-200 hover:bg-purple-100 transition font-medium">
@@ -566,7 +519,6 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Roles */}
             <div>
               <p className="text-xs text-gray-400 mb-1">Roles requested</p>
               <div className="flex flex-wrap gap-1.5">
@@ -578,7 +530,6 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Dates (shown once admin sets them on approval) */}
             {(r.startDate || r.endDate) && (
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Start Date" value={r.startDate} />
@@ -586,7 +537,6 @@ export function Dashboard() {
               </div>
             )}
 
-            {/* Assigned staff */}
             {r.assignedStaff?.length > 0 && (
               <div>
                 <p className="text-xs text-gray-400 mb-1">Assigned staff</p>
@@ -604,20 +554,27 @@ export function Dashboard() {
               </div>
             )}
 
-            {/* Submission date */}
-            <p className="text-xs text-gray-300">Submitted {new Date(r.submittedAt).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })}</p>
+            <p className="text-xs text-gray-300">
+              Submitted {new Date(r.submittedAt).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })}
+            </p>
           </motion.div>
         ))}
 
-        {/* Staff mode: show assigned jobs */}
+        {/* Staff mode: assigned jobs */}
         {mode === "Staff" && (
           <div className="bg-white p-4 rounded-xl shadow mt-4">
             <h3 className="font-semibold mb-3 text-gray-800">My Assigned Jobs</h3>
-            {store.requests.filter((r) => ["Active","Approved"].includes(r.status) && r.assignedStaff?.some((s) => s.name === profile.name)).length === 0 ? (
+            {store.requests.filter((r) =>
+              ["Active","Approved"].includes(r.status) &&
+              r.assignedStaff?.some((s) => s.name === displayName)
+            ).length === 0 ? (
               <p className="text-gray-400 text-sm">No jobs assigned to you yet.</p>
             ) : (
               store.requests
-                .filter((r) => ["Active","Approved"].includes(r.status) && r.assignedStaff?.some((s) => s.name === profile.name))
+                .filter((r) =>
+                  ["Active","Approved"].includes(r.status) &&
+                  r.assignedStaff?.some((s) => s.name === displayName)
+                )
                 .map((r) => (
                   <div key={r.id} className="p-3 border border-gray-100 rounded-xl mb-2 flex items-center justify-between flex-wrap gap-2">
                     <div>
@@ -631,12 +588,13 @@ export function Dashboard() {
                   </div>
                 ))
             )}
-            {/* Staff rating summary */}
             {staffRecord && (
               <div className="mt-4 p-3 bg-yellow-50 rounded-xl border border-yellow-100">
                 <p className="text-xs text-yellow-700 font-semibold mb-1">Your rating</p>
                 <StarRating value={staffRecord.averageRating} size="lg" />
-                <p className="text-xs text-gray-400 mt-0.5">Based on {staffRecord.totalReviews} review{staffRecord.totalReviews !== 1 ? "s" : ""}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Based on {staffRecord.totalReviews} review{staffRecord.totalReviews !== 1 ? "s" : ""}
+                </p>
               </div>
             )}
           </div>
@@ -645,24 +603,30 @@ export function Dashboard() {
 
       {/* ── MODALS ── */}
       <Modal open={!!modalType} onClose={closeModal}>
+        {/* Request forms */}
         {modalType === "organization" && <ClientForm1 onSubmit={closeModal} />}
         {modalType === "private"      && <PrivateForm  onSubmit={closeModal} />}
         {modalType === "staff"        && <StaffForm    onSubmit={closeModal} />}
 
+        {/* Staff mode: Edit Profile opens StaffForm for professional details */}
+        {modalType === "staffProfile" && <StaffForm onSubmit={closeModal} />}
+
+        {/* Private/Org mode: Edit Profile opens photo-only modal */}
+        {modalType === "photoEdit" && (
+          <PhotoEditModal
+            photoUrl={photoUrl}
+            initials={initials}
+            onSave={(url) => { saveAndSetPhoto(url); closeModal(); }}
+            onClose={closeModal}
+          />
+        )}
+
+        {/* Review */}
         {modalType === "review" && (
           <ReviewModal
             request={reviewReq}
             staffList={store.staff}
             onSubmit={handleReviewSubmit}
-            onClose={closeModal}
-          />
-        )}
-
-        {modalType === "editProfile" && (
-          <EditProfileModal
-            profile={profile}
-            mode={mode}
-            onSave={(p) => { saveAndSetProfile(p); closeModal(); }}
             onClose={closeModal}
           />
         )}

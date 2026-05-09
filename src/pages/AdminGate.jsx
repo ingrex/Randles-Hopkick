@@ -15,9 +15,8 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ShieldCheck, Eye, EyeOff, AlertTriangle, ArrowRight } from "lucide-react";
 
-// ⚠️  CHANGE THIS before going live.
-// Better: use  import.meta.env.VITE_ADMIN_PASSWORD  and set it in .env
-const ADMIN_PASSWORD = "stafflink@admin2026";
+
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 
 export function AdminGate() {
   const navigate  = useNavigate();
@@ -69,7 +68,7 @@ export function AdminGate() {
               <ShieldCheck className="w-7 h-7 text-sky-400" />
             </div>
             <h1 className="text-xl font-bold text-white">Admin Access</h1>
-            <p className="text-sm text-slate-400 mt-1">StaffLink — Owner Panel</p>
+            <p className="text-sm text-slate-400 mt-1">Owner Panel</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

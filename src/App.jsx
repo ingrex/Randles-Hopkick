@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from "react";
+import React, { useState } from "react";
 import { Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 
@@ -23,28 +23,34 @@ import { StoreProvider } from "./store";
 import AdminPanel        from "./pages/Adminpanel";
 import AdminGate         from "./pages/AdminGate";
 
-// ── Admin-only guard ──────────────────────────────────────────────────────────
-// Reads the session flag set by AdminGate after the owner enters the password.
-// If not present → silently redirect to the gate. No error, no hint to users.
+import SplashScreen from "./components/SplashScreen";   // ← NEW
+import PageWrapper  from "./components/PageWrapper";     // ← NEW
+
 function AdminRoute({ children }) {
   const admitted = sessionStorage.getItem("sl_admin_admitted") === "true";
   return admitted ? children : <Navigate to="/admin-gate" replace />;
 }
 
 function App() {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location  = useLocation();
+  const navigate  = useNavigate();
+  const [splashDone, setSplashDone] = useState(false);  // ← NEW
 
   const authRoutes  = ["/login", "/register"];
   const adminRoutes = ["/admin-gate", "/adminpanel"];
   const isAuthPage  = authRoutes.includes(location.pathname.toLowerCase());
   const isAdminPage = adminRoutes.includes(location.pathname.toLowerCase());
-  const hideChrome  = isAuthPage || isAdminPage;   // no Header/Footer on admin screens
+  const hideChrome  = isAuthPage || isAdminPage;
 
   return (
     <StoreProvider>
       <AuthProvider>
         <ScrollToTopOnNavigate />
+
+        {/* ── SPLASH (shown once on first load) ── */}
+        {!splashDone && (
+          <SplashScreen onDone={() => setSplashDone(true)} />
+        )}
 
         <div className="flex flex-col min-h-screen">
           {!hideChrome && <Header />}
@@ -54,11 +60,11 @@ function App() {
               <Routes location={location} key={location.pathname}>
 
                 {/* ── PUBLIC ── */}
-                <Route path="/"              element={<Home />} />
-                <Route path="/about"         element={<AboutPage />} />
-                <Route path="/contact"       element={<Contact />} />
-                <Route path="/services"      element={<Services />} />
-                <Route path="/applicantform" element={<ApplicantForm />} />
+                <Route path="/"              element={<PageWrapper><Home /></PageWrapper>} />
+                <Route path="/about"         element={<PageWrapper><AboutPage /></PageWrapper>} />
+                <Route path="/contact"       element={<PageWrapper><Contact /></PageWrapper>} />
+                <Route path="/services"      element={<PageWrapper><Services /></PageWrapper>} />
+                <Route path="/applicantform" element={<PageWrapper><ApplicantForm /></PageWrapper>} />
 
                 {/* ── AUTH ── */}
                 <Route
@@ -82,29 +88,18 @@ function App() {
                   }
                 />
 
-                {/* ── PROTECTED (regular users) ── */}
+                {/* ── PROTECTED ── */}
                 <Route
                   path="/dashboard"
                   element={
                     <ProtectedRoute>
-                      <Dashboard />
+                      <PageWrapper><Dashboard /></PageWrapper>
                     </ProtectedRoute>
                   }
                 />
 
-                {/* ── ADMIN GATE ────────────────────────────────────────────
-                    Password screen. This URL is NOT linked anywhere on the
-                    site — only you know it. Visiting /adminpanel directly
-                    without passing through here redirects back to this gate.
-                    Live URL:  https://yourdomain.com/admin-gate
-                ── */}
+                {/* ── ADMIN ── */}
                 <Route path="/admin-gate" element={<AdminGate />} />
-
-                {/* ── ADMIN PANEL ───────────────────────────────────────────
-                    Only reachable after AdminGate sets sl_admin_admitted in
-                    sessionStorage. Refreshing the tab keeps you in (session
-                    is alive). Closing the browser tab logs you out.
-                ── */}
                 <Route
                   path="/adminpanel"
                   element={

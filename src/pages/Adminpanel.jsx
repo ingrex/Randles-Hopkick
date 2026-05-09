@@ -6,6 +6,9 @@
 // 4. Blog          — create/edit/delete/publish posts
 // 5. Testimonials  — add/edit/delete/show/hide, synced to backend API
 // 6. Messages      — contact + staff-request submissions, mark read, reply
+//                    ↳ Replies are stored on the message object (msg.replies[]) via REPLY_MSG dispatch.
+//                      They render in the detail pane as a thread. Wire to your email/notification
+//                      service in the REPLY_MSG reducer case to actually deliver them.
 // 7. Profiles      — clients derived from submitted requests (photo synced from registered users)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -23,37 +26,45 @@ import {
   Users,
   UserCheck,
   Newspaper,
-  Star,
+  MessageSquare,
   Mail,
-  Contact,
+  BadgeCheck,
   Check,
   X,
   CheckCheck,
-  UserPlus,
-  CalendarDays,
-  Eye,
+  Plus,
   Pencil,
   Trash2,
+  Eye,
+  CalendarDays,
+  Save,
+  UserPlus,
   Send,
-  Plus,
-  PlayCircle,
+  ArrowRightCircle,
   StopCircle,
-  ShieldCheck,
-  ChevronRight,
-  FileText,
-  EyeOff,
+  Star,
+  AlertTriangle,
+  CheckCircle,
+  ShieldAlert,
 } from "lucide-react";
+
+// ── Brand tokens ──────────────────────────────────────────────────────────────
+// Primary brand:  #2385cd
+// Navy sidebar:   #0f1e2e
+// Light tint bg:  #eaf4fc  (brand at ~8% opacity on white)
+// Mid tint:       #b8d9f0  (borders, dividers)
 
 // ── tiny helpers ──────────────────────────────────────────────────────────────
 function Pill({ label, color = "gray" }) {
   const map = {
-    gray:   "bg-gray-100  text-gray-700",
-    yellow: "bg-yellow-50 text-yellow-700",
-    green:  "bg-green-50  text-green-700",
-    blue:   "bg-blue-50   text-blue-700",
-    red:    "bg-red-50    text-red-700",
-    sky:    "bg-sky-50    text-sky-700",
-    purple: "bg-purple-50 text-purple-700",
+    gray:   "bg-gray-100    text-gray-700",
+    yellow: "bg-yellow-50   text-yellow-700",
+    green:  "bg-green-50    text-green-700",
+    blue:   "bg-[#eaf4fc]   text-[#1a6fa8]",
+    red:    "bg-red-50      text-red-700",
+    sky:    "bg-[#eaf4fc]   text-[#2385cd]",
+    purple: "bg-purple-50   text-purple-700",
+    brand:  "bg-[#2385cd]   text-white",
   };
   return (
     <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${map[color] ?? map.gray}`}>
@@ -63,17 +74,17 @@ function Pill({ label, color = "gray" }) {
 }
 
 function statusColor(s) {
-  return { Pending: "yellow", Approved: "green", Active: "blue", Rejected: "red", Completed: "gray" }[s] ?? "gray";
+  return { Pending: "yellow", Approved: "sky", Active: "blue", Rejected: "red", Completed: "gray" }[s] ?? "gray";
 }
 
 function Avatar({ src, name, size = "sm" }) {
   const initials = (name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const sz = size === "sm" ? "w-8 h-8 text-xs" : "w-10 h-10 text-sm";
   if (src) {
-    return <img src={src} alt={name} className={`${sz} rounded-full object-cover flex-shrink-0 border border-gray-200`} />;
+    return <img src={src} alt={name} className={`${sz} rounded-full object-cover flex-shrink-0 border border-[#b8d9f0]`} />;
   }
   return (
-    <div className={`${sz} rounded-full bg-sky-100 text-sky-700 font-semibold flex items-center justify-center flex-shrink-0`}>
+    <div className={`${sz} rounded-full bg-[#eaf4fc] text-[#2385cd] font-semibold flex items-center justify-center flex-shrink-0`}>
       {initials}
     </div>
   );
@@ -94,14 +105,14 @@ function Modal({ open, title, onClose, children, footer }) {
           className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#eaf4fc]">
             <h3 className="font-semibold text-gray-900">{title}</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition leading-none">
+            <button onClick={onClose} className="text-gray-400 hover:text-[#2385cd] transition leading-none">
               <X size={18} />
             </button>
           </div>
           <div className="px-5 py-4 space-y-3">{children}</div>
-          {footer && <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 flex-wrap">{footer}</div>}
+          {footer && <div className="px-5 py-3 border-t border-[#eaf4fc] flex justify-end gap-2 flex-wrap">{footer}</div>}
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -111,11 +122,12 @@ function Modal({ open, title, onClose, children, footer }) {
 function Btn({ children, onClick, variant = "default", disabled = false, className = "" }) {
   const base = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-40 cursor-pointer";
   const variants = {
-    default: "bg-gray-100    text-gray-700  hover:bg-gray-200",
-    primary: "bg-sky-500     text-white     hover:bg-sky-600",
-    success: "bg-green-500   text-white     hover:bg-green-600",
-    danger:  "bg-red-500     text-white     hover:bg-red-600",
-    ghost:   "bg-transparent text-gray-500  hover:bg-gray-100",
+    default: "bg-gray-100        text-gray-700  hover:bg-gray-200",
+    primary: "bg-[#2385cd]       text-white     hover:bg-[#1a6fa8]",
+    success: "bg-green-500       text-white     hover:bg-green-600",
+    danger:  "bg-red-500         text-white     hover:bg-red-600",
+    ghost:   "bg-transparent     text-gray-500  hover:bg-[#eaf4fc] hover:text-[#2385cd]",
+    brand:   "bg-[#eaf4fc]       text-[#2385cd] hover:bg-[#b8d9f0]",
   };
   return (
     <button className={`${base} ${variants[variant]} ${className}`} onClick={onClick} disabled={disabled}>
@@ -133,17 +145,33 @@ function FormField({ label, children }) {
   );
 }
 
-const inputCls = "rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-sky-400 focus:bg-white transition w-full";
+const inputCls =
+  "rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#2385cd] focus:ring-2 focus:ring-[#2385cd]/20 focus:bg-white transition w-full";
+
+// ── Star rating renderer ──────────────────────────────────────────────────────
+function StarRating({ rating, max = 5 }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {Array.from({ length: max }, (_, i) => (
+        <Star
+          key={i}
+          size={12}
+          className={i < Math.round(rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"}
+        />
+      ))}
+    </span>
+  );
+}
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
 const NAV = [
-  { key: "requests",     label: "Requests",        icon: ClipboardList },
-  { key: "staff",        label: "Staff",            icon: Users         },
-  { key: "registered",   label: "Registered Users", icon: UserCheck     },
-  { key: "blog",         label: "Blog",             icon: Newspaper     },
-  { key: "testimonials", label: "Testimonials",     icon: Star          },
-  { key: "messages",     label: "Messages",         icon: Mail          },
-  { key: "profiles",     label: "Client Profiles",  icon: Contact       },
+  { key: "requests",     label: "Requests",        Icon: ClipboardList },
+  { key: "staff",        label: "Staff",            Icon: Users         },
+  { key: "registered",   label: "Registered",       Icon: UserCheck     },
+  { key: "blog",         label: "Blog",             Icon: Newspaper     },
+  { key: "testimonials", label: "Testimonials",     Icon: MessageSquare },
+  { key: "messages",     label: "Messages",         Icon: Mail          },
+  { key: "profiles",     label: "Client Profiles",  Icon: BadgeCheck    },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -203,12 +231,12 @@ function RequestsSection({ state, dispatch }) {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Total",    value: stats.total,    color: "text-gray-900"   },
-          { label: "Pending",  value: stats.pending,  color: "text-yellow-600" },
-          { label: "Approved", value: stats.approved, color: "text-green-600"  },
-          { label: "Active",   value: stats.active,   color: "text-blue-600"   },
+          { label: "Total",    value: stats.total,    color: "text-gray-900",     bg: "bg-white"         },
+          { label: "Pending",  value: stats.pending,  color: "text-yellow-600",   bg: "bg-yellow-50"     },
+          { label: "Approved", value: stats.approved, color: "text-[#2385cd]",    bg: "bg-[#eaf4fc]"     },
+          { label: "Active",   value: stats.active,   color: "text-[#1a6fa8]",    bg: "bg-[#eaf4fc]"     },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl p-4 border border-gray-100">
+          <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-[#b8d9f0]/40`}>
             <p className="text-xs text-gray-400">{s.label}</p>
             <p className={`text-2xl font-semibold ${s.color}`}>{s.value}</p>
           </div>
@@ -220,7 +248,9 @@ function RequestsSection({ state, dispatch }) {
         {["All", "Pending", "Approved", "Active", "Completed", "Rejected"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
-              filter === f ? "bg-sky-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              filter === f
+                ? "bg-[#2385cd] text-white shadow-sm"
+                : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
             }`}>{f}</button>
         ))}
       </div>
@@ -233,15 +263,15 @@ function RequestsSection({ state, dispatch }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
+                <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
                   {["Client", "Roles", "Status", "Dates", "Assigned", "Actions"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500">{h}</th>
+                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {shown.map((r) => (
-                  <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
+                  <tr key={r.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-900">{r.clientName}</p>
                       <p className="text-xs text-gray-400">{r.clientType} · {r.phone}</p>
@@ -250,7 +280,7 @@ function RequestsSection({ state, dispatch }) {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {r.roles.map((x, i) => (
-                          <span key={i} className="text-xs bg-sky-50 text-sky-700 border border-sky-100 rounded-full px-2 py-0.5">
+                          <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
                             {x.role} ×{x.quantity}
                           </span>
                         ))}
@@ -258,12 +288,20 @@ function RequestsSection({ state, dispatch }) {
                     </td>
                     <td className="px-4 py-3"><Pill label={r.status} color={statusColor(r.status)} /></td>
                     <td className="px-4 py-3 text-xs text-gray-500">
-                      {r.startDate
-                        ? <>
-                            <div className="flex items-center gap-1"><PlayCircle size={11} className="text-green-500" /> {r.startDate}</div>
-                            <div className="flex items-center gap-1"><StopCircle size={11} className="text-red-400" />  {r.endDate}</div>
-                          </>
-                        : <span className="text-gray-300">Not set</span>}
+                      {r.startDate ? (
+                        <>
+                          <div className="flex items-center gap-1">
+                            <ArrowRightCircle size={11} className="text-green-500 flex-shrink-0" />
+                            {r.startDate}
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <StopCircle size={11} className="text-red-400 flex-shrink-0" />
+                            {r.endDate}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-gray-300">Not set</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {r.assignedStaff?.length
@@ -278,7 +316,7 @@ function RequestsSection({ state, dispatch }) {
                           <Btn variant="success" onClick={() => dispatch({ type: "APPROVE_REQUEST", id: r.id })}>
                             <Check size={12} /> Approve
                           </Btn>
-                          <Btn variant="danger" onClick={() => dispatch({ type: "REJECT_REQUEST", id: r.id })}>
+                          <Btn variant="danger"  onClick={() => dispatch({ type: "REJECT_REQUEST",  id: r.id })}>
                             <X size={12} /> Reject
                           </Btn>
                         </>}
@@ -291,7 +329,7 @@ function RequestsSection({ state, dispatch }) {
                           <Btn variant="primary" onClick={() => open("assign", r)}>
                             <UserPlus size={12} /> Assign
                           </Btn>
-                          <Btn variant="default" onClick={() => open("dates", r)}>
+                          <Btn variant="brand" onClick={() => open("dates",  r)}>
                             <CalendarDays size={12} /> Dates
                           </Btn>
                         </>}
@@ -323,7 +361,7 @@ function RequestsSection({ state, dispatch }) {
               <p className="text-xs text-gray-400 mb-1">Roles requested</p>
               <div className="flex flex-wrap gap-1">
                 {activeReq.roles.map((x, i) => (
-                  <span key={i} className="text-xs bg-sky-50 text-sky-700 border border-sky-100 rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
+                  <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
                 ))}
               </div>
             </div>
@@ -341,7 +379,7 @@ function RequestsSection({ state, dispatch }) {
           <>
             <Btn onClick={close}>Cancel</Btn>
             <Btn variant="primary" onClick={saveDates}>
-              <CalendarDays size={13} /> Save & activate
+              <Save size={12} /> Save &amp; activate
             </Btn>
           </>
         }>
@@ -363,7 +401,9 @@ function RequestsSection({ state, dispatch }) {
         footer={
           <>
             <Btn onClick={close}>Cancel</Btn>
-            <Btn variant="primary" onClick={saveAssign}>Save assignment</Btn>
+            <Btn variant="primary" onClick={saveAssign}>
+              <Save size={12} /> Save assignment
+            </Btn>
           </>
         }>
         {activeReq && (
@@ -377,11 +417,13 @@ function RequestsSection({ state, dispatch }) {
                 return (
                   <div key={s.id} onClick={() => toggleStaff(s)}
                     className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                      isSel ? "border-sky-400 bg-sky-50" : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"
+                      isSel
+                        ? "border-[#2385cd] bg-[#eaf4fc]"
+                        : "border-gray-100 hover:border-[#b8d9f0] hover:bg-gray-50"
                     }`}>
                     <Avatar name={s.name} />
                     <div className="flex-1 min-w-0">
-                      <p className={`font-medium text-sm ${isSel ? "text-sky-700" : "text-gray-900"}`}>{s.name}</p>
+                      <p className={`font-medium text-sm ${isSel ? "text-[#2385cd]" : "text-gray-900"}`}>{s.name}</p>
                       <p className="text-xs text-gray-400">{s.role} · {s.phone} · {s.email}</p>
                     </div>
                     <Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} />
@@ -434,15 +476,15 @@ function StaffSection({ state, dispatch }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
+              <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
                 {["Name", "Role", "Phone", "Email", "Status", "Current job", "Rating", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500">{h}</th>
+                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {shown.map((s) => (
-                <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
+                <tr key={s.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Avatar name={s.name} />
@@ -452,14 +494,17 @@ function StaffSection({ state, dispatch }) {
                   <td className="px-4 py-3 text-gray-600">{s.role}</td>
                   <td className="px-4 py-3 text-gray-600">{s.phone}</td>
                   <td className="px-4 py-3 text-gray-600">{s.email}</td>
-                  <td className="px-4 py-3"><Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} /></td>
+                  <td className="px-4 py-3">
+                    <Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} />
+                  </td>
                   <td className="px-4 py-3 text-xs text-gray-500">
                     {s.currentJobId ? state.requests.find((r) => r.id === s.currentJobId)?.clientName ?? "—" : "—"}
                   </td>
                   <td className="px-4 py-3 text-xs">
-                    <span className="text-yellow-400">{"★".repeat(Math.round(s.averageRating))}</span>
-                    <span className="text-gray-200">{"★".repeat(5 - Math.round(s.averageRating))}</span>
-                    <span className="text-gray-400 ml-1">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
+                    <div className="flex items-center gap-1">
+                      <StarRating rating={s.averageRating} />
+                      <span className="text-gray-400 ml-1">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
@@ -479,7 +524,14 @@ function StaffSection({ state, dispatch }) {
       </div>
 
       <Modal open={!!modal} title={editing ? `Edit — ${editing.name}` : "Add new staff"} onClose={close}
-        footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={save}>Save</Btn></>}>
+        footer={
+          <>
+            <Btn onClick={close}>Cancel</Btn>
+            <Btn variant="primary" onClick={save}>
+              <Save size={12} /> Save
+            </Btn>
+          </>
+        }>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Full name"><input name="name"  className={inputCls} value={form.name  || ""} onChange={handle} /></FormField>
           <FormField label="Role">     <input name="role"  className={inputCls} value={form.role  || ""} onChange={handle} /></FormField>
@@ -529,9 +581,9 @@ function RegisteredSection({ state }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
+              <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
                 {["User", "Email", "Phone", "Registered", "Requests", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500">{h}</th>
+                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -544,7 +596,7 @@ function RegisteredSection({ state }) {
               {shown.map((u) => {
                 const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
                 return (
-                  <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
+                  <tr key={u.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Avatar src={u.photoUrl} name={fullName} size="sm" />
@@ -559,7 +611,7 @@ function RegisteredSection({ state }) {
                         : "—"}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="font-medium text-sky-600">{reqCount(u.email)}</span>
+                      <span className="font-medium text-[#2385cd]">{reqCount(u.email)}</span>
                     </td>
                     <td className="px-4 py-3">
                       <Btn variant="ghost" onClick={() => { setViewing(u); setModal(true); }}>
@@ -574,7 +626,6 @@ function RegisteredSection({ state }) {
         </div>
       </div>
 
-      {/* Profile detail modal */}
       <Modal
         open={modal}
         title={viewing ? `Profile — ${`${viewing.surname} ${viewing.otherNames || ""}`.trim()}` : ""}
@@ -596,12 +647,12 @@ function RegisteredSection({ state }) {
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-xs text-gray-400">Registered</p>
+                  <p className="text-xs text-gray-400">Registered Users</p>
                   <p className="font-medium">{viewing.registeredAt ? new Date(viewing.registeredAt).toLocaleDateString("en-GB") : "—"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Total requests</p>
-                  <p className="font-medium text-sky-600">{userReqs.length}</p>
+                  <p className="font-medium text-[#2385cd]">{userReqs.length}</p>
                 </div>
               </div>
               {userReqs.length > 0 && (
@@ -609,7 +660,7 @@ function RegisteredSection({ state }) {
                   <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Submitted requests</p>
                   <div className="space-y-2">
                     {userReqs.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-xs">
+                      <div key={r.id} className="flex items-center justify-between p-2 bg-[#eaf4fc]/50 rounded-lg text-xs">
                         <div>
                           <p className="font-medium text-gray-800">{r.roles.map((x) => `${x.role} ×${x.quantity}`).join(", ")}</p>
                           <p className="text-gray-400">{new Date(r.submittedAt).toLocaleDateString("en-GB")}</p>
@@ -656,19 +707,18 @@ function BlogSection({ state, dispatch }) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {state.blog.map((p) => (
-          <div key={p.id} className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
+          <div key={p.id} className="bg-white rounded-xl border border-gray-100 p-4 space-y-2 hover:border-[#b8d9f0] transition">
             <div className="flex items-start justify-between gap-2">
               <p className="font-medium text-gray-900 text-sm leading-snug">{p.title}</p>
               <Pill label={p.status} color={p.status === "Published" ? "green" : "yellow"} />
             </div>
-            <p className="text-xs text-gray-400">{p.date}</p>
+            <p className="text-xs text-[#2385cd]/70">{p.date}</p>
             <p className="text-xs text-gray-500 line-clamp-2">{p.excerpt}</p>
             <div className="flex gap-2 pt-1">
               <Btn variant="ghost" onClick={() => openEdit(p)}>
                 <Pencil size={13} /> Edit
               </Btn>
-              <Btn variant="ghost" onClick={() => dispatch({ type: "UPDATE_BLOG", payload: { ...p, status: p.status === "Published" ? "Draft" : "Published" } })}>
-                <FileText size={13} />
+              <Btn variant="brand" onClick={() => dispatch({ type: "UPDATE_BLOG", payload: { ...p, status: p.status === "Published" ? "Draft" : "Published" } })}>
                 {p.status === "Published" ? "Unpublish" : "Publish"}
               </Btn>
               <Btn variant="danger" onClick={() => dispatch({ type: "DELETE_BLOG", id: p.id })}>
@@ -680,7 +730,14 @@ function BlogSection({ state, dispatch }) {
       </div>
 
       <Modal open={modal} title={editing ? "Edit post" : "New post"} onClose={close}
-        footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={save}>Save</Btn></>}>
+        footer={
+          <>
+            <Btn onClick={close}>Cancel</Btn>
+            <Btn variant="primary" onClick={save}>
+              <Save size={12} /> Save
+            </Btn>
+          </>
+        }>
         <FormField label="Title">
           <input name="title" className={inputCls} value={form.title} onChange={handle} />
         </FormField>
@@ -704,7 +761,7 @@ function BlogSection({ state, dispatch }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION: Testimonials — synced to backend API, localStorage as fallback
+// SECTION: Testimonials
 // ─────────────────────────────────────────────────────────────────────────────
 function TestimonialsSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(false);
@@ -720,11 +777,8 @@ function TestimonialsSection({ state, dispatch }) {
         list.forEach((t) => {
           const storeId = t._id ?? t.id;
           const exists  = state.testimonials.find((s) => s.id === storeId);
-          if (!exists) {
-            dispatch({ type: "ADD_TESTI",    payload: { ...t, id: storeId } });
-          } else {
-            dispatch({ type: "UPDATE_TESTI", payload: { ...t, id: storeId } });
-          }
+          if (!exists) dispatch({ type: "ADD_TESTI",    payload: { ...t, id: storeId } });
+          else         dispatch({ type: "UPDATE_TESTI", payload: { ...t, id: storeId } });
         });
       })
       .catch(() => {});
@@ -755,7 +809,7 @@ function TestimonialsSection({ state, dispatch }) {
     } catch {
       if (editing) dispatch({ type: "UPDATE_TESTI", payload: { ...editing, ...payload } });
       else         dispatch({ type: "ADD_TESTI",    payload: { ...payload } });
-      setApiNote("⚠️ Saved locally — backend sync failed. Confirm routes with your colleague.");
+      setApiNote("Saved locally — backend sync failed. Confirm routes with your colleague.");
     } finally {
       setSaving(false);
     }
@@ -786,7 +840,7 @@ function TestimonialsSection({ state, dispatch }) {
           <p className="text-gray-400 text-sm p-6">No testimonials yet.</p>
         )}
         {state.testimonials.map((t) => (
-          <div key={t.id} className="flex gap-3 p-4">
+          <div key={t.id} className="flex gap-3 p-4 hover:bg-[#eaf4fc]/20 transition">
             <Avatar name={t.name} size="md" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-0.5">
@@ -794,18 +848,16 @@ function TestimonialsSection({ state, dispatch }) {
                 <Pill label={t.visible ? "Visible" : "Hidden"} color={t.visible ? "green" : "yellow"} />
               </div>
               <p className="text-xs text-gray-400 mb-1">{t.role}</p>
-              <p className="text-yellow-400 text-xs mb-1">
-                {"★".repeat(t.rating)}{"☆".repeat(5 - t.rating)}
-              </p>
+              <div className="mb-1">
+                <StarRating rating={t.rating} />
+              </div>
               <p className="text-sm text-gray-600 italic">"{t.text}"</p>
               <div className="flex gap-2 mt-2">
                 <Btn variant="ghost" onClick={() => openEdit(t)}>
                   <Pencil size={13} /> Edit
                 </Btn>
-                <Btn variant="ghost" onClick={() => toggleVisible(t)}>
-                  {t.visible
-                    ? <><EyeOff size={13} /> Hide</>
-                    : <><Eye     size={13} /> Show</>}
+                <Btn variant="brand" onClick={() => toggleVisible(t)}>
+                  {t.visible ? "Hide" : "Show"}
                 </Btn>
                 <Btn variant="danger" onClick={() => remove(t)}>
                   <Trash2 size={13} />
@@ -819,9 +871,15 @@ function TestimonialsSection({ state, dispatch }) {
       <Modal open={modal} title={editing ? "Edit testimonial" : "Add testimonial"} onClose={close}
         footer={
           <>
-            {apiNote && <p className="text-xs text-amber-600 mr-auto self-center">{apiNote}</p>}
+            {apiNote && (
+              <p className="text-xs text-amber-600 mr-auto self-center flex items-center gap-1">
+                <AlertTriangle size={12} /> {apiNote}
+              </p>
+            )}
             <Btn onClick={close} disabled={saving}>Cancel</Btn>
-            <Btn variant="primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Btn>
+            <Btn variant="primary" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : <><Save size={12} /> Save</>}
+            </Btn>
           </>
         }>
         <div className="grid grid-cols-2 gap-3">
@@ -841,7 +899,8 @@ function TestimonialsSection({ state, dispatch }) {
           </FormField>
           <FormField label="Visible on site">
             <div className="flex items-center gap-2 mt-2">
-              <input type="checkbox" name="visible" checked={!!form.visible} onChange={handle} className="accent-sky-500 w-4 h-4" />
+              <input type="checkbox" name="visible" checked={!!form.visible} onChange={handle}
+                className="w-4 h-4 rounded accent-[#2385cd]" />
               <span className="text-sm text-gray-600">Show on website</span>
             </div>
           </FormField>
@@ -853,18 +912,33 @@ function TestimonialsSection({ state, dispatch }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Messages
+// Replies are stored on the message object via dispatch({ type: "REPLY_MSG", id, text })
+// The reducer should push { text, sentAt: Date.now(), from: "Admin" } into msg.replies[].
+// Wire the same reducer case to your email/notification service to actually deliver them.
 // ─────────────────────────────────────────────────────────────────────────────
 function MessagesSection({ state, dispatch }) {
   const [filter, setFilter] = useState("all");
   const [active, setActive] = useState(null);
   const [reply,  setReply]  = useState("");
-  const [sent,   setSent]   = useState(false);
 
   const shown  = filter === "all" ? state.messages : state.messages.filter((m) => m.type === filter);
   const unread = state.messages.filter((m) => !m.read).length;
 
-  const openMsg   = (m) => { dispatch({ type: "MARK_MSG_READ", id: m.id }); setActive(m); setReply(""); setSent(false); };
-  const sendReply = ()  => { if (!reply.trim()) return; setSent(true); setReply(""); };
+  const openMsg = (m) => {
+    dispatch({ type: "MARK_MSG_READ", id: m.id });
+    // Re-select from state to get up-to-date replies
+    setActive(m);
+    setReply("");
+  };
+
+  // Keep active in sync with store (replies may have updated it)
+  const liveActive = active ? state.messages.find((m) => m.id === active.id) ?? active : null;
+
+  const sendReply = () => {
+    if (!reply.trim() || !active) return;
+    dispatch({ type: "REPLY_MSG", id: active.id, text: reply.trim() });
+    setReply("");
+  };
 
   return (
     <div className="flex gap-4 min-h-0">
@@ -874,7 +948,9 @@ function MessagesSection({ state, dispatch }) {
           {[["all","All"],["contact","Contact"],["staff","Staff requests"]].map(([k,l]) => (
             <button key={k} onClick={() => setFilter(k)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                filter === k ? "bg-sky-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                filter === k
+                  ? "bg-[#2385cd] text-white"
+                  : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
               }`}>{l}</button>
           ))}
           {unread > 0 && <span className="ml-auto text-xs text-red-500 font-medium">{unread} unread</span>}
@@ -882,7 +958,9 @@ function MessagesSection({ state, dispatch }) {
         <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
           {shown.map((m) => (
             <div key={m.id} onClick={() => openMsg(m)}
-              className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-gray-50 transition ${active?.id === m.id ? "bg-sky-50/60" : ""}`}>
+              className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-[#eaf4fc]/40 transition ${
+                liveActive?.id === m.id ? "bg-[#eaf4fc]/60 border-l-2 border-[#2385cd]" : ""
+              }`}>
               <Avatar name={m.from} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1">
@@ -890,8 +968,14 @@ function MessagesSection({ state, dispatch }) {
                   <span className="text-xs text-gray-400 flex-shrink-0">{m.time}</span>
                 </div>
                 <p className="text-xs text-gray-400 truncate"><strong>{m.from}</strong> — {m.body}</p>
+                {/* Reply count badge */}
+                {m.replies?.length > 0 && (
+                  <span className="text-xs text-[#2385cd] font-medium mt-0.5 inline-block">
+                    {m.replies.length} repl{m.replies.length > 1 ? "ies" : "y"} sent
+                  </span>
+                )}
               </div>
-              {!m.read && <span className="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0 mt-1.5" />}
+              {!m.read && <span className="w-2 h-2 rounded-full bg-[#2385cd] flex-shrink-0 mt-1.5" />}
             </div>
           ))}
           {shown.length === 0 && <p className="text-gray-400 text-sm p-4">No messages.</p>}
@@ -899,27 +983,64 @@ function MessagesSection({ state, dispatch }) {
       </div>
 
       {/* Detail pane */}
-      {active && (
-        <div className="w-80 flex-shrink-0 bg-white rounded-xl border border-gray-100 p-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <Avatar name={active.from} size="md" />
-            <div>
-              <p className="font-medium text-sm">{active.from}</p>
-              <p className="text-xs text-gray-400">{active.time}</p>
+      {liveActive && (
+        <div className="w-80 flex-shrink-0 bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="p-4 border-b border-[#eaf4fc] bg-[#eaf4fc]/40">
+            <div className="flex items-center gap-2 mb-1">
+              <Avatar name={liveActive.from} size="md" />
+              <div>
+                <p className="font-medium text-sm text-gray-900">{liveActive.from}</p>
+                <p className="text-xs text-gray-400">{liveActive.time}</p>
+              </div>
             </div>
+            <p className="font-semibold text-sm text-gray-900 mt-2">{liveActive.subject}</p>
           </div>
-          <p className="font-medium text-sm text-gray-900">{active.subject}</p>
-          <p className="text-sm text-gray-600 leading-relaxed">{active.body}</p>
-          {sent
-            ? <p className="text-xs text-green-600 font-medium mt-auto flex items-center gap-1"><Check size={13} /> Reply sent</p>
-            : <>
-                <textarea className={inputCls + " resize-none mt-auto"} rows={4}
-                  placeholder="Type a reply…" value={reply} onChange={(e) => setReply(e.target.value)} />
-                <Btn variant="primary" className="w-full justify-center" onClick={sendReply}>
-                  <Send size={13} /> Send reply
-                </Btn>
-              </>
-          }
+
+          {/* Thread */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Original message bubble */}
+            <div className="flex gap-2">
+              <Avatar name={liveActive.from} size="sm" />
+              <div className="bg-gray-50 rounded-xl rounded-tl-none px-3 py-2 text-sm text-gray-600 leading-relaxed max-w-[85%]">
+                {liveActive.body}
+              </div>
+            </div>
+
+            {/* Admin replies */}
+            {liveActive.replies?.map((r, i) => (
+              <div key={i} className="flex gap-2 justify-end">
+                <div className="bg-[#2385cd] rounded-xl rounded-tr-none px-3 py-2 text-sm text-white leading-relaxed max-w-[85%]">
+                  <p>{r.text}</p>
+                  <p className="text-[10px] text-white/60 mt-1 text-right">
+                    {new Date(r.sentAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-[#0f1e2e] text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">SA</div>
+              </div>
+            ))}
+
+            {liveActive.replies?.length > 0 && (
+              <p className="text-center text-xs text-gray-300 py-1">
+                Replies stored in state — wire <code className="bg-gray-100 px-1 rounded">REPLY_MSG</code> reducer to your email/notification service.
+              </p>
+            )}
+          </div>
+
+          {/* Reply composer */}
+          <div className="p-3 border-t border-[#eaf4fc] space-y-2">
+            <textarea
+              className={inputCls + " resize-none"}
+              rows={3}
+              placeholder="Type a reply…"
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendReply(); }}
+            />
+            <Btn variant="primary" className="w-full justify-center" onClick={sendReply} disabled={!reply.trim()}>
+              <Send size={13} /> Send reply
+            </Btn>
+          </div>
         </div>
       )}
     </div>
@@ -952,9 +1073,9 @@ function ProfilesSection({ state }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
+              <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
                 {["Name", "Email", "Phone", "Type", "Location", "Requests", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500">{h}</th>
+                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -965,7 +1086,7 @@ function ProfilesSection({ state }) {
                 </td></tr>
               )}
               {clients.map((c, i) => (
-                <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
+                <tr key={i} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Avatar src={c.regUser?.photoUrl} name={c.name} />
@@ -976,7 +1097,7 @@ function ProfilesSection({ state }) {
                   <td className="px-4 py-3 text-gray-600 text-xs">{c.phone}</td>
                   <td className="px-4 py-3"><Pill label={c.type} color="sky" /></td>
                   <td className="px-4 py-3 text-xs text-gray-500">{c.location}</td>
-                  <td className="px-4 py-3 text-center font-medium text-sky-600">{c.requests}</td>
+                  <td className="px-4 py-3 text-center font-medium text-[#2385cd]">{c.requests}</td>
                   <td className="px-4 py-3">
                     <Btn variant="ghost" onClick={() => { setViewing(c); setModal(true); }}>
                       <Eye size={13} /> View
@@ -1004,7 +1125,7 @@ function ProfilesSection({ state }) {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><p className="text-xs text-gray-400">Type</p><p className="font-medium">{viewing.type}</p></div>
               <div><p className="text-xs text-gray-400">Location</p><p className="font-medium">{viewing.location}</p></div>
-              <div><p className="text-xs text-gray-400">Total requests</p><p className="font-medium text-sky-600">{viewing.requests}</p></div>
+              <div><p className="text-xs text-gray-400">Total requests</p><p className="font-medium text-[#2385cd]">{viewing.requests}</p></div>
               {viewing.regUser && (
                 <div><p className="text-xs text-gray-400">Registered</p>
                   <p className="font-medium">{new Date(viewing.regUser.registeredAt).toLocaleDateString("en-GB")}</p>
@@ -1050,15 +1171,17 @@ export function AdminPanel() {
   return (
     <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
 
-      {/* ── Sidebar ── */}
-      <aside className="w-56 flex-shrink-0 flex flex-col" style={{ background: "#0f1e36" }}>
-        <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <p className="font-bold text-white text-base">Randle&amp;Hopkick</p>
-          <p className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>Admin Panel</p>
+      {/* ── Sidebar — dark navy, narrower ── */}
+      <aside className="w-44 flex-shrink-0 flex flex-col" style={{ backgroundColor: "#0f1e2e" }}>
+        {/* Brand */}
+        <div className="px-4 py-5 border-b border-white/10">
+          <p className="font-bold text-white text-sm leading-tight">Randle&amp;Hopkick</p>
+          <p className="text-xs font-medium mt-0.5" style={{ color: "#2385cd" }}>Admin Panel</p>
         </div>
 
-        <nav className="flex-1 py-3 overflow-y-auto">
-          {NAV.map(({ key, label, icon: Icon }) => {
+        {/* Nav */}
+        <nav className="flex-1 py-2 overflow-y-auto">
+          {NAV.map(({ key, label, Icon }) => {
             const badge = key === "requests"   ? pendingCount
                         : key === "messages"   ? unreadCount
                         : key === "registered" ? newUsersCount
@@ -1066,17 +1189,17 @@ export function AdminPanel() {
             const isActive = section === key;
             return (
               <button key={key} onClick={() => setSection(key)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition text-left"
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs transition text-left relative"
                 style={{
-                  background:   isActive ? "rgba(255,255,255,0.1)"  : "transparent",
-                  color:        isActive ? "#ffffff"                  : "rgba(255,255,255,0.55)",
-                  borderRight:  isActive ? "2px solid #38bdf8"        : "2px solid transparent",
-                  fontWeight:   isActive ? 600                        : 400,
+                  color:           isActive ? "#ffffff" : "rgba(255,255,255,0.55)",
+                  backgroundColor: isActive ? "rgba(35,133,205,0.18)" : "transparent",
+                  borderRight:     isActive ? "2px solid #2385cd" : "2px solid transparent",
                 }}>
-                <Icon size={16} className="flex-shrink-0" />
-                <span className="flex-1">{label}</span>
+                <Icon size={14} className="flex-shrink-0" style={{ color: isActive ? "#2385cd" : undefined }} />
+                <span className="flex-1 truncate font-medium">{label}</span>
                 {badge > 0 && (
-                  <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
+                  <span className="text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold flex-shrink-0"
+                    style={{ backgroundColor: "#2385cd" }}>
                     {badge}
                   </span>
                 )}
@@ -1085,15 +1208,14 @@ export function AdminPanel() {
           })}
         </nav>
 
-        <div className="px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+        {/* Admin user chip */}
+        <div className="px-3 py-4 border-t border-white/10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24" }}>
-              <ShieldCheck size={15} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-white">Super Admin</p>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>admin@randlehopkick.ng</p>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+              style={{ backgroundColor: "#2385cd" }}>SA</div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-white truncate">Super Admin</p>
+              <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>admin@randlehopkick.ng</p>
             </div>
           </div>
         </div>
@@ -1111,14 +1233,15 @@ export function AdminPanel() {
           <div className="flex items-center gap-3">
             {pendingCount > 0 && (
               <button onClick={() => setSection("requests")}
-                className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-3 py-1 font-medium">
-                {pendingCount} pending
+                className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-3 py-1 font-medium flex items-center gap-1">
+                <ShieldAlert size={12} /> {pendingCount} pending
               </button>
             )}
             {newUsersCount > 0 && (
               <button onClick={() => setSection("registered")}
-                className="text-xs text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-3 py-1 font-medium">
-                {newUsersCount} new user{newUsersCount > 1 ? "s" : ""}
+                className="text-xs rounded-full px-3 py-1 font-medium flex items-center gap-1 border"
+                style={{ color: "#2385cd", backgroundColor: "#eaf4fc", borderColor: "#b8d9f0" }}>
+                <UserCheck size={12} /> {newUsersCount} new user{newUsersCount > 1 ? "s" : ""}
               </button>
             )}
           </div>
