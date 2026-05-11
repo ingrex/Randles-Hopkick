@@ -702,7 +702,7 @@ export function StaffForm() {
                 <span style={{ width:15, height:15, border:"2.5px solid rgba(255,255,255,.25)", borderTopColor:"#fff", borderRadius:"50%", display:"inline-block", animation:"spin .75s linear infinite" }}/>
                 Submitting…
               </>
-            ) : step < 3 ? "Continue →" : "Submit Application ✦"}
+            ) : step < 3 ? "Continue →" : "Submit Application"}
           </PrimaryBtn>
         </div>
 
