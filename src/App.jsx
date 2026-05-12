@@ -22,6 +22,7 @@ import ProtectedRoute   from "./pages/ProtectedRoute";
 import { StoreProvider } from "./store";
 import AdminPanel        from "./pages/Adminpanel";
 import AdminGate         from "./pages/AdminGate";
+import Profile from "./pages/Profile";
 
 import SplashScreen from "./components/SplashScreen";   // ← NEW
 import PageWrapper  from "./components/PageWrapper";     // ← NEW
@@ -97,6 +98,15 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+{/* ── PROFILE ── */}
+<Route
+  path="/profile"
+  element={
+    <ProtectedRoute>
+      <PageWrapper><Profile onNavigate={navigate} /></PageWrapper>
+    </ProtectedRoute>
+  }
+/>
 
                 {/* ── ADMIN ── */}
                 <Route path="/admin-gate" element={<AdminGate />} />
