@@ -1,15 +1,78 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaClock, FaFacebookF, FaTwitter, FaInstagram, FaYoutube, FaLinkedin } from "react-icons/fa";
+import {
+  FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaClock,
+  FaFacebookF, FaTwitter, FaInstagram, FaYoutube, FaLinkedin,
+  FaCheckCircle,
+} from "react-icons/fa";
 import GetJobButton from "../components/buttons/GetJobButton";
 import HireStaffButton from "../components/buttons/HireStaffButton";
+import { useAuth } from "./AuthContext";
+
+const BASE_URL = "https://randnhop.onrender.com";
 
 const glass =
   "bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-sky-300/40 transition text-white placeholder-white/50";
 
+const INITIAL_FORM = { name: "", email: "", phone: "", subject: "", message: "" };
+
 const Contact = () => {
-  // ✅ Same user source as Home & About pages
-  const user = JSON.parse(localStorage.getItem("user"));
+  const { user } = useAuth();
+
+  const [form, setForm]       = useState(INITIAL_FORM);
+  const [sending, setSending] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError]     = useState("");
+
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    if (error) setError("");
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess(false);
+
+    // Basic client-side validation
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      setError("Please fill in your name, email, and message.");
+      return;
+    }
+
+    setSending(true);
+    try {
+      const token = localStorage.getItem("authToken");
+
+      const res = await fetch(`${BASE_URL}/api/v1/contact`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          subject: form.subject,
+          message: form.message,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || `Request failed (${res.status})`);
+      }
+
+      setSuccess(true);
+      setForm(INITIAL_FORM);
+    } catch (err) {
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="bg-[#3f5357] min-h-screen text-white pb-24">
@@ -46,7 +109,6 @@ const Contact = () => {
             platforms below and our team will respond promptly.
           </p>
 
-          {/* ✅ UPDATED: Using HireStaffButton & GetJobButton components */}
           <div className="flex justify-center gap-4">
             <HireStaffButton user={user} />
             <GetJobButton user={user} />
@@ -109,33 +171,96 @@ const Contact = () => {
             Fill out the form and we will get back within 24 hours.
           </p>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" placeholder="Your Name" className={glass} />
-              <input type="email" placeholder="Email" className={glass} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" placeholder="Phone" className={glass} />
-              <input type="text" placeholder="Subject" className={glass} />
-            </div>
-            <textarea
-              placeholder="Message"
-              rows="5"
-              className={glass}
-              style={{ resize: "none" }}
-            ></textarea>
-            <button
-              className="w-full py-2.5 rounded-xl font-semibold transition"
-              style={{
-                background: "linear-gradient(135deg, #2385cd, #4b86b4)",
-                color: "white",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+          {/* SUCCESS BANNER */}
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 mb-4 p-3 rounded-lg text-sm"
+              style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.35)", color: "#86efac" }}
             >
-              Send Message
-            </button>
-          </div>
+              <FaCheckCircle className="shrink-0" />
+              Message sent! We'll get back to you within 24 hours.
+            </motion.div>
+          )}
+
+          {/* ERROR BANNER */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 mb-4 p-3 rounded-lg text-sm"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)", color: "#fca5a5" }}
+            >
+              {error}
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Your Name *"
+                  className={glass}
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                />
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email *"
+                  className={glass}
+                  value={form.email}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  name="phone"
+                  placeholder="Phone"
+                  className={glass}
+                  value={form.phone}
+                  onChange={handleChange}
+                />
+                <input
+                  type="text"
+                  name="subject"
+                  placeholder="Subject"
+                  className={glass}
+                  value={form.subject}
+                  onChange={handleChange}
+                />
+              </div>
+              <textarea
+                name="message"
+                placeholder="Message *"
+                rows="5"
+                className={glass}
+                style={{ resize: "none" }}
+                value={form.message}
+                onChange={handleChange}
+                required
+              />
+              <button
+                type="submit"
+                disabled={sending}
+                className="w-full py-2.5 rounded-xl font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{
+                  background: "linear-gradient(135deg, #2385cd, #4b86b4)",
+                  color: "white",
+                }}
+                onMouseEnter={(e) => { if (!sending) e.currentTarget.style.opacity = "0.85"; }}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+              >
+                {sending ? "Sending…" : "Send Message"}
+              </button>
+            </div>
+          </form>
         </motion.div>
 
         {/* MAP + SOCIAL */}
@@ -152,7 +277,7 @@ const Contact = () => {
             className="w-full h-64 md:h-80 rounded-xl"
             style={{ border: "1px solid rgba(35,133,205,0.25)" }}
             loading="lazy"
-          ></iframe>
+          />
 
           {/* Social + address card */}
           <div

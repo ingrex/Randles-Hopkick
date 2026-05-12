@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true); // ✅ start true — wait for localStorage check
 
-  /* 🔄 Restore session on page reload */
+  /*  Restore session on page reload */
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) {
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(false); // ✅ done checking
   }, []);
 
-  /* 🔐 LOGIN */
+  /*  LOGIN */
   const login = async (email, password) => {
     setLoading(true);
     try {
@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /* 📝 REGISTER */
+  /*  REGISTER */
   const register = async (formData) => {
     setLoading(true);
     try {
@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /* 🚪 LOGOUT */
+  /* LOGOUT */
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");

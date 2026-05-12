@@ -88,7 +88,7 @@ const Home = () => {
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
             backgroundImage:
-              "url('https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1600&q=85')",
+              "url('https://res.cloudinary.com/dotvnclej/image/upload/v1778599560/Untitled_design_14_ecewzo.jpg')",
           }}
         />
 
@@ -275,22 +275,22 @@ const Home = () => {
             {
               title: "Domestic Staffing",
               desc: "Professional home staff including nannies, cleaners, and cooks.",
-              image: "https://res.cloudinary.com/dotvnclej/image/upload/v1777910962/April_7_ec1xit.png",
+              image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778601551/Untitled_design_15_kvzz9a.jpg",
             },
             {
               title: "Corporate Staffing",
               desc: "Skilled professionals tailored to your business needs.",
-              image: "https://res.cloudinary.com/dotvnclej/image/upload/v1777911236/April_8_h7n5ck.png",
+              image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778601888/Untitled_design_16_szvtnk.jpg",
             },
             {
               title: "Training Programs",
               desc: "We train staff to meet modern workplace standards.",
-              image: "https://res.cloudinary.com/dotvnclej/image/upload/v1777911495/April_9_pilfux.png",
+              image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778602221/Untitled_design_17_o8eevf.jpg",
             },
             {
               title: "Artisan Outsourcing",
               desc: "Expert advice to optimize your workforce and processes.",
-              image: "https://res.cloudinary.com/dotvnclej/image/upload/v1777911812/April_10_i3s4dx.png",
+              image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778602685/Untitled_design_18_rl7zlb.jpg",
             },
           ].map((service, i) => (
             <motion.div
