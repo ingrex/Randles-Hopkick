@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiStaffRequest } from "../api/auth";
+import { useAuth } from "../pages/AuthContext";
 
 /* ─── date option arrays ─────────────────────────────────────── */
 const DAYS   = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
@@ -27,30 +28,17 @@ input::placeholder  { color: rgba(170,205,240,.42); }
 textarea::placeholder { color: rgba(170,205,240,.42); }
 select option       { background: #0d1e35; color: #ddeeff; }
 
-/* ── mobile: collapse 2-col grids to single column ── */
 @media (max-width: 600px) {
   .fg  { grid-template-columns: 1fr !important; }
   .ff  { grid-column: 1 !important; }
-  /* DOB row: stack day/month/year vertically */
   .dob-grid { grid-template-columns: 1fr !important; }
-  /* tighten inner card padding */
   .sf-inner { padding: 8px 14px 24px !important; }
-  /* step label: allow wrap and shrink font */
   .step-lbl { font-size: 8px !important; white-space: normal !important; text-align: center; max-width: 52px; }
-  /* h1 title: shrink on small screens */
   .sf-title { font-size: 20px !important; }
-  /* nav buttons: stack vertically */
   .sf-nav { flex-direction: column !important; }
   .sf-nav button { width: 100% !important; flex: none !important; }
-  /* ensure inputs/selects never overflow */
-  input, select, textarea {
-    min-width: 0 !important;
-    max-width: 100% !important;
-    font-size: 14px !important;
-  }
-  /* progress step circle: slightly smaller */
+  input, select, textarea { min-width: 0 !important; max-width: 100% !important; font-size: 14px !important; }
   .step-circle { width: 26px !important; height: 26px !important; font-size: 10px !important; }
-  /* gender toggle buttons: shrink text */
   .gender-btn { font-size: 12px !important; padding: 10px 4px !important; }
 }
 
@@ -65,53 +53,25 @@ const FONT  = "'Outfit', sans-serif";
 const SERIF = "'Cormorant Garamond', serif";
 const SKY   = { 300:"#7dd3fc", 400:"#38bdf8", 500:"#0ea5e9", 600:"#0284c7", 700:"#0369a1", 800:"#075985" };
 
-/* ── shared field styles ── */
 const BASE = {
-  width:"100%",
-  minWidth:0,          /* ← prevents flex/grid blowout on mobile */
+  width:"100%", minWidth:0,
   fontFamily:FONT, fontSize:13, fontWeight:400,
   color:"#ddeeff", borderRadius:20, outline:"none", transition:"all .28s ease",
 };
 
-const mkInput = (extra={}) => ({
-  ...BASE,
-  background: "rgba(255,255,255,.14)",
-  border: "1.5px solid rgba(255,255,255,.28)",
-  padding: "10px 16px",
-  ...extra,
-});
-const mkInputFocus = (extra={}) => ({
-  ...mkInput(extra),
-  background: "rgba(14,165,233,.16)",
-  border: `1.5px solid ${SKY[400]}bb`,
-  boxShadow: "0 0 0 3px rgba(14,165,233,.18)",
-});
-const mkInputErr = (extra={}) => ({
-  ...mkInput(extra),
-  background: "rgba(248,113,113,.1)",
-  border: "1.5px solid rgba(248,113,113,.6)",
-  animation: "errShake .3s ease",
-});
+const mkInput  = (extra={}) => ({ ...BASE, background:"rgba(255,255,255,.14)", border:"1.5px solid rgba(255,255,255,.28)", padding:"10px 16px", ...extra });
+const mkFocus  = (extra={}) => ({ ...mkInput(extra), background:"rgba(14,165,233,.16)", border:`1.5px solid ${SKY[400]}bb`, boxShadow:"0 0 0 3px rgba(14,165,233,.18)" });
+const mkErr    = (extra={}) => ({ ...mkInput(extra), background:"rgba(248,113,113,.1)", border:"1.5px solid rgba(248,113,113,.6)", animation:"errShake .3s ease" });
+const mkLocked = (extra={}) => ({ ...BASE, background:"rgba(255,255,255,.05)", border:"1.5px solid rgba(255,255,255,.1)", padding:"10px 16px", color:"rgba(221,238,255,.45)", cursor:"not-allowed", ...extra });
 
-const SEL_EXTRA  = { padding:"10px 38px 10px 16px", appearance:"none", cursor:"pointer" };
-const iRest  = mkInput();
-const iFocus = mkInputFocus();
-const iErr   = mkInputErr();
-const sRest  = mkInput(SEL_EXTRA);
-const sFocus = mkInputFocus(SEL_EXTRA);
-const sErr   = mkInputErr(SEL_EXTRA);
-const tRest  = mkInput({ resize:"none" });
-const tFocus = mkInputFocus({ resize:"none" });
-const tErr   = mkInputErr({ resize:"none" });
+const SEL_EXTRA = { padding:"10px 38px 10px 16px", appearance:"none", cursor:"pointer" };
+const iRest = mkInput(); const iFocus = mkFocus(); const iErr = mkErr();
+const sRest = mkInput(SEL_EXTRA); const sFocus = mkFocus(SEL_EXTRA); const sErr = mkErr(SEL_EXTRA);
+const tRest = mkInput({ resize:"none" }); const tFocus = mkFocus({ resize:"none" }); const tErr = mkErr({ resize:"none" });
 
-const LBL_ST = {
-  display:"block", fontSize:10, fontWeight:600, textTransform:"uppercase",
-  letterSpacing:".14em", color:"rgba(195,222,255,.78)", marginBottom:6, fontFamily:FONT,
-};
-const ERR_ST = {
-  display:"block", fontSize:11, color:"rgba(252,165,165,.95)",
-  marginTop:4, fontFamily:FONT, animation:"fadeUp .22s ease",
-};
+const LBL_ST = { display:"block", fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:".14em", color:"rgba(195,222,255,.78)", marginBottom:6, fontFamily:FONT };
+const ERR_ST = { display:"block", fontSize:11, color:"rgba(252,165,165,.95)", marginTop:4, fontFamily:FONT, animation:"fadeUp .22s ease" };
+const LOCKED_LABEL_ST = { ...LBL_ST, color:"rgba(195,222,255,.38)" };
 
 /* ─── validation ─────────────────────────────────────────────── */
 const isReq = (v) => (typeof v === "boolean" ? v : String(v || "").trim() !== "");
@@ -149,6 +109,21 @@ function InputField({ label, value, onChange, placeholder, type="text", err, req
         onFocus={()=>setF(true)} onBlur={()=>setF(false)}
       />
       {err && <span style={ERR_ST}>{err}</span>}
+    </div>
+  );
+}
+
+/* Read-only locked field — visually dimmed, no interaction */
+function LockedField({ label, value }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
+      <label style={LOCKED_LABEL_ST}>{label}</label>
+      <input
+        style={mkLocked()}
+        value={value}
+        readOnly
+        tabIndex={-1}
+      />
     </div>
   );
 }
@@ -228,12 +203,8 @@ function GenderBtn({ label, active, onClick }) {
       style={{
         flex:1, padding:"11px 8px", borderRadius:20, fontFamily:FONT,
         fontSize:13, fontWeight:500, cursor:"pointer", transition:"all .28s ease",
-        border: active ? `1.5px solid ${SKY[400]}bb`
-               : hov   ? "1.5px solid rgba(255,255,255,.38)"
-                        : "1.5px solid rgba(255,255,255,.22)",
-        background: active ? `linear-gradient(135deg,rgba(14,165,233,.32),rgba(56,189,248,.14))`
-                   : hov   ? "rgba(255,255,255,.16)"
-                            : "rgba(255,255,255,.1)",
+        border: active ? `1.5px solid ${SKY[400]}bb` : hov ? "1.5px solid rgba(255,255,255,.38)" : "1.5px solid rgba(255,255,255,.22)",
+        background: active ? `linear-gradient(135deg,rgba(14,165,233,.32),rgba(56,189,248,.14))` : hov ? "rgba(255,255,255,.16)" : "rgba(255,255,255,.1)",
         color: active ? SKY[300] : hov ? "#fff" : "rgba(200,225,255,.65)",
         boxShadow: active ? "0 0 12px rgba(14,165,233,.22)" : "none",
       }}
@@ -261,15 +232,11 @@ function Progress({ step, pct }) {
                     width:32, height:32, borderRadius:"50%",
                     display:"flex", alignItems:"center", justifyContent:"center",
                     fontFamily:FONT, fontSize:12, fontWeight:600, transition:"all .4s ease",
-                    background: done   ? `linear-gradient(135deg,${SKY[700]},${SKY[400]})`
-                                 : active ? `linear-gradient(135deg,${SKY[500]},${SKY[300]})`
-                                          : "rgba(255,255,255,.1)",
-                    border: active ? `2px solid ${SKY[300]}aa`
-                            : done  ? "2px solid transparent"
-                                    : "2px solid rgba(255,255,255,.2)",
+                    background: done ? `linear-gradient(135deg,${SKY[700]},${SKY[400]})` : active ? `linear-gradient(135deg,${SKY[500]},${SKY[300]})` : "rgba(255,255,255,.1)",
+                    border: active ? `2px solid ${SKY[300]}aa` : done ? "2px solid transparent" : "2px solid rgba(255,255,255,.2)",
                     color: done||active ? "#fff" : "rgba(180,215,255,.5)",
                     boxShadow: active ? `0 0 16px rgba(14,165,233,.45)` : "none",
-                    flexShrink: 0,
+                    flexShrink:0,
                   }}
                 >
                   {done ? (
@@ -288,8 +255,7 @@ function Progress({ step, pct }) {
               {i < 2 && (
                 <div style={{
                   flex:1, height:2, borderRadius:99, margin:"0 8px 18px",
-                  background: step > s ? `linear-gradient(90deg,${SKY[700]},${SKY[400]})`
-                                       : "rgba(255,255,255,.1)",
+                  background: step > s ? `linear-gradient(90deg,${SKY[700]},${SKY[400]})` : "rgba(255,255,255,.1)",
                   transition:"background .5s ease",
                   boxShadow: step > s ? "0 0 8px rgba(14,165,233,.3)" : "none",
                 }}/>
@@ -331,8 +297,7 @@ function PrimaryBtn({ children, onClick, disabled }) {
         cursor: disabled ? "not-allowed" : "pointer",
         fontFamily:FONT, fontSize:14, fontWeight:600, color:"#fff",
         transition:"all .3s ease",
-        background: disabled ? "rgba(14,165,233,.2)"
-                             : `linear-gradient(135deg,${SKY[700]},${SKY[500]},${SKY[400]})`,
+        background: disabled ? "rgba(14,165,233,.2)" : `linear-gradient(135deg,${SKY[700]},${SKY[500]},${SKY[400]})`,
         boxShadow: disabled ? "none" : hov ? "0 14px 44px rgba(14,165,233,.5)" : "0 6px 26px rgba(14,165,233,.28)",
         transform: disabled ? "none" : hov ? "translateY(-2px)" : "translateY(0)",
         opacity: disabled ? 0.5 : 1,
@@ -361,7 +326,6 @@ function SecondaryBtn({ children, onClick }) {
 }
 
 /* ═══════════════════════ SUCCESS MODAL ════════════════════════ */
-// FIX: accepts onDashboard + onHome as separate handlers
 function SuccessModal({ onDashboard, onHome }) {
   return (
     <div style={{
@@ -399,9 +363,7 @@ function SuccessModal({ onDashboard, onHome }) {
           Your details have been submitted successfully. Our team at Randle &amp; Hopkins will review your application and be in touch shortly.
         </p>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {/* FIX: navigates to /dashboard */}
           <PrimaryBtn onClick={onDashboard}>Go to Dashboard →</PrimaryBtn>
-          {/* FIX: navigates to / */}
           <SecondaryBtn onClick={onHome}>Back to Home</SecondaryBtn>
         </div>
       </div>
@@ -411,42 +373,34 @@ function SuccessModal({ onDashboard, onHome }) {
 
 /* ═══════════════════════ OPTION LISTS ══════════════════════════ */
 const NATIONALITY_OPTIONS = [
-  { label:"Nigerian",      value:"Nigerian"      },
-  { label:"Ghanaian",      value:"Ghanaian"      },
-  { label:"Kenyan",        value:"Kenyan"        },
-  { label:"South African", value:"South African" },
-  { label:"Ethiopian",     value:"Ethiopian"     },
-  { label:"Cameroonian",   value:"Cameroonian"   },
-  { label:"Ugandan",       value:"Ugandan"       },
-  { label:"Tanzanian",     value:"Tanzanian"     },
-  { label:"British",       value:"British"       },
-  { label:"American",      value:"American"      },
-  { label:"Canadian",      value:"Canadian"      },
-  { label:"French",        value:"French"        },
-  { label:"Other",         value:"Other"         },
+  { label:"Nigerian", value:"Nigerian" }, { label:"Ghanaian", value:"Ghanaian" },
+  { label:"Kenyan", value:"Kenyan" }, { label:"South African", value:"South African" },
+  { label:"Ethiopian", value:"Ethiopian" }, { label:"Cameroonian", value:"Cameroonian" },
+  { label:"Ugandan", value:"Ugandan" }, { label:"Tanzanian", value:"Tanzanian" },
+  { label:"British", value:"British" }, { label:"American", value:"American" },
+  { label:"Canadian", value:"Canadian" }, { label:"French", value:"French" },
+  { label:"Other", value:"Other" },
 ];
 
 const PRIMARY_SKILL_OPTIONS = [
-  "Driver", "Nurse", "Teacher", "Accountant", "IT Technician",
-  "Farmer", "Journalist", "Lawyer", "Engineer", "Chef",
-  "Security Guard", "Cleaner", "Tailor", "Electrician", "Plumber", "Other",
+  "Driver","Nurse","Teacher","Accountant","IT Technician","Farmer",
+  "Journalist","Lawyer","Engineer","Chef","Security Guard","Cleaner",
+  "Tailor","Electrician","Plumber","Other",
 ];
 
 const QUALIFICATION_OPTIONS = [
-  { label:"SSCE / O-Level",             value:"SSCE"                     },
-  { label:"OND",                         value:"OND"                      },
-  { label:"HND",                         value:"HND"                      },
-  { label:"B.Sc / B.A",                 value:"B.Sc"                     },
-  { label:"M.Sc / MBA",                 value:"M.Sc"                     },
-  { label:"PhD / Doctorate",            value:"PhD"                      },
-  { label:"Vocational / Trade Cert.",   value:"Vocational"               },
-  { label:"Professional Certification", value:"Professional Certification"},
-  { label:"No Formal Education",        value:"No Formal Education"      },
+  { label:"SSCE / O-Level", value:"SSCE" }, { label:"OND", value:"OND" },
+  { label:"HND", value:"HND" }, { label:"B.Sc / B.A", value:"B.Sc" },
+  { label:"M.Sc / MBA", value:"M.Sc" }, { label:"PhD / Doctorate", value:"PhD" },
+  { label:"Vocational / Trade Cert.", value:"Vocational" },
+  { label:"Professional Certification", value:"Professional Certification" },
+  { label:"No Formal Education", value:"No Formal Education" },
 ];
 
 /* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
 export function StaffForm() {
-  const navigate = useNavigate(); // FIX: add navigation
+  const navigate    = useNavigate();
+  const { user }    = useAuth();
 
   const [step,    setStep]    = useState(1);
   const [form,    setForm]    = useState(INIT);
@@ -455,6 +409,18 @@ export function StaffForm() {
   const [animKey, setAnimKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [done,    setDone]    = useState(false);
+
+  // Sync locked fields when user loads asynchronously
+  useEffect(() => {
+    if (!user) return;
+    setForm((prev) => ({
+      ...prev,
+      surname:   user.surname     || "",
+      otherName: user.otherNames  || "",
+      email:     user.email       || "",
+      phone:     user.phoneNumber || "",
+    }));
+  }, [user?.surname, user?.otherNames, user?.email, user?.phoneNumber]);
 
   const set = k => e =>
     setForm(f => ({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
@@ -470,7 +436,9 @@ export function StaffForm() {
   };
 
   const goNext = async () => {
-    const keys = step === 1 ? S1 : step === 2 ? S2 : S3;
+    // Exclude locked fields from validation — they're always filled from auth
+    const lockedKeys = ["surname","otherName","email","phone"];
+    const keys = (step === 1 ? S1 : step === 2 ? S2 : S3).filter(k => !lockedKeys.includes(k));
     const e = validate(form, keys);
     if (Object.keys(e).length) { setErrs(e); return; }
     setErrs({});
@@ -483,11 +451,8 @@ export function StaffForm() {
       const isoDate    = `${form.dobYear}-${monthIndex}-${form.dobDay}`;
 
       const yoeMap = {
-        "Less than 1 year" : 0,
-        "1 – 2 years"      : 1,
-        "3 – 5 years"      : 3,
-        "6 – 10 years"     : 6,
-        "10+ years"        : 10,
+        "Less than 1 year": 0, "1 – 2 years": 1,
+        "3 – 5 years": 3, "6 – 10 years": 6, "10+ years": 10,
       };
 
       const payload = {
@@ -534,30 +499,21 @@ export function StaffForm() {
 
   return (
     <div style={{
-      width: "100%",
-      maxHeight: "85vh",
-      overflowY: "auto",
-      overflowX: "hidden",   /* FIX: hard-stop horizontal overflow */
-      borderRadius: 20,
-      background: "rgba(255,255,255,0.08)",
-      backdropFilter: "blur(28px) saturate(130%)",
-      WebkitBackdropFilter: "blur(28px) saturate(130%)",
-      border: "1px solid rgba(255,255,255,0.12)",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
-      position: "relative",
+      width:"100%", maxHeight:"85vh", overflowY:"auto", overflowX:"hidden",
+      borderRadius:20,
+      background:"rgba(255,255,255,0.08)",
+      backdropFilter:"blur(28px) saturate(130%)",
+      WebkitBackdropFilter:"blur(28px) saturate(130%)",
+      border:"1px solid rgba(255,255,255,0.12)",
+      boxShadow:"0 8px 32px rgba(0,0,0,0.3)",
+      position:"relative",
     }}>
       <style>{KEYFRAMES}</style>
 
-      {/* sky-blue top accent line */}
       <div style={{ height:2, background:`linear-gradient(90deg,transparent,${SKY[500]}cc,${SKY[400]}88,transparent)` }}/>
+      <div style={{ height:48 }} aria-hidden="true" />
 
-      {/* Spacer so parent modal close button never overlaps card content */}
-      <div style={{ height: 48 }} aria-hidden="true" />
-
-      <div
-        className="sf-inner"
-        style={{ padding:"4px 40px 40px", fontFamily:FONT }}
-      >
+      <div className="sf-inner" style={{ padding:"4px 40px 40px", fontFamily:FONT }}>
 
         {/* brand header */}
         <div style={{ marginBottom:24 }}>
@@ -577,17 +533,18 @@ export function StaffForm() {
 
         <Progress step={step} pct={pct}/>
 
-        {/* animated step content */}
         <div key={animKey} style={stepAnim}>
 
           {/* ── STEP 1: Personal Information ── */}
           {step===1 && (
             <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-              <InputField label="Surname" value={form.surname} onChange={set("surname")} placeholder="Your surname" err={errs.surname} req/>
-              <InputField label="Other Name" value={form.otherName} onChange={set("otherName")} placeholder="Other name" err={errs.otherName} req/>
-              <InputField label="Email Address" type="email" value={form.email} onChange={set("email")} placeholder="you@example.com" err={errs.email} req/>
-              <InputField label="Phone Number" type="tel" value={form.phone} onChange={set("phone")} placeholder="+234 800 000 0000" err={errs.phone} req/>
+              {/* Locked from auth */}
+              <LockedField label="Surname"       value={form.surname}   />
+              <LockedField label="Other Name"    value={form.otherName} />
+              <LockedField label="Email Address" value={form.email}     />
+              <LockedField label="Phone Number"  value={form.phone}     />
 
+              {/* Editable */}
               <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
                 <label style={LBL_ST}>Nationality<span style={{color:SKY[300]}}> *</span></label>
                 <div style={{ position:"relative", minWidth:0 }}>
@@ -711,10 +668,8 @@ export function StaffForm() {
         </p>
       </div>
 
-      {/* bottom shimmer */}
       <div style={{ height:1, background:"linear-gradient(90deg,transparent,rgba(14,165,233,.1),transparent)" }}/>
 
-      {/* FIX: pass separate handlers — dashboard navigates, home navigates to / */}
       {done && (
         <SuccessModal
           onDashboard={() => navigate("/dashboard")}

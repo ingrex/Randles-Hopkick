@@ -64,9 +64,7 @@ export async function apiStaffRequest(payload) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARKETPLACE — pulls registered users, requests, staff in one call
-//   GET /api/v1/profile/marketplace
-//   Returns: { users[], requests[], staff[] }  (shape may vary — normalised in store)
+// MARKETPLACE
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiGetMarketplace() {
@@ -76,11 +74,17 @@ export async function apiGetMarketplace() {
   });
 }
 
+export async function apiGetMasterMarketplace() {
+  return request("/admin/mastermarketplace", {
+    method: "GET",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN — request management
 // ─────────────────────────────────────────────────────────────────────────────
 
-/* Approve a request */
 export async function apiApproveRequest(id) {
   return request(`/profile/${id}/approve`, {
     method: "PATCH",
@@ -88,7 +92,6 @@ export async function apiApproveRequest(id) {
   });
 }
 
-/* Reject a request */
 export async function apiRejectRequest(id) {
   return request(`/profile/${id}/reject`, {
     method: "PATCH",
@@ -96,7 +99,6 @@ export async function apiRejectRequest(id) {
   });
 }
 
-/* Set dates (start + end) on a request — flips to Active */
 export async function apiSetDates(id, { startDate, endDate }) {
   return request(`/profile/${id}/dates`, {
     method: "PATCH",
@@ -105,7 +107,6 @@ export async function apiSetDates(id, { startDate, endDate }) {
   });
 }
 
-/* Assign staff to a request */
 export async function apiAssignStaff(reqId, assignedStaff) {
   return request(`/profile/${reqId}/assign`, {
     method: "PATCH",
@@ -114,7 +115,6 @@ export async function apiAssignStaff(reqId, assignedStaff) {
   });
 }
 
-/* Complete a request */
 export async function apiCompleteRequest(id) {
   return request(`/profile/${id}/complete`, {
     method: "PATCH",
@@ -122,7 +122,6 @@ export async function apiCompleteRequest(id) {
   });
 }
 
-/* Submit a staff review */
 export async function apiSubmitReview(reqId, { staffId, rating, comment }) {
   return request(`/profile/${reqId}/review`, {
     method: "POST",
@@ -185,6 +184,29 @@ export async function apiUpdateTestimonial(id, payload) {
 export async function apiDeleteTestimonial(id) {
   return request(`/testimonials/${id}`, {
     method: "DELETE",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT FORM
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function apiContactForm({ name, email, phone, subject, message }) {
+  return request("/contact", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ name, email, phone, subject, message }),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT MESSAGES (Admin)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function apiGetContactMessages() {
+  return request("/contact/admin/all", {
+    method: "GET",
     headers: { "Content-Type": "application/json", ...authHeaders() },
   });
 }

@@ -1,4 +1,4 @@
-// src/pages/AuthContext.jsx
+
 import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
       try { setUser(JSON.parse(stored)); }
       catch { localStorage.removeItem("user"); }
     }
-    setLoading(false); // ✅ done checking
+    setLoading(false); 
   }, []);
 
   /*  LOGIN */
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
 
       const userData = data.user || data;
 
-      // ✅ Set user state AND save token so ProtectedRoute sees it immediately
+
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
       if (data.token)       localStorage.setItem("authToken", data.token);

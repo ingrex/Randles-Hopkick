@@ -8,8 +8,7 @@ import {
 import GetJobButton from "../components/buttons/GetJobButton";
 import HireStaffButton from "../components/buttons/HireStaffButton";
 import { useAuth } from "./AuthContext";
-
-const BASE_URL = "https://randnhop.onrender.com";
+import { apiContactForm } from "../api/auth";
 
 const glass =
   "bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-sky-300/40 transition text-white placeholder-white/50";
@@ -34,7 +33,6 @@ const Contact = () => {
     setError("");
     setSuccess(false);
 
-    // Basic client-side validation
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
       setError("Please fill in your name, email, and message.");
       return;
@@ -42,29 +40,7 @@ const Contact = () => {
 
     setSending(true);
     try {
-      const token = localStorage.getItem("authToken");
-
-      const res = await fetch(`${BASE_URL}/api/v1/contact`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          subject: form.subject,
-          message: form.message,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data?.message || data?.error || `Request failed (${res.status})`);
-      }
-
+      await apiContactForm(form);
       setSuccess(true);
       setForm(INITIAL_FORM);
     } catch (err) {
@@ -108,7 +84,6 @@ const Contact = () => {
             We are here to help you. Reach out to us through any of the
             platforms below and our team will respond promptly.
           </p>
-
           <div className="flex justify-center gap-4">
             <HireStaffButton user={user} />
             <GetJobButton user={user} />

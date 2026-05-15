@@ -1,12 +1,3 @@
-// src/ApplicationForms/PrivateForm.jsx
-// ─── FIXES in this version ────────────────────────────────────────────────────
-// 1. Role & quantity bug: each employee row is now kept in full until submit;
-//    buildPayload() correctly maps every row that has a name selected.
-// 2. After a successful API call the form dispatches ADD_REQUEST into the shared
-//    store so Dashboard and AdminPanel both see the new request immediately.
-// 3. Success screen "Done" button closes the modal via onSubmit().
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { useState, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,9 +5,13 @@ import Select from "react-select";
 import countryList from "react-select-country-list";
 import { apiStaffRequest } from "../api/auth";
 import { useStore, buildRequestPayload } from "../store";
+import { useAuth } from "../pages/AuthContext";
 
 const glass =
   "bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-sky-300/40 transition text-white placeholder-white/50";
+
+const glassLocked =
+  "w-full rounded-xl px-3 pt-6 pb-2 bg-white/5 border border-white/10 text-white/50 cursor-not-allowed select-none outline-none";
 
 const glassSelectStyles = {
   control: (base, state) => ({
@@ -62,12 +57,20 @@ const STAFF_ROLES = [
 ];
 
 const STORAGE_KEY = "privateFormDraft";
-const INITIAL_FORM = {
-  surname: "", otherName: "", email: "", phone: "",
+
+const getAuthPrefill = (user) => ({
+  surname:   user?.surname     || "",
+  otherName: user?.otherNames  || "",
+  phone:     user?.phoneNumber || "",
+  email:     user?.email       || "",
+});
+
+const getInitialForm = (user) => ({
+  ...getAuthPrefill(user),
   nationality: null, businessLocation: "", additionalComment: "",
   employees: [{ name: "", quantity: 1, search: "" }],
   agreed: false,
-};
+});
 
 const FloatingInput = memo(({ name, value, onChange, placeholder, type = "text" }) => {
   const [focused, setFocused] = useState(false);
@@ -92,20 +95,65 @@ const FloatingInput = memo(({ name, value, onChange, placeholder, type = "text" 
   );
 });
 
+// Locked floating-label field — matches FloatingInput visually but read-only
+const LockedInput = ({ value, placeholder }) => (
+  <div className="relative">
+    <input
+      value={value}
+      readOnly
+      tabIndex={-1}
+      className={glassLocked}
+    />
+    <label
+      className="absolute left-3 pointer-events-none"
+      style={{ top: "4px", fontSize: "0.65rem", color: "#94a3b8" }}
+    >
+      {placeholder}
+    </label>
+  </div>
+);
+
 export function PrivateForm({ onSubmit }) {
-  const navigate    = useNavigate();
+  const navigate     = useNavigate();
   const { dispatch } = useStore();
+  const { user }     = useAuth();
 
   const [step,          setStep]          = useState(1);
   const [countries,     setCountries]     = useState([]);
   const [submitting,    setSubmitting]    = useState(false);
-  const [submitStatus,  setSubmitStatus]  = useState(null);   // null | "success" | "error"
+  const [submitStatus,  setSubmitStatus]  = useState(null);
   const [errorMessage,  setErrorMessage]  = useState("");
 
   const [formData, setFormData] = useState(() => {
-    try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : INITIAL_FORM; }
-    catch { return INITIAL_FORM; }
+    try {
+      const s     = localStorage.getItem(STORAGE_KEY);
+      const draft = s ? JSON.parse(s) : null;
+      const base  = getInitialForm(user);
+      if (draft) {
+        return {
+          ...draft,
+          surname:   base.surname,
+          otherName: base.otherName,
+          phone:     base.phone,
+        };
+      }
+      return base;
+    } catch {
+      return getInitialForm(user);
+    }
   });
+
+  // Sync locked fields when user loads asynchronously
+  useEffect(() => {
+    if (!user) return;
+    setFormData((prev) => ({
+      ...prev,
+      surname:   user.surname     || "",
+      otherName: user.otherNames  || "",
+      phone:     user.phoneNumber || "",
+      email:     user.email       || "",
+    }));
+  }, [user?.surname, user?.otherNames, user?.phoneNumber, user?.email]);
 
   useEffect(() => { setCountries(countryList().getData()); }, []);
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(formData)); }, [formData]);
@@ -118,10 +166,9 @@ export function PrivateForm({ onSubmit }) {
   const isEmailValid = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
   const isStep1Valid = () =>
-    formData.surname.trim() && formData.email.trim() && isEmailValid(formData.email) &&
+    formData.surname.trim() && formData.email.trim() &&
     formData.phone.trim() && formData.businessLocation.trim() && formData.nationality;
 
-  // ✅ FIX: valid when at least one employee has a name selected
   const isStep2Valid = () =>
     formData.employees.some((e) => e.name.trim()) && formData.agreed;
 
@@ -166,14 +213,13 @@ export function PrivateForm({ onSubmit }) {
 
   const addEmployee = () => {
     const last = formData.employees[formData.employees.length - 1];
-    if (!last.name) return;   // must select a role before adding another row
+    if (!last.name) return;
     setFormData((prev) => ({
       ...prev,
       employees: [...prev.employees, { name: "", quantity: 1, search: "" }],
     }));
   };
 
-  // ✅ FIX: correctly maps ALL selected roles with their actual quantities
   const buildPayload = () => ({
     clientType: "Individual",
     personalDetails: {
@@ -199,10 +245,7 @@ export function PrivateForm({ onSubmit }) {
     try {
       const payload = buildPayload();
       const data    = await apiStaffRequest(payload);
-
-      // ✅ Push into shared store so Dashboard + AdminPanel update immediately
       dispatch({ type: "ADD_REQUEST", payload: buildRequestPayload(payload, data) });
-
       localStorage.removeItem(STORAGE_KEY);
       setSubmitStatus("success");
       if (onSubmit) onSubmit(data);
@@ -220,7 +263,6 @@ export function PrivateForm({ onSubmit }) {
 
   const steps = ["Personal Info", "Staff Request"];
 
-  // ── Success screen ──────────────────────────────────────────────────────────
   if (submitStatus === "success") {
     return (
       <div className="w-full p-8 text-white rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg flex flex-col items-center gap-4 text-center">
@@ -229,7 +271,7 @@ export function PrivateForm({ onSubmit }) {
         <p className="text-white/60">Your staff request has been received. We'll be in touch shortly.</p>
         <div className="flex gap-3 mt-2">
           <button
-            onClick={() => { setFormData(INITIAL_FORM); setStep(1); setSubmitStatus(null); }}
+            onClick={() => { setFormData(getInitialForm(user)); setStep(1); setSubmitStatus(null); }}
             className="px-6 py-2 bg-white/10 text-white rounded-xl font-medium hover:bg-white/20 transition"
           >
             New Request
@@ -245,7 +287,6 @@ export function PrivateForm({ onSubmit }) {
     );
   }
 
-  // ── Form ────────────────────────────────────────────────────────────────────
   return (
     <div className="w-full max-h-[85vh] overflow-y-auto p-6 text-white rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg">
       <h2 className="text-2xl font-semibold mb-2">Request Staff</h2>
@@ -276,15 +317,19 @@ export function PrivateForm({ onSubmit }) {
         {step === 1 && (
           <motion.div key="s1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <FloatingInput name="surname"    value={formData.surname}    onChange={handleChange} placeholder="Surname *" />
-              <FloatingInput name="otherName"  value={formData.otherName}  onChange={handleChange} placeholder="Other Name" />
-              <div className="flex flex-col gap-1">
-                <FloatingInput name="email" type="email" value={formData.email} onChange={handleChange} placeholder="Email Address *" />
-                {formData.email && !isEmailValid(formData.email) && (
-                  <span className="text-red-400 text-xs pl-1">Invalid email</span>
-                )}
-              </div>
-              <FloatingInput name="phone"            value={formData.phone}            onChange={handleChange} placeholder="Phone Number *" />
+
+              {/* Surname — locked */}
+              <LockedInput value={formData.surname} placeholder="Surname" />
+
+              {/* Other Name — locked */}
+              <LockedInput value={formData.otherName} placeholder="Other Name" />
+
+              {/* Email — locked */}
+              <LockedInput value={formData.email} placeholder="Email Address" />
+
+              {/* Phone — locked */}
+              <LockedInput value={formData.phone} placeholder="Phone Number" />
+
               <div className="col-span-2">
                 <Select options={countries} value={formData.nationality} onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))} placeholder="Nationality *" styles={glassSelectStyles} />
               </div>

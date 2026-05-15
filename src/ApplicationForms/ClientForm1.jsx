@@ -1,8 +1,8 @@
 // src/ApplicationForms/ClientForm1.jsx
-// ─── Changes from original ────────────────────────────────────────────────────
-// 1. Same role/quantity bug fix as PrivateForm — buildPayload maps all rows.
-// 2. Dispatches ADD_REQUEST to shared store after successful API call.
-// 3. "Go to Dashboard" button works correctly after submission.
+// ─── Changes from previous version ───────────────────────────────────────────
+// 1. Imports useAuth to pull logged-in user's name/phone.
+// 2. surname, otherName, phone are pre-filled from auth and rendered read-only.
+// 3. Draft restores but always overrides those three fields with live auth data.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
@@ -12,9 +12,13 @@ import Select from "react-select";
 import countryList from "react-select-country-list";
 import { apiStaffRequest } from "../api/auth";
 import { useStore, buildRequestPayload } from "../store";
+import { useAuth } from "../pages/AuthContext";
 
 const glass =
   "bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-sky-300/40 transition text-white placeholder-white/50";
+
+const glassLocked =
+  "bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 w-full text-white/50 cursor-not-allowed select-none";
 
 const STAFF_ROLES = [
   "Receptionists","Office Assistants","Data Entry Clerks","Cleaners / Janitors",
@@ -48,17 +52,27 @@ const glassSelectStyles = {
 };
 
 const STORAGE_KEY = "organizationFormDraft";
-const INITIAL_FORM = {
-  surname: "", otherName: "", phone: "", role: "",
+
+
+const getAuthPrefill = (user) => ({
+  surname:   user?.surname     || "",
+  otherName: user?.otherNames  || "",
+  phone:     user?.phoneNumber || "",
+});
+
+const getInitialForm = (user) => ({
+  ...getAuthPrefill(user),
+  role: "",
   companyName: "", email: "", companyPhone: "", address: "", country: null,
   industry: "", regNo: "",
   employees: [{ name: "", quantity: 1, search: "" }],
   agreed: false,
-};
+});
 
 export function ClientForm1({ onSubmit }) {
   const navigate     = useNavigate();
   const { dispatch } = useStore();
+  const { user }     = useAuth(); 
 
   const [step,         setStep]         = useState(1);
   const [countries,    setCountries]    = useState([]);
@@ -67,9 +81,36 @@ export function ClientForm1({ onSubmit }) {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [formData, setFormData] = useState(() => {
-    try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : INITIAL_FORM; }
-    catch { return INITIAL_FORM; }
+    try {
+      const s     = localStorage.getItem(STORAGE_KEY);
+      const draft = s ? JSON.parse(s) : null;
+      const base  = getInitialForm(user);
+      if (draft) {
+
+      
+        return {
+          ...draft,
+          surname:   base.surname,
+          otherName: base.otherName,
+          phone:     base.phone,
+        };
+      }
+      return base;
+    } catch {
+      return getInitialForm(user);
+    }
   });
+
+  // User loads asynchronously from localStorage — sync locked fields whenever it arrives.
+  useEffect(() => {
+    if (!user) return;
+    setFormData((prev) => ({
+      ...prev,
+      surname:   user.surname     || "",
+      otherName: user.otherNames  || "",
+      phone:     user.phoneNumber || "",
+    }));
+  }, [user?.surname, user?.otherNames, user?.phoneNumber]);
 
   useEffect(() => { setCountries(countryList().getData()); }, []);
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(formData)); }, [formData]);
@@ -85,7 +126,6 @@ export function ClientForm1({ onSubmit }) {
     formData.companyName.trim() && formData.email.trim() && isEmailValid(formData.email) &&
     formData.companyPhone.trim() && formData.address.trim() && formData.country &&
     formData.industry.trim() && formData.regNo.trim();
-  // ✅ FIX: at least one employee with a name selected
   const isStep3Valid  = () => formData.employees.some((e) => e.name.trim()) && formData.agreed;
 
   const nextStep = () => {
@@ -114,7 +154,6 @@ export function ClientForm1({ onSubmit }) {
     setFormData((p) => ({ ...p, employees: [...p.employees, { name: "", quantity: 1, search: "" }] }));
   };
 
-  // ✅ FIX: maps ALL selected roles with correct quantities
   const buildPayload = () => ({
     clientType: "Organisation",
     repDetails: {
@@ -145,7 +184,6 @@ export function ClientForm1({ onSubmit }) {
       const payload = buildPayload();
       const data    = await apiStaffRequest(payload);
 
-      // ✅ Push into shared store
       dispatch({ type: "ADD_REQUEST", payload: buildRequestPayload(payload, data) });
 
       localStorage.removeItem(STORAGE_KEY);
@@ -169,7 +207,7 @@ export function ClientForm1({ onSubmit }) {
         <h2 className="text-2xl font-semibold">Request Submitted!</h2>
         <p className="text-white/60">Your staff request has been received. We will be in touch shortly.</p>
         <div className="flex gap-3 mt-2">
-          <button onClick={() => { setFormData(INITIAL_FORM); setStep(1); setSubmitStatus(null); }}
+          <button onClick={() => { setFormData(getInitialForm(user)); setStep(1); setSubmitStatus(null); }}
             className="px-6 py-2 bg-white/10 text-white rounded-xl font-medium hover:bg-white/20 transition">
             New Request
           </button>
@@ -188,6 +226,7 @@ export function ClientForm1({ onSubmit }) {
     <div className="w-full max-h-[85vh] overflow-y-auto p-6 text-white rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg">
       <h2 className="text-2xl font-semibold mb-2">Request Staff</h2>
 
+      {/* Step indicator */}
       <div className="flex gap-2 mb-6">
         {steps.map((label, i) => (
           <div key={label} className="flex items-center gap-2 flex-1">
@@ -201,18 +240,66 @@ export function ClientForm1({ onSubmit }) {
       </div>
 
       <AnimatePresence mode="wait">
+
+        {/* ── Step 1: Rep Details ── */}
         {step === 1 && (
           <motion.div key="s1" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="grid grid-cols-2 gap-4">
-            <input className={glass} placeholder="Surname *"   name="surname"   value={formData.surname}   onChange={handleChange} />
-            <input className={glass} placeholder="Other Name"  name="otherName" value={formData.otherName} onChange={handleChange} />
-            <input className={glass} placeholder="Phone *"     name="phone"     value={formData.phone}     onChange={handleChange} />
-            <input className={glass} placeholder="Job Role *"  name="role"      value={formData.role}      onChange={handleChange} />
+
+            {/* Surname — locked */}
+            <div className="flex flex-col gap-1">
+              <label className="text-white/40 text-xs pl-1">Surname</label>
+              <input
+                className={glassLocked}
+                value={formData.surname}
+                readOnly
+                tabIndex={-1}
+              />
+            </div>
+
+            {/* Other Name — locked */}
+            <div className="flex flex-col gap-1">
+              <label className="text-white/40 text-xs pl-1">Other Name</label>
+              <input
+                className={glassLocked}
+                value={formData.otherName}
+                readOnly
+                tabIndex={-1}
+              />
+            </div>
+
+            {/* Phone — locked */}
+            <div className="flex flex-col gap-1">
+              <label className="text-white/40 text-xs pl-1">Phone</label>
+              <input
+                className={glassLocked}
+                value={formData.phone}
+                readOnly
+                tabIndex={-1}
+              />
+            </div>
+
+            {/* Job Role — editable */}
+            <input
+              className={glass}
+              placeholder="Job Role *"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+            />
+
             <div className="col-span-2 flex justify-end">
-              <button onClick={nextStep} disabled={!isStep1Valid()} className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40">Next →</button>
+              <button
+                onClick={nextStep}
+                disabled={!isStep1Valid()}
+                className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40"
+              >
+                Next →
+              </button>
             </div>
           </motion.div>
         )}
 
+        {/* ── Step 2: Company Details ── */}
         {step === 2 && (
           <motion.div key="s2" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="grid grid-cols-2 gap-4">
             <input className={glass} placeholder="Company Name *"   name="companyName"  value={formData.companyName}  onChange={handleChange} />
@@ -234,6 +321,7 @@ export function ClientForm1({ onSubmit }) {
           </motion.div>
         )}
 
+        {/* ── Step 3: Staff Roles ── */}
         {step === 3 && (
           <motion.div key="s3" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-4">
             <p className="text-white/50 text-sm">Add the staff roles you need:</p>

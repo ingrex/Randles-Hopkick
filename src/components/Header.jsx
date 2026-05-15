@@ -187,7 +187,7 @@ const Header = () => {
                 onClick={() => setDropdownOpen((o) => !o)}
                 className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition"
               >
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-xs font-semibold border border-white/20">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-700 to-blue-500 flex items-center justify-center text-white text-xs font-semibold border border-white/20">
                   {getInitials(user)}
                 </div>
 
