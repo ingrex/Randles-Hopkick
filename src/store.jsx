@@ -1,5 +1,8 @@
 // src/store.js
-// ─── Shared reactive store with localStorage persistence ─────────────────────
+// ─── Shared reactive store ────────────────────────────────────────────────────
+// localStorage is used ONLY for UI-owned data (blog, staff, testimonials,
+// message replies). All server-owned data (requests, registeredUsers) is
+// always fetched fresh from the backend on mount and on tab focus.
 
 import { createContext, useContext, useReducer } from "react";
 
@@ -35,8 +38,8 @@ const SEED_MESSAGES = [
 // ─── Default state factory ────────────────────────────────────────────────────
 function defaultState() {
   return {
-    requests:        [],
-    registeredUsers: [],
+    requests:        [],   // always loaded from backend
+    registeredUsers: [],   // always loaded from backend
     staff:           SEED_STAFF,
     blog:            SEED_BLOG,
     testimonials:    SEED_TESTIMONIALS,
@@ -51,8 +54,8 @@ function defaultState() {
 }
 
 // ─── localStorage ─────────────────────────────────────────────────────────────
-// v3 — clears stale cached data from previous shape versions
-const STORE_KEY = "rnh_store_v3";
+// v4 — only persists UI-owned data, not server-owned data
+const STORE_KEY = "rnh_store_v4";
 
 function loadState() {
   try {
@@ -60,18 +63,21 @@ function loadState() {
     if (!raw) return defaultState();
     const saved = JSON.parse(raw);
 
+    // Merge seed staff with saved staff (saved wins on id conflict)
     const savedStaffIds = new Set((saved.staff || []).map((s) => s.id));
     const mergedStaff   = [
       ...SEED_STAFF.filter((s) => !savedStaffIds.has(s.id)),
       ...(saved.staff || []),
     ];
 
+    // Merge seed testimonials with saved testimonials
     const savedTestiIds = new Set((saved.testimonials || []).map((t) => t.id));
     const mergedTestis  = [
       ...SEED_TESTIMONIALS.filter((t) => !savedTestiIds.has(t.id)),
       ...(saved.testimonials || []),
     ];
 
+    // Ensure replies array exists on every message
     const mergedMessages = (saved.messages ?? SEED_MESSAGES).map((m) => ({
       ...m,
       replies: m.replies ?? [],
@@ -83,32 +89,41 @@ function loadState() {
       staff:           mergedStaff,
       testimonials:    mergedTestis,
       messages:        mergedMessages,
-      registeredUsers: saved.registeredUsers || [],
-      requests:        saved.requests        || [],
+      // Always start with empty server-owned data; backend will populate on mount
+      registeredUsers: [],
+      requests:        [],
     };
   } catch {
     return defaultState();
   }
 }
 
+// Only persist UI-owned data — server-owned data comes from the backend
 function persistState(state) {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      staff:        state.staff,
+      blog:         state.blog,
+      testimonials: state.testimonials,
+      messages:     state.messages,
+      nextStaffId:  state.nextStaffId,
+      nextBlogId:   state.nextBlogId,
+      nextTestiId:  state.nextTestiId,
+      nextMsgId:    state.nextMsgId,
+    }));
+  } catch {}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // pickArray
-// Given a plain object, return the value of the first key that holds a
-// non-empty array, trying keys in priority order.
-// Falls back to the first array-valued property found anywhere in the object.
 // ─────────────────────────────────────────────────────────────────────────────
 function pickArray(obj, ...keys) {
   if (!obj || typeof obj !== "object") return [];
   for (const key of keys) {
-    // Support "data.users" style dotted paths
     const val = key.split(".").reduce((o, k) => (o && typeof o === "object" ? o[k] : undefined), obj);
     if (Array.isArray(val) && val.length > 0) return val;
   }
-  // Last-resort: return first array found in the object
+  // Last-resort: return first non-empty array found
   for (const val of Object.values(obj)) {
     if (Array.isArray(val) && val.length > 0) return val;
   }
@@ -152,7 +167,6 @@ export function normaliseRequest(raw) {
     raw.personalDetails?.businessLocation ??
     raw.personalDetails?.address      ?? raw.personalDetails?.location ?? "";
 
-  // Normalise roles — handle {role,quantity}, {name,count}, plain string, etc.
   const rawRoles = raw.roles ?? raw.requestedStaff ?? raw.staffRoles ?? raw.services ?? [];
   const roles = (Array.isArray(rawRoles) ? rawRoles : []).map((r) => {
     if (typeof r === "string") return { role: r, quantity: 1 };
@@ -162,7 +176,6 @@ export function normaliseRequest(raw) {
     };
   });
 
-  // Map backend "Rejected" → "Declined"
   const rawStatus = raw.status ?? "Pending";
   const status    = rawStatus === "Rejected" ? "Declined" : rawStatus;
 
@@ -176,7 +189,7 @@ export function normaliseRequest(raw) {
 
   const assignedStaff = (raw.assignedStaff ?? raw.staff ?? raw.assignedTo ?? []).map((s) =>
     typeof s === "string"
-      ? { id: s,           name: s }
+      ? { id: s, name: s }
       : { id: s._id ?? s.id, name: s.name ?? s.fullName ?? s.staffName ?? "" }
   );
 
@@ -202,13 +215,12 @@ export function normaliseRequest(raw) {
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseUser
 // ─────────────────────────────────────────────────────────────────────────────
-function normaliseUser(u) {
+export function normaliseUser(u) {
   if (!u || typeof u !== "object") return null;
 
   let surname    = u.surname    ?? u.lastName  ?? "";
   let otherNames = u.otherNames ?? u.firstName ?? u.otherName ?? "";
 
-  // Fallback: split fullName / name
   if (!surname && !otherNames) {
     const full  = (u.fullName ?? u.name ?? "").trim();
     const parts = full.split(/\s+/);
@@ -230,7 +242,7 @@ function normaliseUser(u) {
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseStaff
 // ─────────────────────────────────────────────────────────────────────────────
-function normaliseStaff(s) {
+export function normaliseStaff(s) {
   if (!s || typeof s !== "object") return null;
 
   let name = s.name ?? s.fullName ?? "";
@@ -262,10 +274,10 @@ function normaliseStaff(s) {
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseMessage
 // ─────────────────────────────────────────────────────────────────────────────
-function normaliseMessage(m, idx) {
+export function normaliseMessage(m, idx) {
   if (!m || typeof m !== "object") return null;
   return {
-    id:      m._id     ?? m.id      ?? idx,
+    id:      m._id     ?? m.id      ?? `server-${idx}`,
     from:    m.from    ?? m.name    ?? m.senderName  ?? m.sender ?? "Unknown",
     subject: m.subject ?? m.title   ?? m.topic       ?? "New message",
     body:    m.body    ?? m.message ?? m.content     ?? m.text   ?? "",
@@ -285,51 +297,36 @@ function normaliseMessage(m, idx) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // parseMasterMarketplace
-//
-// Accepts the raw JSON from GET /api/v1/admin/mastermarketplace and returns
-// { users[], requests[], messages[], staff[] } regardless of the backend's
-// exact key names or nesting.
-//
-// Strategy:
-//  1. Try every plausible top-level key name.
-//  2. If the response is wrapped under a "data" / "result" / "payload" key,
-//     try again inside that wrapper.
-//  3. Log the full raw keys in DEV mode so you can see exactly what came back
-//     and add more fallback keys if needed.
 // ─────────────────────────────────────────────────────────────────────────────
 export function parseMasterMarketplace(raw) {
   if (!raw || typeof raw !== "object") {
     return { users: [], requests: [], messages: [], staff: [] };
   }
 
-  // ── DEV diagnostic — check the browser console ──
-  if (typeof window !== "undefined" && process?.env?.NODE_ENV === "development") {
+  // DEV diagnostic — check the browser console
+  if (typeof window !== "undefined" && process?.env?.NODE_ENV !== "production") {
     console.group("🛰  [mastermarketplace] raw response");
     console.log("Top-level keys:", Object.keys(raw));
     Object.entries(raw).forEach(([k, v]) => {
       console.log(
         `  ${k}: ${Array.isArray(v) ? `Array(${v.length})` : typeof v}`,
-        Array.isArray(v) && v[0] ? "  sample →" : "",
+        Array.isArray(v) && v[0] ? "sample →" : "",
         Array.isArray(v) && v[0] ? JSON.stringify(v[0]).slice(0, 120) : ""
       );
     });
     console.groupEnd();
   }
 
-  // ── Unwrap common envelope shapes ──
-  // e.g. { success: true, data: { users: [], requests: [] } }
+  // Unwrap common envelope shapes
   const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
 
-  // ── Users ──
   const rawUsers = pickArray(
     root,
     "users", "registeredUsers", "clients", "members",
     "accounts", "userList", "allUsers", "userData",
-    // also try the outer wrapper in case root was already raw
     "data.users", "data.registeredUsers", "data.clients",
   );
 
-  // ── Requests ──
   const rawRequests = pickArray(
     root,
     "requests", "profiles", "staffRequests", "applications",
@@ -337,7 +334,6 @@ export function parseMasterMarketplace(raw) {
     "data.requests", "data.profiles", "data.staffRequests",
   );
 
-  // ── Messages / Contacts ──
   const rawMessages = pickArray(
     root,
     "messages", "contacts", "contactMessages", "enquiries",
@@ -345,7 +341,6 @@ export function parseMasterMarketplace(raw) {
     "data.messages", "data.contacts", "data.enquiries",
   );
 
-  // ── Staff ──
   const rawStaff = pickArray(
     root,
     "staff", "staffMembers", "workers", "employees",
@@ -362,7 +357,7 @@ export function parseMasterMarketplace(raw) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// buildRequestPayload — called by forms after apiStaffRequest()
+// buildRequestPayload
 // ─────────────────────────────────────────────────────────────────────────────
 export function buildRequestPayload(apiPayload, apiResponse) {
   if (apiResponse && (apiResponse._id || apiResponse.id)) {
@@ -400,12 +395,12 @@ function reducer(state, action) {
   switch (action.type) {
 
     // ── LOAD_MARKETPLACE ──────────────────────────────────────────────────────
-    // Payload is pre-parsed by parseMasterMarketplace() in AdminPanel before dispatch.
+    // Payload is pre-parsed by parseMasterMarketplace() before dispatch.
     // Shape: { users[], requests[], messages[], staff[] }
     case "LOAD_MARKETPLACE": {
       const { users = [], requests = [], messages = [], staff = [] } = action.payload;
 
-      // Requests: backend wins; preserve local reviews/reviewed
+      // Requests: backend wins; preserve local reviews/reviewed flags
       const localReqMap    = new Map(state.requests.map((r) => [String(r.id), r]));
       const mergedRequests = requests.map((r) => {
         const local = localReqMap.get(String(r.id));
@@ -416,20 +411,33 @@ function reducer(state, action) {
           reviewed: local.reviewed        ? local.reviewed : r.reviewed,
         };
       });
-      const backendReqIds  = new Set(requests.map((r) => String(r.id)));
-      const localOnlyReqs  = state.requests.filter(
+      // Keep requests that were added locally (no backendId) and not yet synced
+      const backendReqIds = new Set(requests.map((r) => String(r.id)));
+      const localOnlyReqs = state.requests.filter(
         (r) => !r.backendId && !backendReqIds.has(String(r.id))
       );
 
-      // Users: full replace from backend, preserve local-only
+      // Users: backend is source of truth; preserve local-only entries
       const serverEmails   = new Set(users.map((u) => u.email));
       const localOnlyUsers = state.registeredUsers.filter((u) => !serverEmails.has(u.email));
 
-      // Messages: full replace from backend, preserve local-only seeds
+      // Messages: backend wins; merge local replies into server messages;
+      // preserve local-only seed messages
+      const localMsgMap   = new Map(state.messages.map((m) => [String(m.id), m]));
+      const mergedMessages = messages.map((m) => {
+        const local = localMsgMap.get(String(m.id));
+        if (!local) return m;
+        // Preserve any replies the admin typed locally
+        return {
+          ...m,
+          read:    local.read || m.read,
+          replies: local.replies?.length ? local.replies : m.replies,
+        };
+      });
       const serverMsgIds  = new Set(messages.map((m) => String(m.id)));
       const localOnlyMsgs = state.messages.filter((m) => !serverMsgIds.has(String(m.id)));
 
-      // Staff: update existing records with backend data, append brand-new backend staff
+      // Staff: update existing records, append brand-new backend staff
       const backendStaffMap = new Map(staff.map((s) => [String(s.id), s]));
       const mergedStaff     = state.staff.map((s) => {
         const b = backendStaffMap.get(String(s.id));
@@ -437,21 +445,19 @@ function reducer(state, action) {
         return {
           ...s,
           ...b,
-          // Keep richer local otherSkills if backend returned empty
           otherSkills:   b.otherSkills?.length ? b.otherSkills : s.otherSkills,
-          // Keep higher rating if backend returned 0 (data not yet synced)
           averageRating: b.averageRating > 0   ? b.averageRating : s.averageRating,
           totalReviews:  b.totalReviews  > 0   ? b.totalReviews  : s.totalReviews,
         };
       });
-      const localStaffIds   = new Set(state.staff.map((s) => String(s.id)));
-      const brandNewStaff   = staff.filter((s) => !localStaffIds.has(String(s.id)));
+      const localStaffIds = new Set(state.staff.map((s) => String(s.id)));
+      const brandNewStaff = staff.filter((s) => !localStaffIds.has(String(s.id)));
 
       next = {
         ...state,
         requests:        [...mergedRequests, ...localOnlyReqs],
         registeredUsers: [...users, ...localOnlyUsers],
-        messages:        [...messages, ...localOnlyMsgs],
+        messages:        [...mergedMessages, ...localOnlyMsgs],
         staff:           [...mergedStaff, ...brandNewStaff],
         lastSyncedAt:    new Date().toISOString(),
       };
@@ -492,7 +498,12 @@ function reducer(state, action) {
         ...state,
         registeredUsers: [
           ...state.registeredUsers,
-          { id: Date.now(), photoUrl: "", ...action.payload, registeredAt: action.payload.registeredAt ?? new Date().toISOString() },
+          {
+            id:           Date.now(),
+            photoUrl:     "",
+            ...action.payload,
+            registeredAt: action.payload.registeredAt ?? new Date().toISOString(),
+          },
         ],
       };
       break;
@@ -591,7 +602,7 @@ function reducer(state, action) {
       break;
     }
 
-    // SET_DATES: saves dates; only flips Approved → Active (not Pending → Active).
+    // SET_DATES: saves dates; only flips Approved → Active (not Pending → Active)
     case "SET_DATES":
     case "UPDATE_DATES": {
       const { id, startDate, endDate } = action;
@@ -655,28 +666,51 @@ function reducer(state, action) {
         ...state,
         staff: [
           ...state.staff,
-          { ...action.payload, id: state.nextStaffId, status: "Available", currentJobId: null, averageRating: 0, totalReviews: 0, reviews: [], otherSkills: action.payload.otherSkills ?? [] },
+          {
+            ...action.payload,
+            id:            action.payload.id ?? state.nextStaffId,
+            status:        "Available",
+            currentJobId:  null,
+            averageRating: 0,
+            totalReviews:  0,
+            reviews:       [],
+            otherSkills:   action.payload.otherSkills ?? [],
+          },
         ],
         nextStaffId: state.nextStaffId + 1,
       };
       break;
     }
     case "UPDATE_STAFF": {
-      next = { ...state, staff: state.staff.map((s) => s.id === action.payload.id ? { ...s, ...action.payload } : s) };
+      next = {
+        ...state,
+        staff: state.staff.map((s) =>
+          String(s.id) === String(action.payload.id) ? { ...s, ...action.payload } : s
+        ),
+      };
       break;
     }
     case "REMOVE_STAFF": {
-      next = { ...state, staff: state.staff.filter((s) => s.id !== action.id) };
+      next = { ...state, staff: state.staff.filter((s) => String(s.id) !== String(action.id)) };
       break;
     }
 
     // ── Blog ──────────────────────────────────────────────────────────────────
     case "ADD_BLOG": {
-      next = { ...state, blog: [...state.blog, { ...action.payload, id: state.nextBlogId }], nextBlogId: state.nextBlogId + 1 };
+      next = {
+        ...state,
+        blog:      [...state.blog, { ...action.payload, id: state.nextBlogId }],
+        nextBlogId: state.nextBlogId + 1,
+      };
       break;
     }
     case "UPDATE_BLOG": {
-      next = { ...state, blog: state.blog.map((p) => p.id === action.payload.id ? { ...p, ...action.payload } : p) };
+      next = {
+        ...state,
+        blog: state.blog.map((p) =>
+          p.id === action.payload.id ? { ...p, ...action.payload } : p
+        ),
+      };
       break;
     }
     case "DELETE_BLOG": {
@@ -688,13 +722,27 @@ function reducer(state, action) {
     case "ADD_TESTI": {
       const id = action.payload.id ?? state.nextTestiId;
       if (state.testimonials.some((t) => t.id === id)) {
-        return { ...state, testimonials: state.testimonials.map((t) => t.id === id ? { ...t, ...action.payload } : t) };
+        return {
+          ...state,
+          testimonials: state.testimonials.map((t) =>
+            t.id === id ? { ...t, ...action.payload } : t
+          ),
+        };
       }
-      next = { ...state, testimonials: [...state.testimonials, { visible: true, ...action.payload, id }], nextTestiId: state.nextTestiId + 1 };
+      next = {
+        ...state,
+        testimonials: [...state.testimonials, { visible: true, ...action.payload, id }],
+        nextTestiId:  state.nextTestiId + 1,
+      };
       break;
     }
     case "UPDATE_TESTI": {
-      next = { ...state, testimonials: state.testimonials.map((t) => t.id === action.payload.id ? { ...t, ...action.payload } : t) };
+      next = {
+        ...state,
+        testimonials: state.testimonials.map((t) =>
+          t.id === action.payload.id ? { ...t, ...action.payload } : t
+        ),
+      };
       break;
     }
     case "DELETE_TESTI": {
@@ -704,13 +752,21 @@ function reducer(state, action) {
 
     // ── Messages ──────────────────────────────────────────────────────────────
     case "MARK_MSG_READ": {
-      next = { ...state, messages: state.messages.map((m) => m.id === action.id ? { ...m, read: true } : m) };
+      next = {
+        ...state,
+        messages: state.messages.map((m) =>
+          String(m.id) === String(action.id) ? { ...m, read: true } : m
+        ),
+      };
       break;
     }
     case "ADD_MSG": {
       next = {
         ...state,
-        messages:  [...state.messages, { ...action.payload, id: state.nextMsgId, read: false, time: "Just now", replies: [] }],
+        messages:  [
+          ...state.messages,
+          { ...action.payload, id: state.nextMsgId, read: false, time: "Just now", replies: [] },
+        ],
         nextMsgId: state.nextMsgId + 1,
       };
       break;
@@ -719,8 +775,14 @@ function reducer(state, action) {
       next = {
         ...state,
         messages: state.messages.map((m) =>
-          m.id === action.id
-            ? { ...m, replies: [...(m.replies || []), { text: action.text, sentAt: new Date().toISOString() }] }
+          String(m.id) === String(action.id)
+            ? {
+                ...m,
+                replies: [
+                  ...(m.replies || []),
+                  { text: action.text, sentAt: new Date().toISOString() },
+                ],
+              }
             : m
         ),
       };
@@ -756,8 +818,12 @@ export function useStore() {
 // ─── Profile helpers ──────────────────────────────────────────────────────────
 const PROFILE_KEY = "rnh_profile_v1";
 export function loadProfile() {
-  try { const raw = localStorage.getItem(PROFILE_KEY); return raw ? JSON.parse(raw) : null; }
-  catch { return null; }
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 export function saveProfile(profile) {
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
