@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiGetMasterMarketplace, apiGetContactMessages } from "../api/auth";
+import { apiGetMasterMarketplace } from "../api/auth";
 import { useStore } from "../store";
 import {
   apiFetchTestimonials,
@@ -1120,57 +1120,16 @@ function TestimonialsSection({ state, dispatch }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Messages
-// — Loads real contact messages from /contact/admin/all
-// — Normalises backend shape → { id, from, subject, body, time, read, type, phone, email }
+// — Data is seeded by AdminPanel's root useEffect via LOAD_MARKETPLACE.
+//   No secondary fetch is needed here; messages from the contact form arrive
+//   in the mastermarketplace response under the `contacts` key.
+// — Shape expected in store: { id, from, subject, body, time, read, type, phone, email }
 // ─────────────────────────────────────────────────────────────────────────────
 function MessagesSection({ state, dispatch }) {
   const [filter,     setFilter]     = useState("all");
   const [active,     setActive]     = useState(null);
   const [reply,      setReply]      = useState("");
   const [mobilePane, setMobilePane] = useState("list");
-  const [loading,    setLoading]    = useState(false);
-  const [loadError,  setLoadError]  = useState("");
-
-  // Fetch contact messages on mount and merge into store
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true); setLoadError("");
-      try {
-        const data = await apiGetContactMessages();
-        if (cancelled) return;
-        // Backend may return array directly or { contacts: [] } or { messages: [] }
-        const list = Array.isArray(data)
-          ? data
-          : data.contacts ?? data.messages ?? data.data ?? [];
-
-        list.forEach((m) => {
-          const id = m._id ?? m.id ?? `contact-${Math.random()}`;
-          // Normalise to the shape MessagesSection expects
-          const normalised = {
-            id,
-            from:    m.name      ?? m.from    ?? "Unknown",
-            subject: m.subject   ?? "(no subject)",
-            body:    m.message   ?? m.body    ?? "",
-            time:    m.createdAt ?? m.time    ?? new Date().toISOString(),
-            read:    m.read      ?? false,
-            type:    "contact",
-            phone:   m.phoneNumber ?? m.phone ?? "",
-            email:   m.email ?? "",
-          };
-          const exists = state.messages.find((x) => String(x.id) === String(id));
-          if (!exists) dispatch({ type: "ADD_MSG",    payload: normalised });
-          else         dispatch({ type: "UPDATE_MSG", payload: normalised });
-        });
-      } catch (err) {
-        if (!cancelled) setLoadError("Could not load messages from server.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const shown  = filter === "all" ? state.messages : state.messages.filter((m) => m.type === filter);
   const unread = state.messages.filter((m) => !m.read).length;
@@ -1202,18 +1161,6 @@ function MessagesSection({ state, dispatch }) {
         {unread > 0 && <span className="ml-auto text-xs text-red-500 font-medium flex-shrink-0">{unread} unread</span>}
       </div>
 
-      {/* Loading / error states */}
-      {loading && (
-        <p className="text-xs text-[#2385cd] animate-pulse bg-[#eaf4fc] rounded-lg px-3 py-2 mb-3">
-          Loading messages…
-        </p>
-      )}
-      {loadError && (
-        <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3 flex items-center gap-1">
-          <AlertTriangle size={12} /> {loadError}
-        </p>
-      )}
-
       <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
         {shown.map((m) => (
           <div key={m.id} onClick={() => openMsg(m)}
@@ -1236,7 +1183,7 @@ function MessagesSection({ state, dispatch }) {
             {!m.read && <span className="w-2 h-2 rounded-full bg-[#2385cd] flex-shrink-0 mt-1.5" />}
           </div>
         ))}
-        {shown.length === 0 && !loading && <p className="text-gray-400 text-sm p-4">No messages.</p>}
+        {shown.length === 0 && <p className="text-gray-400 text-sm p-4">No messages.</p>}
       </div>
     </div>
   );
@@ -1257,7 +1204,6 @@ function MessagesSection({ state, dispatch }) {
           </div>
         </div>
         <p className="font-semibold text-sm text-gray-900 mt-2">{liveActive.subject}</p>
-        {/* Show phone/email if available from contact form */}
         {(liveActive.phone || liveActive.email) && (
           <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
             {liveActive.email && <span>✉ {liveActive.email}</span>}
@@ -1417,12 +1363,31 @@ export function AdminPanel() {
       try {
         const data = await apiGetMasterMarketplace();
         if (!cancelled) {
+          // Normalise contact messages from the mastermarketplace response.
+          // The backend may return them as `contacts`, `messages`, or `data`.
+          const rawContacts = data.contacts ?? data.messages ?? data.data ?? [];
+          const normalisedMessages = rawContacts.map((m) => {
+            const id = m._id ?? m.id ?? `contact-${Math.random()}`;
+            return {
+              id,
+              from:    m.name        ?? m.from    ?? "Unknown",
+              subject: m.subject     ?? "(no subject)",
+              body:    m.message     ?? m.body    ?? "",
+              time:    m.createdAt   ?? m.time    ?? new Date().toISOString(),
+              read:    m.read        ?? false,
+              type:    "contact",
+              phone:   m.phoneNumber ?? m.phone   ?? "",
+              email:   m.email       ?? "",
+            };
+          });
+
           dispatch({
             type: "LOAD_MARKETPLACE",
             payload: {
               users:    data.users    ?? data.registeredUsers ?? [],
               requests: data.requests ?? data.profiles        ?? [],
-              messages: data.messages ?? data.contacts        ?? [],
+              // Pass the normalised contact messages so the store can merge them
+              messages: normalisedMessages,
               staff:    data.staff    ?? [],
             },
           });

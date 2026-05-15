@@ -74,6 +74,19 @@ export async function apiGetMarketplace() {
   });
 }
 
+/**
+ * Master marketplace — returns everything the admin panel needs in one call.
+ *
+ * Expected response shape (all fields optional; panel handles missing keys):
+ * {
+ *   users?:    RegisteredUser[]   // registered user accounts
+ *   requests?: ClientRequest[]    // staff/service requests
+ *   staff?:    StaffMember[]      // internal staff registry
+ *   contacts?: ContactMessage[]   // contact-form submissions  ← replaces separate /contact/admin/all call
+ *   // Legacy aliases the panel also accepts:
+ *   registeredUsers?, profiles?, messages?
+ * }
+ */
 export async function apiGetMasterMarketplace() {
   return request("/admin/mastermarketplace", {
     method: "GET",
@@ -189,19 +202,22 @@ export async function apiDeleteTestimonial(id) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONTACT FORM
+// CONTACT FORM  (public submission)
+// POST https://randnhop.onrender.com/api/v1/contact
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiContactForm({ name, email, phone, subject, message }) {
   return request("/contact", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ name, email, phone, subject, message }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, phoneNumber: phone, subject, message }),
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTACT MESSAGES (Admin)
+// Kept for manual/fallback use only. The AdminPanel now loads contact messages
+// via apiGetMasterMarketplace (contacts key) to avoid a duplicate network call.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiGetContactMessages() {
