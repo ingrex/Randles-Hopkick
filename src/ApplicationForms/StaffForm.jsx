@@ -113,17 +113,11 @@ function InputField({ label, value, onChange, placeholder, type="text", err, req
   );
 }
 
-/* Read-only locked field — visually dimmed, no interaction */
 function LockedField({ label, value }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
       <label style={LOCKED_LABEL_ST}>{label}</label>
-      <input
-        style={mkLocked()}
-        value={value}
-        readOnly
-        tabIndex={-1}
-      />
+      <input style={mkLocked()} value={value} readOnly tabIndex={-1} />
     </div>
   );
 }
@@ -398,7 +392,7 @@ const QUALIFICATION_OPTIONS = [
 ];
 
 /* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
-export function StaffForm() {
+export function StaffForm({ onSubmit }) {
   const navigate    = useNavigate();
   const { user }    = useAuth();
 
@@ -410,7 +404,6 @@ export function StaffForm() {
   const [loading, setLoading] = useState(false);
   const [done,    setDone]    = useState(false);
 
-  // Sync locked fields when user loads asynchronously
   useEffect(() => {
     if (!user) return;
     setForm((prev) => ({
@@ -436,7 +429,6 @@ export function StaffForm() {
   };
 
   const goNext = async () => {
-    // Exclude locked fields from validation — they're always filled from auth
     const lockedKeys = ["surname","otherName","email","phone"];
     const keys = (step === 1 ? S1 : step === 2 ? S2 : S3).filter(k => !lockedKeys.includes(k));
     const e = validate(form, keys);
@@ -444,6 +436,12 @@ export function StaffForm() {
     setErrs({});
 
     if (step < 3) { transition(step + 1, "fwd"); return; }
+
+    // ── Guard: prevent duplicate submissions ──────────────────────
+    if (user?.staffProfileSubmitted) {
+      alert("This form has already been submitted. Contact admin for updates.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -515,7 +513,6 @@ export function StaffForm() {
 
       <div className="sf-inner" style={{ padding:"4px 40px 40px", fontFamily:FONT }}>
 
-        {/* brand header */}
         <div style={{ marginBottom:24 }}>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:8 }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:`linear-gradient(135deg,${SKY[500]},${SKY[300]})`, boxShadow:`0 0 8px ${SKY[500]}88` }}/>
@@ -535,16 +532,13 @@ export function StaffForm() {
 
         <div key={animKey} style={stepAnim}>
 
-          {/* ── STEP 1: Personal Information ── */}
           {step===1 && (
             <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-              {/* Locked from auth */}
               <LockedField label="Surname"       value={form.surname}   />
               <LockedField label="Other Name"    value={form.otherName} />
               <LockedField label="Email Address" value={form.email}     />
               <LockedField label="Phone Number"  value={form.phone}     />
 
-              {/* Editable */}
               <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
                 <label style={LBL_ST}>Nationality<span style={{color:SKY[300]}}> *</span></label>
                 <div style={{ position:"relative", minWidth:0 }}>
@@ -563,7 +557,6 @@ export function StaffForm() {
             </div>
           )}
 
-          {/* ── STEP 2: Additional Details ── */}
           {step===2 && (
             <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
               <SelectField label="Marital Status" value={form.maritalStatus} onChange={set("maritalStatus")} placeholder="Select status" err={errs.maritalStatus} req
@@ -588,7 +581,6 @@ export function StaffForm() {
             </div>
           )}
 
-          {/* ── STEP 3: Professional Details ── */}
           {step===3 && (
             <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
               <SelectField label="Primary Skill" value={form.primarySkill} onChange={set("primarySkill")} placeholder="Select skill" err={errs.primarySkill} req opts={PRIMARY_SKILL_OPTIONS}/>
@@ -650,7 +642,6 @@ export function StaffForm() {
           )}
         </div>
 
-        {/* navigation */}
         <div className="sf-nav" style={{ display:"flex", gap:12, marginTop:28 }}>
           {step > 1 && <SecondaryBtn onClick={goBack}>← Back</SecondaryBtn>}
           <PrimaryBtn onClick={goNext} disabled={loading}>
@@ -672,8 +663,8 @@ export function StaffForm() {
 
       {done && (
         <SuccessModal
-          onDashboard={() => navigate("/dashboard")}
-          onHome={() => navigate("/")}
+          onDashboard={() => { onSubmit?.(); navigate("/dashboard"); }}
+          onHome={() => { onSubmit?.(); navigate("/"); }}
         />
       )}
     </div>

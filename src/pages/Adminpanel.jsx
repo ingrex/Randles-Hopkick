@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiGetMasterMarketplace } from "../api/auth";
-import { useStore } from "../store";
+import { useStore, parseMasterMarketplace } from "../store";
 import {
-  apiFetchTestimonials,
   apiCreateTestimonial,
   apiUpdateTestimonial,
   apiDeleteTestimonial,
@@ -17,7 +16,7 @@ import {
   ClipboardList, Users, UserCheck, Newspaper, MessageSquare, Mail, BadgeCheck,
   Check, X, CheckCheck, Plus, Pencil, Trash2, Eye, CalendarDays, Save,
   UserPlus, Send, ArrowRightCircle, StopCircle, Star, AlertTriangle,
-  ShieldAlert, Menu, ChevronLeft, MoreHorizontal,
+  ShieldAlert, Menu, ChevronLeft, MoreHorizontal, RefreshCw,
 } from "lucide-react";
 
 // ── Brand tokens: Primary #2385cd | Navy #0f1e2e | Light #eaf4fc | Mid #b8d9f0
@@ -177,6 +176,19 @@ function SkillTagInput({ value = [], onChange }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Empty state component ──────────────────────────────────────────────────────
+function EmptyState({ icon: Icon, title, subtitle }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="w-12 h-12 rounded-full bg-[#eaf4fc] flex items-center justify-center mb-3">
+        <Icon size={20} className="text-[#2385cd]" />
+      </div>
+      <p className="text-sm font-medium text-gray-700">{title}</p>
+      {subtitle && <p className="text-xs text-gray-400 mt-1 max-w-xs">{subtitle}</p>}
     </div>
   );
 }
@@ -369,9 +381,13 @@ function RequestsSection({ state, dispatch }) {
       </div>
 
       {shown.length === 0 && (
-        <p className="text-gray-400 text-sm p-6 text-center bg-white rounded-xl border border-gray-100">
-          No requests match this filter.
-        </p>
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState
+            icon={ClipboardList}
+            title="No requests found"
+            subtitle={filter === "All" ? "Requests submitted through the website will appear here." : `No ${filter.toLowerCase()} requests at the moment.`}
+          />
+        </div>
       )}
 
       {/* Mobile Cards */}
@@ -428,73 +444,75 @@ function RequestsSection({ state, dispatch }) {
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
-                {["Client", "Roles", "Status", "Dates", "Assigned", "Actions"].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((r) => {
-                const ds = displayStatus(r);
-                return (
-                  <tr key={r.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{r.clientName}</p>
-                      <p className="text-xs text-gray-400">{r.clientType} · {r.phone}</p>
-                      <p className="text-xs text-gray-400">{r.email}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {r.roles.map((x, i) => (
-                          <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
-                            {x.role} ×{x.quantity}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Pill label={ds} color={statusColor(ds)} />
-                      {r.status === "Pending" && (
-                        <div className="mt-1 flex flex-col gap-0.5">
-                          <span className={`text-[10px] ${r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}`}>
-                            {r.assignedStaff?.length ? "✓" : "○"} Staff assigned
-                          </span>
-                          <span className={`text-[10px] ${r.startDate?.trim() ? "text-green-600" : "text-gray-300"}`}>
-                            {r.startDate?.trim() ? "✓" : "○"} Dates set
-                          </span>
+      {shown.length > 0 && (
+        <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
+                  {["Client", "Roles", "Status", "Dates", "Assigned", "Actions"].map((h) => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((r) => {
+                  const ds = displayStatus(r);
+                  return (
+                    <tr key={r.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-900">{r.clientName}</p>
+                        <p className="text-xs text-gray-400">{r.clientType} · {r.phone}</p>
+                        <p className="text-xs text-gray-400">{r.email}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {r.roles.map((x, i) => (
+                            <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
+                              {x.role} ×{x.quantity}
+                            </span>
+                          ))}
                         </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
-                      {r.startDate ? (
-                        <>
-                          <div className="flex items-center gap-1"><ArrowRightCircle size={11} className="text-green-500 flex-shrink-0" />{r.startDate}</div>
-                          <div className="flex items-center gap-1 mt-0.5"><StopCircle size={11} className="text-red-400 flex-shrink-0" />{r.endDate}</div>
-                        </>
-                      ) : <span className="text-gray-300">Not set</span>}
-                    </td>
-                    <td className="px-4 py-3">
-                      {r.assignedStaff?.length
-                        ? <div className="flex flex-wrap gap-1">{r.assignedStaff.map((s) => (
-                            <span key={s.id} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
-                          ))}</div>
-                        : <span className="text-xs text-gray-300">Unassigned</span>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <ActionButtons r={r} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Pill label={ds} color={statusColor(ds)} />
+                        {r.status === "Pending" && (
+                          <div className="mt-1 flex flex-col gap-0.5">
+                            <span className={`text-[10px] ${r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}`}>
+                              {r.assignedStaff?.length ? "✓" : "○"} Staff assigned
+                            </span>
+                            <span className={`text-[10px] ${r.startDate?.trim() ? "text-green-600" : "text-gray-300"}`}>
+                              {r.startDate?.trim() ? "✓" : "○"} Dates set
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {r.startDate ? (
+                          <>
+                            <div className="flex items-center gap-1"><ArrowRightCircle size={11} className="text-green-500 flex-shrink-0" />{r.startDate}</div>
+                            <div className="flex items-center gap-1 mt-0.5"><StopCircle size={11} className="text-red-400 flex-shrink-0" />{r.endDate}</div>
+                          </>
+                        ) : <span className="text-gray-300">Not set</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {r.assignedStaff?.length
+                          ? <div className="flex flex-wrap gap-1">{r.assignedStaff.map((s) => (
+                              <span key={s.id} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
+                            ))}</div>
+                          : <span className="text-xs text-gray-300">Unassigned</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <ActionButtons r={r} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Detail Modal */}
       <Modal open={modal === "detail"} title={`Request — ${liveReq?.clientName}`} onClose={close}
@@ -606,52 +624,60 @@ function RequestsSection({ state, dispatch }) {
                 Assign staff (and set dates) first — the Approve button unlocks only when both are done.
               </div>
             )}
-            <div className="flex gap-2 mb-3">
-              {["primary", "other"].map((f) => (
-                <button key={f} onClick={() => setSkillFilter(f)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition ${
-                    skillFilter === f
-                      ? "bg-[#2385cd] text-white border-[#2385cd]"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
-                  }`}>
-                  {f === "primary" ? "🎯 Primary Skill" : "🔄 Alt. Skills"}
-                </button>
-              ))}
-            </div>
-            {filteredStaff.length === 0 && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">
-                No exact skill match — showing all staff.
-              </p>
-            )}
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {staffToShow.map((s) => {
-                const isSel = !!selected[s.id];
-                return (
-                  <div key={s.id} onClick={() => toggleStaff(s)}
-                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                      isSel ? "border-[#2385cd] bg-[#eaf4fc]" : "border-gray-100 hover:border-[#b8d9f0] hover:bg-gray-50"
-                    }`}>
-                    <Avatar name={s.name} />
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-medium text-sm ${isSel ? "text-[#2385cd]" : "text-gray-900"}`}>{s.name}</p>
-                      <p className="text-xs text-gray-400">{s.role}</p>
-                      {s.otherSkills?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {s.otherSkills.map((sk) => (
-                            <span key={sk} className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5">{sk}</span>
-                          ))}
+            {state.staff.length === 0 ? (
+              <div className="py-6 text-center text-xs text-gray-400">
+                No staff records found. Staff data is loaded from the backend.
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2 mb-3">
+                  {["primary", "other"].map((f) => (
+                    <button key={f} onClick={() => setSkillFilter(f)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition ${
+                        skillFilter === f
+                          ? "bg-[#2385cd] text-white border-[#2385cd]"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
+                      }`}>
+                      {f === "primary" ? "🎯 Primary Skill" : "🔄 Alt. Skills"}
+                    </button>
+                  ))}
+                </div>
+                {filteredStaff.length === 0 && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">
+                    No exact skill match — showing all staff.
+                  </p>
+                )}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {staffToShow.map((s) => {
+                    const isSel = !!selected[s.id];  
+                    return (
+                      <div key={s.id} onClick={() => toggleStaff(s)}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                          isSel ? "border-[#2385cd] bg-[#eaf4fc]" : "border-gray-100 hover:border-[#b8d9f0] hover:bg-gray-50"
+                        }`}>
+                        <Avatar name={s.name} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium text-sm ${isSel ? "text-[#2385cd]" : "text-gray-900"}`}>{s.name}</p>
+                          <p className="text-xs text-gray-400">{s.role}</p>
+                          {s.otherSkills?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {s.otherSkills.map((sk) => (
+                                <span key={sk} className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5">{sk}</span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <StarRating rating={s.averageRating} />
+                            <span className="text-xs text-gray-400">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
+                          </div>
                         </div>
-                      )}
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <StarRating rating={s.averageRating} />
-                        <span className="text-xs text-gray-400">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
+                        <Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} />
                       </div>
-                    </div>
-                    <Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} />
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </>
         )}
       </Modal>
@@ -695,6 +721,16 @@ function StaffSection({ state, dispatch }) {
         <Btn variant="primary" onClick={openAdd}><Plus size={13} /> Add staff</Btn>
       </div>
 
+      {state.staff.length === 0 && !search && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState
+            icon={Users}
+            title="No staff records yet"
+            subtitle="Staff data will load from the backend. You can also add staff manually."
+          />
+        </div>
+      )}
+
       <div className="block md:hidden space-y-3">
         {shown.map((s) => (
           <div key={s.id} className="bg-white rounded-xl border border-gray-100 p-4">
@@ -729,57 +765,59 @@ function StaffSection({ state, dispatch }) {
             </div>
           </div>
         ))}
-        {shown.length === 0 && <p className="text-gray-400 text-sm text-center p-6 bg-white rounded-xl border border-gray-100">No staff found.</p>}
+        {shown.length === 0 && search && <p className="text-gray-400 text-sm text-center p-6 bg-white rounded-xl border border-gray-100">No staff found.</p>}
       </div>
 
-      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
-                {["Name", "Primary Role", "Other Skills", "Phone", "Email", "Status", "Rating", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((s) => (
-                <tr key={s.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Avatar name={s.name} />
-                      <span className="font-medium text-gray-900">{s.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{s.role}</td>
-                  <td className="px-4 py-3">
-                    {s.otherSkills?.length > 0
-                      ? <div className="flex flex-wrap gap-1">{s.otherSkills.map((sk) => (
-                          <span key={sk} className="text-[10px] bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-1.5 py-0.5">{sk}</span>
-                        ))}</div>
-                      : <span className="text-xs text-gray-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{s.phone}</td>
-                  <td className="px-4 py-3 text-gray-600">{s.email}</td>
-                  <td className="px-4 py-3"><Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} /></td>
-                  <td className="px-4 py-3 text-xs">
-                    <div className="flex items-center gap-1">
-                      <StarRating rating={s.averageRating} />
-                      <span className="text-gray-400 ml-1">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      <Btn variant="ghost" onClick={() => openEdit(s)}><Pencil size={13} /></Btn>
-                      <Btn variant="danger" onClick={() => dispatch({ type: "REMOVE_STAFF", id: s.id })}><Trash2 size={13} /></Btn>
-                    </div>
-                  </td>
+      {shown.length > 0 && (
+        <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
+                  {["Name", "Primary Role", "Other Skills", "Phone", "Email", "Status", "Rating", ""].map((h) => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {shown.map((s) => (
+                  <tr key={s.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Avatar name={s.name} />
+                        <span className="font-medium text-gray-900">{s.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{s.role}</td>
+                    <td className="px-4 py-3">
+                      {s.otherSkills?.length > 0
+                        ? <div className="flex flex-wrap gap-1">{s.otherSkills.map((sk) => (
+                            <span key={sk} className="text-[10px] bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-1.5 py-0.5">{sk}</span>
+                          ))}</div>
+                        : <span className="text-xs text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{s.phone}</td>
+                    <td className="px-4 py-3 text-gray-600">{s.email}</td>
+                    <td className="px-4 py-3"><Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} /></td>
+                    <td className="px-4 py-3 text-xs">
+                      <div className="flex items-center gap-1">
+                        <StarRating rating={s.averageRating} />
+                        <span className="text-gray-400 ml-1">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <Btn variant="ghost" onClick={() => openEdit(s)}><Pencil size={13} /></Btn>
+                        <Btn variant="danger" onClick={() => dispatch({ type: "REMOVE_STAFF", id: s.id })}><Trash2 size={13} /></Btn>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <Modal open={!!modal} title={editing ? `Edit — ${editing.name}` : "Add new staff"} onClose={close}
         footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={save}><Save size={12} /> Save</Btn></>}>
@@ -831,10 +869,17 @@ function RegisteredSection({ state }) {
         <span className="text-xs text-gray-400 flex-shrink-0">{users.length} user{users.length !== 1 ? "s" : ""}</span>
       </div>
 
+      {users.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState
+            icon={UserCheck}
+            title="No registered users yet"
+            subtitle="Users who sign up on the website will appear here automatically."
+          />
+        </div>
+      )}
+
       <div className="block md:hidden space-y-3">
-        {shown.length === 0 && (
-          <p className="text-gray-400 text-sm text-center p-6 bg-white rounded-xl border border-gray-100">No registered users yet.</p>
-        )}
         {shown.map((u) => {
           const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
           return (
@@ -859,46 +904,45 @@ function RegisteredSection({ state }) {
         })}
       </div>
 
-      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
-                {["User", "Email", "Phone", "Registered", "Requests", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-gray-400 text-sm text-center">No registered users yet.</td></tr>
-              )}
-              {shown.map((u) => {
-                const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
-                return (
-                  <tr key={u.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Avatar src={u.photoUrl} name={fullName} />
-                        <span className="font-medium text-gray-900">{fullName}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">{u.email}</td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">{u.phoneNumber || "—"}</td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">
-                      {u.registeredAt ? new Date(u.registeredAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-center"><span className="font-medium text-[#2385cd]">{reqCount(u.email)}</span></td>
-                    <td className="px-4 py-3">
-                      <Btn variant="ghost" onClick={() => { setViewing(u); setModal(true); }}><Eye size={13} /> View</Btn>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {shown.length > 0 && (
+        <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
+                  {["User", "Email", "Phone", "Registered", "Requests", ""].map((h) => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((u) => {
+                  const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
+                  return (
+                    <tr key={u.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Avatar src={u.photoUrl} name={fullName} />
+                          <span className="font-medium text-gray-900">{fullName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 text-xs">{u.email}</td>
+                      <td className="px-4 py-3 text-gray-600 text-xs">{u.phoneNumber || "—"}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">
+                        {u.registeredAt ? new Date(u.registeredAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center"><span className="font-medium text-[#2385cd]">{reqCount(u.email)}</span></td>
+                      <td className="px-4 py-3">
+                        <Btn variant="ghost" onClick={() => { setViewing(u); setModal(true); }}><Eye size={13} /> View</Btn>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <Modal open={modal} title={viewing ? `Profile — ${`${viewing.surname} ${viewing.otherNames || ""}`.trim()}` : ""} onClose={() => setModal(false)} footer={<Btn onClick={() => setModal(false)}>Close</Btn>}>
         {viewing && (() => {
@@ -968,6 +1012,17 @@ function BlogSection({ state, dispatch }) {
       <div className="flex justify-end mb-4">
         <Btn variant="primary" onClick={openNew}><Plus size={13} /> New post</Btn>
       </div>
+
+      {state.blog.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState
+            icon={Newspaper}
+            title="No blog posts yet"
+            subtitle="Blog posts from the backend will appear here. You can also create new posts."
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {state.blog.map((p) => (
           <div key={p.id} className="bg-white rounded-xl border border-gray-100 p-4 space-y-2 hover:border-[#b8d9f0] transition">
@@ -1006,6 +1061,8 @@ function BlogSection({ state, dispatch }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Testimonials
+// All testimonial data comes from the mastermarketplace endpoint.
+// The separate apiFetchTestimonials call is kept only for create/update/delete ops.
 // ─────────────────────────────────────────────────────────────────────────────
 function TestimonialsSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(false);
@@ -1013,19 +1070,6 @@ function TestimonialsSection({ state, dispatch }) {
   const [form,    setForm]    = useState({ name: "", role: "", text: "", rating: 5, visible: true });
   const [saving,  setSaving]  = useState(false);
   const [apiNote, setApiNote] = useState("");
-
-  useEffect(() => {
-    apiFetchTestimonials().then((data) => {
-      const list = Array.isArray(data) ? data : data.testimonials ?? [];
-      list.forEach((t) => {
-        const storeId = t._id ?? t.id;
-        const exists  = state.testimonials.find((s) => s.id === storeId);
-        if (!exists) dispatch({ type: "ADD_TESTI",    payload: { ...t, id: storeId } });
-        else         dispatch({ type: "UPDATE_TESTI", payload: { ...t, id: storeId } });
-      });
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const openEdit = (t) => { setEditing(t); setForm({ ...t }); setModal(true); setApiNote(""); };
   const openNew  = ()  => { setEditing(null); setForm({ name: "", role: "", text: "", rating: 5, visible: true }); setModal(true); setApiNote(""); };
@@ -1069,8 +1113,18 @@ function TestimonialsSection({ state, dispatch }) {
         <p className="text-xs text-gray-400 hidden sm:block">Changes sync to the backend and reflect on the public site immediately.</p>
         <Btn variant="primary" onClick={openNew}><Plus size={13} /> Add testimonial</Btn>
       </div>
+
+      {state.testimonials.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState
+            icon={MessageSquare}
+            title="No testimonials yet"
+            subtitle="Testimonials from the backend will load here. You can also add them manually."
+          />
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
-        {state.testimonials.length === 0 && <p className="text-gray-400 text-sm p-6">No testimonials yet.</p>}
         {state.testimonials.map((t) => (
           <div key={t.id} className="flex gap-3 p-4 hover:bg-[#eaf4fc]/20 transition">
             <Avatar name={t.name} size="md" />
@@ -1120,10 +1174,6 @@ function TestimonialsSection({ state, dispatch }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Messages
-// — Data is seeded by AdminPanel's root useEffect via LOAD_MARKETPLACE.
-//   No secondary fetch is needed here; messages from the contact form arrive
-//   in the mastermarketplace response under the `contacts` key.
-// — Shape expected in store: { id, from, subject, body, time, read, type, phone, email }
 // ─────────────────────────────────────────────────────────────────────────────
 function MessagesSection({ state, dispatch }) {
   const [filter,     setFilter]     = useState("all");
@@ -1161,6 +1211,16 @@ function MessagesSection({ state, dispatch }) {
         {unread > 0 && <span className="ml-auto text-xs text-red-500 font-medium flex-shrink-0">{unread} unread</span>}
       </div>
 
+      {state.messages.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState
+            icon={Mail}
+            title="No messages yet"
+            subtitle="Contact form submissions will appear here when received."
+          />
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
         {shown.map((m) => (
           <div key={m.id} onClick={() => openMsg(m)}
@@ -1183,7 +1243,7 @@ function MessagesSection({ state, dispatch }) {
             {!m.read && <span className="w-2 h-2 rounded-full bg-[#2385cd] flex-shrink-0 mt-1.5" />}
           </div>
         ))}
-        {shown.length === 0 && <p className="text-gray-400 text-sm p-4">No messages.</p>}
+        {shown.length === 0 && state.messages.length > 0 && <p className="text-gray-400 text-sm p-4">No messages in this category.</p>}
       </div>
     </div>
   );
@@ -1273,8 +1333,17 @@ function ProfilesSection({ state }) {
 
   return (
     <div>
+      {clients.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState
+            icon={BadgeCheck}
+            title="No client profiles yet"
+            subtitle="Client profiles are built automatically from submitted requests."
+          />
+        </div>
+      )}
+
       <div className="block md:hidden space-y-3">
-        {clients.length === 0 && <p className="text-gray-400 text-sm text-center p-6 bg-white rounded-xl border border-gray-100">No profiles yet.</p>}
         {clients.map((c, i) => (
           <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-3 mb-2">
@@ -1294,33 +1363,34 @@ function ProfilesSection({ state }) {
         ))}
       </div>
 
-      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
-                {["Name", "Email", "Phone", "Type", "Location", "Requests", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-gray-400 text-sm text-center">No profiles yet.</td></tr>}
-              {clients.map((c, i) => (
-                <tr key={i} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
-                  <td className="px-4 py-3"><div className="flex items-center gap-2"><Avatar src={c.regUser?.photoUrl} name={c.name} /><span className="font-medium text-gray-900">{c.name}</span></div></td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{c.email}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{c.phone}</td>
-                  <td className="px-4 py-3"><Pill label={c.type} color="sky" /></td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{c.location}</td>
-                  <td className="px-4 py-3 text-center font-medium text-[#2385cd]">{c.requests}</td>
-                  <td className="px-4 py-3"><Btn variant="ghost" onClick={() => { setViewing(c); setModal(true); }}><Eye size={13} /> View</Btn></td>
+      {clients.length > 0 && (
+        <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
+                  {["Name", "Email", "Phone", "Type", "Location", "Requests", ""].map((h) => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {clients.map((c, i) => (
+                  <tr key={i} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                    <td className="px-4 py-3"><div className="flex items-center gap-2"><Avatar src={c.regUser?.photoUrl} name={c.name} /><span className="font-medium text-gray-900">{c.name}</span></div></td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">{c.email}</td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">{c.phone}</td>
+                    <td className="px-4 py-3"><Pill label={c.type} color="sky" /></td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{c.location}</td>
+                    <td className="px-4 py-3 text-center font-medium text-[#2385cd]">{c.requests}</td>
+                    <td className="px-4 py-3"><Btn variant="ghost" onClick={() => { setViewing(c); setModal(true); }}><Eye size={13} /> View</Btn></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <Modal open={modal} title={`Profile — ${viewing?.name}`} onClose={() => setModal(false)} footer={<Btn onClick={() => setModal(false)}>Close</Btn>}>
         {viewing && (
@@ -1356,41 +1426,30 @@ export function AdminPanel() {
   const [syncing,     setSyncing]     = useState(false);
   const [syncError,   setSyncError]   = useState("");
 
+  const syncData = async () => {
+    setSyncing(true); setSyncError("");
+    try {
+      const raw  = await apiGetMasterMarketplace();
+      const data = parseMasterMarketplace(raw);
+      dispatch({ type: "LOAD_MARKETPLACE", payload: data });
+    } catch (err) {
+      setSyncError(err.message ?? "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Fetch everything on mount from the single mastermarketplace endpoint.
+  // parseMasterMarketplace handles all normalisation including blog + testimonials.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setSyncing(true); setSyncError("");
       try {
-        const data = await apiGetMasterMarketplace();
+        const raw  = await apiGetMasterMarketplace();
         if (!cancelled) {
-          // Normalise contact messages from the mastermarketplace response.
-          // The backend may return them as `contacts`, `messages`, or `data`.
-          const rawContacts = data.contacts ?? data.messages ?? data.data ?? [];
-          const normalisedMessages = rawContacts.map((m) => {
-            const id = m._id ?? m.id ?? `contact-${Math.random()}`;
-            return {
-              id,
-              from:    m.name        ?? m.from    ?? "Unknown",
-              subject: m.subject     ?? "(no subject)",
-              body:    m.message     ?? m.body    ?? "",
-              time:    m.createdAt   ?? m.time    ?? new Date().toISOString(),
-              read:    m.read        ?? false,
-              type:    "contact",
-              phone:   m.phoneNumber ?? m.phone   ?? "",
-              email:   m.email       ?? "",
-            };
-          });
-
-          dispatch({
-            type: "LOAD_MARKETPLACE",
-            payload: {
-              users:    data.users    ?? data.registeredUsers ?? [],
-              requests: data.requests ?? data.profiles        ?? [],
-              // Pass the normalised contact messages so the store can merge them
-              messages: normalisedMessages,
-              staff:    data.staff    ?? [],
-            },
-          });
+          const data = parseMasterMarketplace(raw);
+          dispatch({ type: "LOAD_MARKETPLACE", payload: data });
         }
       } catch (err) {
         if (!cancelled) setSyncError(err.message ?? "Sync failed");
@@ -1399,6 +1458,7 @@ export function AdminPanel() {
       }
     })();
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const pendingCount  = state.requests.filter((r) => r.status === "Pending").length;
@@ -1525,6 +1585,14 @@ export function AdminPanel() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Manual refresh */}
+            <button
+              onClick={syncData}
+              disabled={syncing}
+              title="Refresh data from backend"
+              className="p-1.5 rounded-lg text-white/50 md:text-gray-400 hover:bg-white/10 md:hover:bg-gray-100 transition disabled:opacity-40">
+              <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
+            </button>
             {pendingCount > 0 && (
               <button onClick={() => setSection("requests")}
                 className="text-xs text-yellow-300 bg-yellow-500/20 border border-yellow-400/30 md:text-yellow-700 md:bg-yellow-50 md:border-yellow-200 rounded-full px-2.5 py-1 font-medium flex items-center gap-1">
@@ -1544,13 +1612,25 @@ export function AdminPanel() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-6">
-          <AnimatePresence mode="wait">
-            <motion.div key={section}
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}>
-              {sectionContent[section]}
-            </motion.div>
-          </AnimatePresence>
+          {/* Loading skeleton */}
+          {syncing && state.lastSyncedAt === null && (
+            <div className="space-y-3 animate-pulse">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[1,2,3,4].map(i => <div key={i} className="h-20 bg-gray-100 rounded-xl" />)}
+              </div>
+              <div className="h-10 bg-gray-100 rounded-xl w-2/3" />
+              <div className="h-48 bg-gray-100 rounded-xl" />
+            </div>
+          )}
+          {!(syncing && state.lastSyncedAt === null) && (
+            <AnimatePresence mode="wait">
+              <motion.div key={section}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}>
+                {sectionContent[section]}
+              </motion.div>
+            </AnimatePresence>
+          )}
         </div>
       </main>
 

@@ -2,40 +2,47 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Password screen that sits in front of the admin panel.
 // • URL is /admin-gate — not linked anywhere on the public site.
-// • On success: sets sessionStorage flag → navigates to /adminpanel.
-// • Session lasts until the browser tab is closed (sessionStorage).
-// • Change ADMIN_PASSWORD below to whatever secret you want.
-// • In production, move the password to an env variable:
-//     const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
-//   then add  VITE_ADMIN_PASSWORD=yourSecret  to your .env file.
+// • Password is validated against the backend (POST /api/v1/auth/admin-gate-login).
+// • On success: stores the returned token in localStorage + sets a sessionStorage
+//   flag → navigates to /adminpanel.
+// • Session flag lasts until the browser tab is closed (sessionStorage).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ShieldCheck, Eye, EyeOff, AlertTriangle, ArrowRight } from "lucide-react";
-
-
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
+import { ShieldCheck, Eye, EyeOff, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { apiAdminGateLogin } from "../api/auth";
 
 export function AdminGate() {
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
+
   const [pw,      setPw]      = useState("");
   const [error,   setError]   = useState("");
   const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [shaking, setShaking] = useState(false);
 
-  const handleSubmit = (e) => {
+  const shake = () => {
+    setShaking(true);
+    setTimeout(() => setShaking(false), 500);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (pw === ADMIN_PASSWORD) {
+    setError("");
+    setLoading(true);
+
+    try {
+      await apiAdminGateLogin({ password: pw });
       sessionStorage.setItem("sl_admin_admitted", "true");
       navigate("/adminpanel", { replace: true });
-    } else {
-      setError("Incorrect password. Access denied.");
+    } catch (err) {
+      setError(err.message || "Incorrect password. Access denied.");
       setPw("");
-      // Shake animation
-      setShaking(true);
-      setTimeout(() => setShaking(false), 500);
+      shake();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,7 +52,8 @@ export function AdminGate() {
       <div
         className="absolute inset-0 opacity-10 pointer-events-none"
         style={{
-          backgroundImage: "linear-gradient(rgba(56,189,248,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.3) 1px, transparent 1px)",
+          backgroundImage:
+            "linear-gradient(rgba(56,189,248,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.3) 1px, transparent 1px)",
           backgroundSize: "40px 40px",
         }}
       />
@@ -90,10 +98,7 @@ export function AdminGate() {
                   onClick={() => setVisible((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
                 >
-                  {visible
-                    ? <EyeOff className="w-4 h-4" />
-                    : <Eye className="w-4 h-4" />
-                  }
+                  {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -111,11 +116,20 @@ export function AdminGate() {
 
             <button
               type="submit"
-              disabled={!pw}
+              disabled={!pw || loading}
               className="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Enter Admin Panel
-              <ArrowRight className="w-4 h-4" />
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Verifying…
+                </>
+              ) : (
+                <>
+                  Enter Admin Panel
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
@@ -127,4 +141,5 @@ export function AdminGate() {
     </div>
   );
 }
+
 export default AdminGate;

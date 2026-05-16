@@ -30,6 +30,16 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/* ── Admin Gate Login ── */
+export async function apiAdminGateLogin({ password }) {
+  const data = await request("/auth/admin-gate-login", {
+    method: "POST",
+    body: JSON.stringify({ adminPassword: password }),
+  });
+  if (data?.token) localStorage.setItem("authToken", data.token);
+  return data;
+}
+
 /* ── Login ── */
 export async function apiLogin({ email, password }) {
   return request("/auth/login", {
@@ -82,15 +92,26 @@ export async function apiGetMarketplace() {
  *   users?:    RegisteredUser[]   // registered user accounts
  *   requests?: ClientRequest[]    // staff/service requests
  *   staff?:    StaffMember[]      // internal staff registry
- *   contacts?: ContactMessage[]   // contact-form submissions  ← replaces separate /contact/admin/all call
+ *   contacts?: ContactMessage[]   // contact-form submissions
  *   // Legacy aliases the panel also accepts:
  *   registeredUsers?, profiles?, messages?
  * }
+ *
+ * Cache-Control headers added to prevent 304 Not Modified from serving
+ * stale/empty cached responses in the browser.
+ */
+/**
+ * cache: "no-store" is a native fetch option (not a header) so it bypasses
+ * the browser cache without triggering a CORS preflight rejection.
  */
 export async function apiGetMasterMarketplace() {
   return request("/admin/mastermarketplace", {
     method: "GET",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
   });
 }
 

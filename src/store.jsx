@@ -1,61 +1,25 @@
-// src/store.js
-// ─── Shared reactive store ────────────────────────────────────────────────────
-// localStorage is used ONLY for UI-owned data (blog, staff, testimonials,
-// message replies). All server-owned data (requests, registeredUsers) is
-// always fetched fresh from the backend on mount and on tab focus.
-
 import { createContext, useContext, useReducer } from "react";
-
-// ─── Seed data ────────────────────────────────────────────────────────────────
-const SEED_STAFF = [
-  { id: 1, name: "Tunde Adeyemi",  role: "Electricians",        phone: "08011223344", email: "tunde.a@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.7, totalReviews: 12, reviews: [], otherSkills: [] },
-  { id: 2, name: "Chioma Nwosu",   role: "Housekeepers",         phone: "08022334455", email: "chioma.n@staff.ng",  status: "Available", currentJobId: null, averageRating: 4.9, totalReviews: 8,  reviews: [], otherSkills: [] },
-  { id: 3, name: "Ibrahim Musa",   role: "Masons / Bricklayers", phone: "08033445566", email: "ibrahim.m@staff.ng", status: "Available", currentJobId: null, averageRating: 4.5, totalReviews: 20, reviews: [], otherSkills: [] },
-  { id: 4, name: "Fatima Bello",   role: "Private Chefs",        phone: "08044556677", email: "fatima.b@staff.ng",  status: "Available", currentJobId: null, averageRating: 5.0, totalReviews: 5,  reviews: [], otherSkills: [] },
-  { id: 5, name: "Grace Okonkwo",  role: "Receptionists",        phone: "08055667788", email: "grace.o@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.3, totalReviews: 15, reviews: [], otherSkills: [] },
-  { id: 6, name: "Emeka Eze",      role: "Security Guards",      phone: "08066778899", email: "emeka.e@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.6, totalReviews: 9,  reviews: [], otherSkills: [] },
-  { id: 7, name: "Amina Yusuf",    role: "Nannies",              phone: "08077889900", email: "amina.y@staff.ng",   status: "Available", currentJobId: null, averageRating: 4.8, totalReviews: 11, reviews: [], otherSkills: [] },
-  { id: 8, name: "Biodun Lawal",   role: "Plumbers",             phone: "08088990011", email: "biodun.l@staff.ng",  status: "Available", currentJobId: null, averageRating: 4.2, totalReviews: 7,  reviews: [], otherSkills: [] },
-];
-
-const SEED_BLOG = [
-  { id: 1, title: "How to find reliable household staff in Lagos",         date: "2026-04-18", status: "Published", excerpt: "Finding trustworthy domestic staff can be challenging in a busy city..." },
-  { id: 2, title: "Top 5 benefits of outsourcing facility management",     date: "2026-04-05", status: "Published", excerpt: "Businesses across Nigeria are discovering the advantages..." },
-  { id: 3, title: "Understanding labour regulations for domestic workers", date: "2026-03-22", status: "Draft",     excerpt: "The Nigerian Labour Act outlines specific provisions..." },
-];
-
-const SEED_TESTIMONIALS = [
-  { id: 1, name: "Mrs Adunola Fashola", role: "Private client",          text: "Randle & Hopkick matched me with an incredible housekeeper within 48 hours. Highly recommend!", rating: 5, visible: true  },
-  { id: 2, name: "Mr Seun Odun",        role: "HR Manager, FinEdge Ltd", text: "Seamless process. Our new receptionist started on time and exceeded expectations.",              rating: 5, visible: true  },
-  { id: 3, name: "Chidinma Obi",        role: "Private client",          text: "I was skeptical at first but the process was smooth and transparent.",                            rating: 4, visible: false },
-];
-
-const SEED_MESSAGES = [
-  { id: 1, from: "Kemi Adeyemi", subject: "Inquiry about generator technician", body: "Hello, do you have experienced generator technicians for a short-term contract?", type: "contact", time: "2h ago", read: false, replies: [] },
-  { id: 2, from: "Tobi Alabi",   subject: "Change of address",                  body: "I need to update the location for my pending request to Ajah instead of Lekki.",  type: "contact", time: "1d ago", read: true,  replies: [] },
-];
 
 // ─── Default state factory ────────────────────────────────────────────────────
 function defaultState() {
   return {
-    requests:        [],   // always loaded from backend
-    registeredUsers: [],   // always loaded from backend
-    staff:           SEED_STAFF,
-    blog:            SEED_BLOG,
-    testimonials:    SEED_TESTIMONIALS,
-    messages:        SEED_MESSAGES,
+    requests:        [],
+    registeredUsers: [],
+    staff:           [],
+    blog:            [],
+    testimonials:    [],
+    messages:        [],
     nextReqId:       1,
-    nextStaffId:     SEED_STAFF.length + 1,
-    nextBlogId:      SEED_BLOG.length + 1,
-    nextTestiId:     SEED_TESTIMONIALS.length + 1,
-    nextMsgId:       SEED_MESSAGES.length + 1,
+    nextStaffId:     1,
+    nextBlogId:      1,
+    nextTestiId:     1,
+    nextMsgId:       1,
     lastSyncedAt:    null,
   };
 }
 
 // ─── localStorage ─────────────────────────────────────────────────────────────
-// v4 — only persists UI-owned data, not server-owned data
-const STORE_KEY = "rnh_store_v4";
+const STORE_KEY = "rnh_store_v5";
 
 function loadState() {
   try {
@@ -63,42 +27,30 @@ function loadState() {
     if (!raw) return defaultState();
     const saved = JSON.parse(raw);
 
-    // Merge seed staff with saved staff (saved wins on id conflict)
-    const savedStaffIds = new Set((saved.staff || []).map((s) => s.id));
-    const mergedStaff   = [
-      ...SEED_STAFF.filter((s) => !savedStaffIds.has(s.id)),
-      ...(saved.staff || []),
-    ];
-
-    // Merge seed testimonials with saved testimonials
-    const savedTestiIds = new Set((saved.testimonials || []).map((t) => t.id));
-    const mergedTestis  = [
-      ...SEED_TESTIMONIALS.filter((t) => !savedTestiIds.has(t.id)),
-      ...(saved.testimonials || []),
-    ];
-
-    // Ensure replies array exists on every message
-    const mergedMessages = (saved.messages ?? SEED_MESSAGES).map((m) => ({
+    const savedMessages = (saved.messages ?? []).map((m) => ({
       ...m,
       replies: m.replies ?? [],
     }));
 
     return {
       ...defaultState(),
-      ...saved,
-      staff:           mergedStaff,
-      testimonials:    mergedTestis,
-      messages:        mergedMessages,
-      // Always start with empty server-owned data; backend will populate on mount
-      registeredUsers: [],
+      staff:           saved.staff        ?? [],
+      blog:            saved.blog         ?? [],
+      testimonials:    saved.testimonials ?? [],
+      messages:        savedMessages,
+      nextStaffId:     saved.nextStaffId  ?? 1,
+      nextBlogId:      saved.nextBlogId   ?? 1,
+      nextTestiId:     saved.nextTestiId  ?? 1,
+      nextMsgId:       saved.nextMsgId    ?? 1,
       requests:        [],
+      registeredUsers: [],
+      lastSyncedAt:    null,
     };
   } catch {
     return defaultState();
   }
 }
 
-// Only persist UI-owned data — server-owned data comes from the backend
 function persistState(state) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
@@ -115,57 +67,52 @@ function persistState(state) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// pickArray
-// ─────────────────────────────────────────────────────────────────────────────
-function pickArray(obj, ...keys) {
-  if (!obj || typeof obj !== "object") return [];
-  for (const key of keys) {
-    const val = key.split(".").reduce((o, k) => (o && typeof o === "object" ? o[k] : undefined), obj);
-    if (Array.isArray(val) && val.length > 0) return val;
-  }
-  // Last-resort: return first non-empty array found
-  for (const val of Object.values(obj)) {
-    if (Array.isArray(val) && val.length > 0) return val;
-  }
-  return [];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // normaliseRequest
+//
+// Backend sends clientType as "Private" or "Organisation" (not "Individual").
+// Personal details are in personalDetails{ surname, otherName, email, phoneNo,
+// businessLocation } — NOT personalDetails.firstName / personalDetails.lastName.
 // ─────────────────────────────────────────────────────────────────────────────
 export function normaliseRequest(raw) {
   if (!raw || typeof raw !== "object") return null;
 
+  const pd = raw.personalDetails ?? {};
+  const cd = raw.companyDetails  ?? {};
+
+  // clientType: backend uses "Private" | "Organisation"
   const clientType =
     raw.clientType ??
-    (raw.companyDetails  ? "Organisation" :
-     raw.personalDetails ? "Individual"   : "Unknown");
+    (Object.keys(cd).length ? "Organisation" :
+     Object.keys(pd).length ? "Private"      : "Unknown");
 
-  const clientName =
-    raw.clientName ??
-    raw.companyDetails?.companyName ??
-    raw.companyDetails?.name ??
-    (raw.personalDetails
-      ? `${raw.personalDetails.surname   ?? raw.personalDetails.firstName ?? ""}
-         ${raw.personalDetails.otherName ?? raw.personalDetails.lastName  ?? ""}`.trim()
-      : raw.name ?? "");
+  const isOrg = clientType === "Organisation";
 
+  // clientName
+const clientName = (() => {
+    if (raw.clientName) return raw.clientName;
+    if (isOrg) return cd.companyName ?? cd.name ?? "";
+    const name = `${pd.surname ?? pd.firstName ?? ""} ${pd.otherName ?? pd.lastName ?? ""}`.trim();
+    return name || raw.name || "";
+  })();
+
+  // email
   const email =
     raw.email ??
-    raw.companyDetails?.companyEmail  ?? raw.companyDetails?.email  ??
-    raw.personalDetails?.email        ?? "";
+    (isOrg ? (cd.companyEmail ?? cd.email ?? "") : (pd.email ?? ""));
 
+  // phone
   const phone =
     raw.phone ?? raw.phoneNumber ??
-    raw.companyDetails?.companyPhone  ?? raw.companyDetails?.phone  ??
-    raw.personalDetails?.phoneNo      ?? raw.personalDetails?.phone ??
-    raw.personalDetails?.phoneNumber  ?? "";
+    (isOrg
+      ? (cd.companyPhone ?? cd.phone ?? cd.phoneNo ?? "")
+      : (pd.phoneNo ?? pd.phone ?? pd.phoneNumber ?? ""));
 
+  // location
   const location =
     raw.location ?? raw.address ??
-    raw.companyDetails?.companyAddress ?? raw.companyDetails?.address ??
-    raw.personalDetails?.businessLocation ??
-    raw.personalDetails?.address      ?? raw.personalDetails?.location ?? "";
+    (isOrg
+      ? (cd.companyAddress ?? cd.address ?? cd.location ?? "")
+      : (pd.businessLocation ?? pd.address ?? pd.location ?? ""));
 
   const rawRoles = raw.roles ?? raw.requestedStaff ?? raw.staffRoles ?? raw.services ?? [];
   const roles = (Array.isArray(rawRoles) ? rawRoles : []).map((r) => {
@@ -187,7 +134,7 @@ export function normaliseRequest(raw) {
     staffId:       rv.staffId  ?? rv.staff  ?? null,
   }));
 
-  const assignedStaff = (raw.assignedStaff ?? raw.staff ?? raw.assignedTo ?? []).map((s) =>
+  const assignedStaff = (raw.assignedStaff ?? raw.assignedTo ?? []).map((s) =>
     typeof s === "string"
       ? { id: s, name: s }
       : { id: s._id ?? s.id, name: s.name ?? s.fullName ?? s.staffName ?? "" }
@@ -240,7 +187,55 @@ export function normaliseUser(u) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// normaliseStaff
+// normaliseStaffProfile
+// Handles the "profile" array your backend returns. Each item has:
+//   - a nested user{} object with name, email, phone, photoUrl
+//   - primarySkills  → maps to role
+//   - yearsOfExperience, homeAddress, bio, gender, etc.
+// ─────────────────────────────────────────────────────────────────────────────
+export function normaliseStaffProfile(s) {
+  if (!s || typeof s !== "object") return null;
+
+  const user = (s.user && typeof s.user === "object") ? s.user : {};
+
+  const surname    = user.surname    ?? s.surname    ?? "";
+  const otherNames = user.otherNames ?? s.otherNames ?? "";
+  const name = surname
+    ? `${surname} ${otherNames}`.trim()
+    : (s.name ?? s.fullName ?? "Unknown");
+
+  const reviews = (s.reviews ?? []).map((r) => ({
+    rating:      r.rating  ?? r.stars ?? 0,
+    comment:     r.comment ?? r.text  ?? "",
+    submittedAt: r.submittedAt ?? r.createdAt ?? new Date().toISOString(),
+  }));
+
+  return {
+    id:            s._id          ?? s.id,
+    name,
+    role:          s.primarySkills ?? s.role ?? s.primaryRole ?? s.title ?? "",
+    phone:         user.phoneNumber ?? user.phone ?? s.phone ?? s.phoneNo ?? "",
+    email:         user.email  ?? s.email  ?? "",
+    status:        s.status    ?? "Available",
+    currentJobId:  s.currentJobId ?? null,
+    averageRating: typeof s.averageRating === "number" ? s.averageRating : 0,
+    totalReviews:  typeof s.totalReviews  === "number" ? s.totalReviews  : reviews.length,
+    reviews,
+    otherSkills:   s.otherSkills ?? s.alternateSkills ?? s.skills ?? [],
+    experience:    s.yearsOfExperience ?? s.experience ?? 0,
+    nationality:   s.nationality  ?? "",
+    location:      s.homeAddress  ?? s.location ?? "",
+    photoUrl:      user.photoUrl  ?? s.photoUrl ?? "",
+    bio:           s.bio          ?? "",
+    gender:        s.gender       ?? "",
+    maritalStatus: s.maritalStatus ?? "",
+    education:     s.educationalQualification ?? "",
+    languages:     s.languageSkill ?? "",
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// normaliseStaff  (for manually-added staff that don't come from backend)
 // ─────────────────────────────────────────────────────────────────────────────
 export function normaliseStaff(s) {
   if (!s || typeof s !== "object") return null;
@@ -268,6 +263,10 @@ export function normaliseStaff(s) {
     totalReviews:  typeof s.totalReviews  === "number" ? s.totalReviews  : (s.reviewCount ?? reviews.length),
     reviews,
     otherSkills:   s.otherSkills ?? s.alternateSkills ?? s.skills ?? [],
+    experience:    s.experience  ?? 0,
+    nationality:   s.nationality ?? "",
+    location:      s.location    ?? "",
+    photoUrl:      s.photoUrl    ?? "",
   };
 }
 
@@ -297,62 +296,77 @@ export function normaliseMessage(m, idx) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // parseMasterMarketplace
+//
+// Backend response shape (confirmed from network tab):
+//   {
+//     users:             [...32 items]  ← registered users
+//     staff:             [...2 items]   ← CLIENT REQUESTS (backend named it "staff")
+//     profile:           [...9 items]   ← STAFF profiles / job-seekers
+//     userCount:         32
+//     staffRequestCount: 2
+//     profileCount:      9
+//   }
 // ─────────────────────────────────────────────────────────────────────────────
 export function parseMasterMarketplace(raw) {
   if (!raw || typeof raw !== "object") {
     return { users: [], requests: [], messages: [], staff: [] };
   }
 
-  // DEV diagnostic — check the browser console
+  const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
+
   if (typeof window !== "undefined" && process?.env?.NODE_ENV !== "production") {
     console.group("🛰  [mastermarketplace] raw response");
-    console.log("Top-level keys:", Object.keys(raw));
-    Object.entries(raw).forEach(([k, v]) => {
+    console.log("Top-level keys:", Object.keys(root));
+    Object.entries(root).forEach(([k, v]) => {
       console.log(
-        `  ${k}: ${Array.isArray(v) ? `Array(${v.length})` : typeof v}`,
-        Array.isArray(v) && v[0] ? "sample →" : "",
-        Array.isArray(v) && v[0] ? JSON.stringify(v[0]).slice(0, 120) : ""
+        `  ${k}:`,
+        Array.isArray(v) ? `Array(${v.length})` : typeof v,
+        Array.isArray(v) && v[0]
+          ? `\n    sample → ${JSON.stringify(v[0]).slice(0, 150)}`
+          : ""
       );
     });
     console.groupEnd();
   }
 
-  // Unwrap common envelope shapes
-  const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
+  // 1. Registered users — backend key: "users"
+  const rawUsers = Array.isArray(root.users)
+    ? root.users
+    : Array.isArray(root.registeredUsers) ? root.registeredUsers : [];
 
-  const rawUsers = pickArray(
-    root,
-    "users", "registeredUsers", "clients", "members",
-    "accounts", "userList", "allUsers", "userData",
-    "data.users", "data.registeredUsers", "data.clients",
-  );
+  // 2. Client requests — backend key: "staff" (confusingly named)
+  //    Items have: requestedStaff[], clientType ("Private"/"Organisation"),
+  //    personalDetails{ surname, otherName, email, phoneNo, businessLocation }
+  const rawRequests = Array.isArray(root.staff)
+    ? root.staff
+    : Array.isArray(root.requests)      ? root.requests
+    : Array.isArray(root.staffRequests) ? root.staffRequests : [];
 
-  const rawRequests = pickArray(
-    root,
-    "requests", "profiles", "staffRequests", "applications",
-    "orders", "jobs", "allRequests", "requestData",
-    "data.requests", "data.profiles", "data.staffRequests",
-  );
+  // 3. Messages — backend key: "messages" (may not exist currently)
+  const rawMessages = Array.isArray(root.messages)
+    ? root.messages
+    : Array.isArray(root.contacts)   ? root.contacts
+    : Array.isArray(root.enquiries)  ? root.enquiries : [];
 
-  const rawMessages = pickArray(
-    root,
-    "messages", "contacts", "contactMessages", "enquiries",
-    "inquiries", "inbox", "allMessages", "messageData",
-    "data.messages", "data.contacts", "data.enquiries",
-  );
+  // 4. Staff profiles — backend key: "profile"
+  //    Items have: primarySkills, yearsOfExperience, homeAddress, nested user{}
+  const rawStaff = Array.isArray(root.profile)
+    ? root.profile
+    : Array.isArray(root.profiles)      ? root.profiles
+    : Array.isArray(root.staffMembers)  ? root.staffMembers : [];
 
-  const rawStaff = pickArray(
-    root,
-    "staff", "staffMembers", "workers", "employees",
-    "agents", "allStaff", "staffData",
-    "data.staff", "data.staffMembers", "data.workers",
-  );
+  if (typeof window !== "undefined" && process?.env?.NODE_ENV !== "production") {
+    console.log(
+      `✅ [store] Mapped → users:${rawUsers.length} requests:${rawRequests.length}` +
+      ` messages:${rawMessages.length} staff:${rawStaff.length}`
+    );
+  }
 
   return {
     users:    rawUsers.map(normaliseUser).filter(Boolean),
     requests: rawRequests.map(normaliseRequest).filter(Boolean),
     messages: rawMessages.map((m, i) => normaliseMessage(m, i)).filter(Boolean),
-    staff:    rawStaff.map(normaliseStaff).filter(Boolean),
+    staff:    rawStaff.map(normaliseStaffProfile).filter(Boolean),
   };
 }
 
@@ -394,13 +408,9 @@ function reducer(state, action) {
 
   switch (action.type) {
 
-    // ── LOAD_MARKETPLACE ──────────────────────────────────────────────────────
-    // Payload is pre-parsed by parseMasterMarketplace() before dispatch.
-    // Shape: { users[], requests[], messages[], staff[] }
     case "LOAD_MARKETPLACE": {
       const { users = [], requests = [], messages = [], staff = [] } = action.payload;
 
-      // Requests: backend wins; preserve local reviews/reviewed flags
       const localReqMap    = new Map(state.requests.map((r) => [String(r.id), r]));
       const mergedRequests = requests.map((r) => {
         const local = localReqMap.get(String(r.id));
@@ -411,23 +421,18 @@ function reducer(state, action) {
           reviewed: local.reviewed        ? local.reviewed : r.reviewed,
         };
       });
-      // Keep requests that were added locally (no backendId) and not yet synced
       const backendReqIds = new Set(requests.map((r) => String(r.id)));
       const localOnlyReqs = state.requests.filter(
         (r) => !r.backendId && !backendReqIds.has(String(r.id))
       );
 
-      // Users: backend is source of truth; preserve local-only entries
       const serverEmails   = new Set(users.map((u) => u.email));
       const localOnlyUsers = state.registeredUsers.filter((u) => !serverEmails.has(u.email));
 
-      // Messages: backend wins; merge local replies into server messages;
-      // preserve local-only seed messages
-      const localMsgMap   = new Map(state.messages.map((m) => [String(m.id), m]));
+      const localMsgMap    = new Map(state.messages.map((m) => [String(m.id), m]));
       const mergedMessages = messages.map((m) => {
         const local = localMsgMap.get(String(m.id));
         if (!local) return m;
-        // Preserve any replies the admin typed locally
         return {
           ...m,
           read:    local.read || m.read,
@@ -437,7 +442,6 @@ function reducer(state, action) {
       const serverMsgIds  = new Set(messages.map((m) => String(m.id)));
       const localOnlyMsgs = state.messages.filter((m) => !serverMsgIds.has(String(m.id)));
 
-      // Staff: update existing records, append brand-new backend staff
       const backendStaffMap = new Map(staff.map((s) => [String(s.id), s]));
       const mergedStaff     = state.staff.map((s) => {
         const b = backendStaffMap.get(String(s.id));
@@ -464,7 +468,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── SET_REQUESTS ─────────────────────────────────────────────────────────
     case "SET_REQUESTS": {
       const incoming   = (action.payload || []).map(normaliseRequest).filter(Boolean);
       const localMap   = new Map(state.requests.map((r) => [String(r.id), r]));
@@ -482,7 +485,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── SET_REGISTERED_USERS ──────────────────────────────────────────────────
     case "SET_REGISTERED_USERS": {
       const incoming     = (action.payload || []).map(normaliseUser).filter(Boolean);
       const serverEmails = new Set(incoming.map((u) => u.email));
@@ -491,7 +493,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── REGISTER_USER ─────────────────────────────────────────────────────────
     case "REGISTER_USER": {
       if (state.registeredUsers.some((u) => u.email === action.payload.email)) return state;
       next = {
@@ -519,7 +520,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── ADD_REQUEST (optimistic) ──────────────────────────────────────────────
     case "ADD_REQUEST": {
       const id = action.payload.id ?? action.payload.backendId ?? Date.now();
       const already = state.requests.some(
@@ -555,7 +555,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Status transitions ────────────────────────────────────────────────────
     case "APPROVE_REQUEST": {
       next = {
         ...state,
@@ -602,7 +601,6 @@ function reducer(state, action) {
       break;
     }
 
-    // SET_DATES: saves dates; only flips Approved → Active (not Pending → Active)
     case "SET_DATES":
     case "UPDATE_DATES": {
       const { id, startDate, endDate } = action;
@@ -638,7 +636,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Reviews ───────────────────────────────────────────────────────────────
     case "SUBMIT_REVIEW": {
       const { reqId, staffId, rating, comment } = action;
       const review = { rating, comment, submittedAt: new Date().toISOString(), reviewedReqId: reqId };
@@ -660,7 +657,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Staff registry ────────────────────────────────────────────────────────
     case "ADD_STAFF": {
       next = {
         ...state,
@@ -695,11 +691,10 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Blog ──────────────────────────────────────────────────────────────────
     case "ADD_BLOG": {
       next = {
         ...state,
-        blog:      [...state.blog, { ...action.payload, id: state.nextBlogId }],
+        blog:       [...state.blog, { ...action.payload, id: state.nextBlogId }],
         nextBlogId: state.nextBlogId + 1,
       };
       break;
@@ -718,7 +713,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Testimonials ──────────────────────────────────────────────────────────
     case "ADD_TESTI": {
       const id = action.payload.id ?? state.nextTestiId;
       if (state.testimonials.some((t) => t.id === id)) {
@@ -750,7 +744,6 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Messages ──────────────────────────────────────────────────────────────
     case "MARK_MSG_READ": {
       next = {
         ...state,
