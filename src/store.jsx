@@ -32,19 +32,22 @@ function loadState() {
       replies: m.replies ?? [],
     }));
 
+    // ── FIX: requests and registeredUsers are now persisted locally so they
+    //         survive a page refresh even before the backend sync completes.
     return {
       ...defaultState(),
-      staff:           saved.staff        ?? [],
-      blog:            saved.blog         ?? [],
-      testimonials:    saved.testimonials ?? [],
+      staff:           saved.staff           ?? [],
+      blog:            saved.blog            ?? [],
+      testimonials:    saved.testimonials    ?? [],
       messages:        savedMessages,
-      nextStaffId:     saved.nextStaffId  ?? 1,
-      nextBlogId:      saved.nextBlogId   ?? 1,
-      nextTestiId:     saved.nextTestiId  ?? 1,
-      nextMsgId:       saved.nextMsgId    ?? 1,
-      requests:        [],
-      registeredUsers: [],
-      lastSyncedAt:    null,
+      requests:        saved.requests        ?? [],   // ← restored (was always [])
+      registeredUsers: saved.registeredUsers ?? [],   // ← restored (was always [])
+      nextReqId:       saved.nextReqId       ?? 1,
+      nextStaffId:     saved.nextStaffId     ?? 1,
+      nextBlogId:      saved.nextBlogId      ?? 1,
+      nextTestiId:     saved.nextTestiId     ?? 1,
+      nextMsgId:       saved.nextMsgId       ?? 1,
+      lastSyncedAt:    null,                          // always re-sync on mount
     };
   } catch {
     return defaultState();
@@ -54,14 +57,17 @@ function loadState() {
 function persistState(state) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
-      staff:        state.staff,
-      blog:         state.blog,
-      testimonials: state.testimonials,
-      messages:     state.messages,
-      nextStaffId:  state.nextStaffId,
-      nextBlogId:   state.nextBlogId,
-      nextTestiId:  state.nextTestiId,
-      nextMsgId:    state.nextMsgId,
+      staff:           state.staff,
+      blog:            state.blog,
+      testimonials:    state.testimonials,
+      messages:        state.messages,
+      requests:        state.requests,        // ── FIX: persist requests
+      registeredUsers: state.registeredUsers, // ── FIX: persist registered users
+      nextReqId:       state.nextReqId,
+      nextStaffId:     state.nextStaffId,
+      nextBlogId:      state.nextBlogId,
+      nextTestiId:     state.nextTestiId,
+      nextMsgId:       state.nextMsgId,
     }));
   } catch {}
 }
@@ -257,9 +263,9 @@ export function normaliseStaff(s) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // normaliseMessage
-// ─────────────────────────────────────────────────────────────────────────────
+
 export function normaliseMessage(m, idx) {
   if (!m || typeof m !== "object") return null;
   return {
@@ -279,9 +285,9 @@ export function normaliseMessage(m, idx) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // parseMasterMarketplace
-// ─────────────────────────────────────────────────────────────────────────────
+
 export function parseMasterMarketplace(raw) {
   if (!raw || typeof raw !== "object") {
     return { registeredUsers: [], requests: [], messages: [], staff: [], testimonials: [], blog: [] };

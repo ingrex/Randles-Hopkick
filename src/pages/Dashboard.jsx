@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import ClientForm1 from "../ApplicationForms/ClientForm1";
 import StaffForm   from "../ApplicationForms/StaffForm";
 import PrivateForm from "../ApplicationForms/PrivateForm";
-import { useStore } from "../store";
+import { useStore, parseMasterMarketplace } from "../store";
 import { useAuth }  from "./AuthContext";
+import { apiGetMasterMarketplace } from "../api/auth"; // ── FIX: import for re-sync
 
 const MODES = ["Private", "Organization", "Staff"];
 
@@ -210,6 +211,40 @@ export function Dashboard() {
       : mode === "Organization"
         ? "Organisation"
         : "Private Client";
+
+  // ── FIX: Re-sync from backend on mount, tab focus, and visibility change ────
+  // This ensures that when an admin approves/declines a request, the user sees
+  // the updated status the next time they view or return to the dashboard.
+  useEffect(() => {
+    const syncFromBackend = () => {
+      apiGetMasterMarketplace()
+        .then((raw) => {
+          const data = parseMasterMarketplace(raw);
+          dispatch({ type: "LOAD_MARKETPLACE", payload: data });
+        })
+        .catch(() => {
+          // Fail silently — persisted localStorage data still shows
+        });
+    };
+
+    // Sync immediately on mount
+    syncFromBackend();
+
+    // Re-sync whenever the user returns to this tab/window
+    const onFocus = () => syncFromBackend();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") syncFromBackend();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [dispatch]);
+  // ── end FIX ─────────────────────────────────────────────────────────────────
 
   // Auto-open modal from navigation state
   useEffect(() => {

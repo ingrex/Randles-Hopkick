@@ -34,7 +34,7 @@ async function request(path, options = {}) {
 function authHeaders() {
   const token = localStorage.getItem("authToken");
 
-  // ── DEBUG 
+  // ── DEBUG ──────────────────────────────────────────────────────────────────
   console.log("[auth.js] authHeaders() — token present?", !!token);
   if (token) console.log("[auth.js] Token preview:", token.slice(0, 30) + "...");
   else console.warn("[auth.js] ⚠️  No auth token found in localStorage!");
@@ -85,7 +85,7 @@ export async function apiGetProfile() {
 
 /* ── Staff / Client Request (authenticated) ── */
 export async function apiStaffRequest(payload) {
-  return request("/profile", {
+  return request("/staff-request", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
@@ -103,11 +103,11 @@ export async function apiGetMarketplace() {
 }
 
 export async function apiGetMasterMarketplace() {
-  
+  // ── DEBUG ──────────────────────────────────────────────────────────────────
   console.log("[auth.js] apiGetMasterMarketplace() called");
   const token = localStorage.getItem("authToken");
   console.log("[auth.js] Token for mastermarketplace:", token ? token.slice(0, 30) + "..." : "❌ MISSING");
-  
+  // ──────────────────────────────────────────────────────────────────────────
 
   return request("/admin/mastermarketplace", {
     method: "GET",

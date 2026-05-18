@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiGetMasterMarketplace } from "../api/auth";
-import { useStore, parseMasterMarketplace } from "../store";
+import { useStore, parseMasterMarketplace, normaliseMessage } from "../store";
 import {
   apiCreateTestimonial,
   apiUpdateTestimonial,
@@ -11,6 +11,7 @@ import {
   apiCompleteRequest,
   apiSetDates,
   apiAssignStaff as apiAssignStaffCall,
+  apiGetContactMessages,           // ── FIX: import contact messages fetcher
 } from "../api/auth";
 import {
   ClipboardList, Users, UserCheck, Newspaper, MessageSquare, Mail, BadgeCheck,
@@ -180,7 +181,6 @@ function SkillTagInput({ value = [], onChange }) {
   );
 }
 
-// ── Empty state component ──────────────────────────────────────────────────────
 function EmptyState({ icon: Icon, title, subtitle }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -649,7 +649,7 @@ function RequestsSection({ state, dispatch }) {
                 )}
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {staffToShow.map((s) => {
-                    const isSel = !!selected[s.id];  
+                    const isSel = !!selected[s.id];
                     return (
                       <div key={s.id} onClick={() => toggleStaff(s)}
                         className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
@@ -1412,6 +1412,26 @@ function ProfilesSection({ state }) {
 }
 
 
+// ── Helper: normalise a raw contact message from /contact/admin/all ───────────
+// The contact endpoint uses slightly different field names from the marketplace
+// messages, so we map them explicitly before passing to normaliseMessage.
+function normaliseContactMessage(m, idx) {
+  if (!m || typeof m !== "object") return null;
+  const mapped = {
+    _id:     m._id     ?? m.id,
+    from:    m.name    ?? m.from    ?? m.senderName ?? "Unknown",
+    subject: m.subject ?? m.title   ?? "Contact form submission",
+    body:    m.message ?? m.body    ?? m.content    ?? "",
+    type:    "contact",
+    time:    m.createdAt ?? m.time  ?? null,
+    read:    m.read    ?? false,
+    replies: m.replies ?? [],
+    email:   m.email   ?? m.senderEmail ?? "",
+    phone:   m.phoneNumber ?? m.phone   ?? "",
+  };
+  return normaliseMessage(mapped, idx);
+}
+
 // ROOT: AdminPanel
 
 export function AdminPanel() {
@@ -1433,7 +1453,6 @@ export function AdminPanel() {
     console.log("7. raw.staff  →", Array.isArray(raw?.staff)  ? `Array(${raw.staff.length})`  : raw?.staff);
     console.log("8. raw.profile →", Array.isArray(raw?.profile) ? `Array(${raw.profile.length})` : raw?.profile);
 
-    // If wrapped inside raw.data
     if (raw?.data) {
       console.log("--- Checking raw.data ---");
       console.log("raw.data keys:", Object.keys(raw.data ?? {}));
@@ -1454,12 +1473,49 @@ export function AdminPanel() {
   };
   // ──────────────────────────────────────────────────────────────────────────
 
+  // ── FIX: fetch contact messages and merge them into the marketplace data ──
+  // Runs both API calls in parallel; contact messages are normalised and
+  // de-duplicated against whatever the mastermarketplace already returned.
+  const fetchAndMergeContacts = async (marketplaceData) => {
+    try {
+      const raw = await apiGetContactMessages();
+      // The endpoint may return an array directly, or wrap it in data/messages
+      const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)     ? raw.data
+        : Array.isArray(raw?.messages) ? raw.messages
+        : Array.isArray(raw?.contacts) ? raw.contacts
+        : [];
+
+      console.log(`[AdminPanel] /contact/admin/all → ${list.length} messages`);
+
+      const contactMsgs = list
+        .map((m, i) => normaliseContactMessage(m, i))
+        .filter(Boolean);
+
+      // Merge: keep existing messages, append any contact messages not already present
+      const existingIds = new Set(marketplaceData.messages.map((m) => String(m.id)));
+      const newContacts = contactMsgs.filter((m) => !existingIds.has(String(m.id)));
+
+      return {
+        ...marketplaceData,
+        messages: [...marketplaceData.messages, ...newContacts],
+      };
+    } catch (err) {
+      console.warn("[AdminPanel] Could not fetch contact messages:", err.message);
+      // Non-fatal — return marketplace data unchanged
+      return marketplaceData;
+    }
+  };
+  // ── end FIX ────────────────────────────────────────────────────────────────
+
   const syncData = async () => {
     setSyncing(true); setSyncError("");
     try {
       console.log("[AdminPanel] syncData() — starting fetch...");
       const raw  = await apiGetMasterMarketplace();
-      const data = await debugSync(raw);
+      let   data = await debugSync(raw);
+      data = await fetchAndMergeContacts(data);   // ── FIX: layer in contacts
       dispatch({ type: "LOAD_MARKETPLACE", payload: data });
       console.log("[AdminPanel] dispatch(LOAD_MARKETPLACE) called ✓");
     } catch (err) {
@@ -1480,7 +1536,8 @@ export function AdminPanel() {
         console.log("[AdminPanel] useEffect sync — starting fetch...");
         const raw = await apiGetMasterMarketplace();
         if (!cancelled) {
-          const data = await debugSync(raw);
+          let data = await debugSync(raw);
+          data = await fetchAndMergeContacts(data); // ── FIX: layer in contacts
           dispatch({ type: "LOAD_MARKETPLACE", payload: data });
           console.log("[AdminPanel] useEffect dispatch(LOAD_MARKETPLACE) called ✓");
         }
