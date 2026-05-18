@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer } from "react";
 
-// ─── Default state factory ────────────────────────────────────────────────────
+
 function defaultState() {
   return {
     requests:        [],
@@ -68,12 +68,6 @@ function persistState(state) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseRequest
-//
-// Backend sends clientType as "Private" or "Organisation".
-// Personal details live in personalDetails{ surname, otherName, email, phoneNo,
-// businessLocation }.
-// Company details live in companyDetails{ companyName, companyEmail,
-// companyPhone, companyAddress } and repDetails{ surname, phoneNumber, jobRole }.
 // ─────────────────────────────────────────────────────────────────────────────
 export function normaliseRequest(raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -122,7 +116,6 @@ export function normaliseRequest(raw) {
   });
 
   const rawStatus = raw.status ?? "Pending";
-  // Keep "Rejected" as-is in state; displayStatus() in the UI converts it to "Declined"
   const status = rawStatus;
 
   const reviews = (raw.reviews ?? []).map((rv) => ({
@@ -158,9 +151,8 @@ export function normaliseRequest(raw) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // normaliseUser
-// ─────────────────────────────────────────────────────────────────────────────
+
 export function normaliseUser(u) {
   if (!u || typeof u !== "object") return null;
 
@@ -185,13 +177,9 @@ export function normaliseUser(u) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // normaliseStaffProfile
-// Handles the "profile" array the backend returns. Each item has:
-//   - a nested user{} object with surname, otherNames, email, phoneNumber, photoUrl
-//   - primarySkills  → maps to role
-//   - yearsOfExperience, homeAddress, bio, gender, nationality, etc.
-// ─────────────────────────────────────────────────────────────────────────────
+
 export function normaliseStaffProfile(s) {
   if (!s || typeof s !== "object") return null;
 
@@ -233,9 +221,9 @@ export function normaliseStaffProfile(s) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// normaliseStaff  (for manually-added staff that don't come from backend)
-// ─────────────────────────────────────────────────────────────────────────────
+
+// normaliseStaff
+
 export function normaliseStaff(s) {
   if (!s || typeof s !== "object") return null;
 
@@ -293,26 +281,6 @@ export function normaliseMessage(m, idx) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // parseMasterMarketplace
-//
-// Confirmed backend response shape:
-//   {
-//     users:             [...32 items]  ← registered user accounts
-//     userCount:         32
-//     staff:             [...2 items]   ← CLIENT REQUESTS (misleadingly named "staff")
-//     staffRequestCount: 2
-//     profile:           [...9 items]   ← STAFF / job-seeker profiles
-//     profileCount:      9
-//   }
-//
-// Returns:
-//   {
-//     registeredUsers: NormalisedUser[]
-//     requests:        NormalisedRequest[]
-//     staff:           NormalisedStaffProfile[]
-//     messages:        NormalisedMessage[]
-//     testimonials:    any[]
-//     blog:            any[]
-//   }
 // ─────────────────────────────────────────────────────────────────────────────
 export function parseMasterMarketplace(raw) {
   if (!raw || typeof raw !== "object") {
@@ -322,7 +290,8 @@ export function parseMasterMarketplace(raw) {
   // Unwrap common envelope wrappers
   const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
 
-  if (typeof window !== "undefined" && process?.env?.NODE_ENV !== "production") {
+  // ── FIX: replaced process?.env?.NODE_ENV with import.meta.env?.MODE ────────
+  if (typeof window !== "undefined" && import.meta.env?.MODE !== "production") {
     console.group("🛰  [mastermarketplace] raw response");
     console.log("Top-level keys:", Object.keys(root));
     Object.entries(root).forEach(([k, v]) => {
@@ -354,7 +323,7 @@ export function parseMasterMarketplace(raw) {
     : Array.isArray(root.profiles)     ? root.profiles
     : Array.isArray(root.staffMembers) ? root.staffMembers : [];
 
-  // 4. Contact messages  ← backend key "messages" or "contacts" (may not exist yet)
+  // 4. Contact messages
   const rawMessages = Array.isArray(root.messages)
     ? root.messages
     : Array.isArray(root.contacts)  ? root.contacts
@@ -365,7 +334,8 @@ export function parseMasterMarketplace(raw) {
   const staff           = rawStaff.map(normaliseStaffProfile).filter(Boolean);
   const messages        = rawMessages.map((m, i) => normaliseMessage(m, i)).filter(Boolean);
 
-  if (typeof window !== "undefined" && process?.env?.NODE_ENV !== "production") {
+  // ── FIX: replaced process?.env?.NODE_ENV with import.meta.env?.MODE ────────
+  if (typeof window !== "undefined" && import.meta.env?.MODE !== "production") {
     console.log(
       `✅ [store] Parsed → registeredUsers:${registeredUsers.length}` +
       ` requests:${requests.length} staff:${staff.length} messages:${messages.length}`
@@ -420,9 +390,6 @@ function reducer(state, action) {
 
   switch (action.type) {
 
-    // ── LOAD_MARKETPLACE ──────────────────────────────────────────────────────
-    // parseMasterMarketplace now returns { registeredUsers, requests, staff, messages, ... }
-    // This case must destructure "registeredUsers" (not "users") to match.
     case "LOAD_MARKETPLACE": {
       const {
         registeredUsers = [],
@@ -433,7 +400,6 @@ function reducer(state, action) {
         blog,
       } = action.payload;
 
-      // ── Merge requests (prefer backend, keep local-only) ──────────────────
       const localReqMap    = new Map(state.requests.map((r) => [String(r.id), r]));
       const mergedRequests = requests.map((r) => {
         const local = localReqMap.get(String(r.id));
@@ -449,11 +415,9 @@ function reducer(state, action) {
         (r) => !r.backendId && !backendReqIds.has(String(r.id))
       );
 
-      // ── Merge registered users ────────────────────────────────────────────
       const serverEmails   = new Set(registeredUsers.map((u) => u.email));
       const localOnlyUsers = state.registeredUsers.filter((u) => !serverEmails.has(u.email));
 
-      // ── Merge messages ────────────────────────────────────────────────────
       const localMsgMap    = new Map(state.messages.map((m) => [String(m.id), m]));
       const mergedMessages = messages.map((m) => {
         const local = localMsgMap.get(String(m.id));
@@ -467,7 +431,6 @@ function reducer(state, action) {
       const serverMsgIds  = new Set(messages.map((m) => String(m.id)));
       const localOnlyMsgs = state.messages.filter((m) => !serverMsgIds.has(String(m.id)));
 
-      // ── Merge staff (backend profiles + manually-added local staff) ────────
       const backendStaffMap = new Map(staff.map((s) => [String(s.id), s]));
       const mergedStaff     = state.staff.map((s) => {
         const b = backendStaffMap.get(String(s.id));
@@ -489,11 +452,8 @@ function reducer(state, action) {
         registeredUsers: [...registeredUsers, ...localOnlyUsers],
         messages:        [...mergedMessages, ...localOnlyMsgs],
         staff:           [...mergedStaff, ...brandNewStaff],
-        // Only overwrite blog/testimonials if the backend actually sent them
-        ...(Array.isArray(testimonials) && testimonials.length
-          ? { testimonials } : {}),
-        ...(Array.isArray(blog) && blog.length
-          ? { blog } : {}),
+        ...(Array.isArray(testimonials) && testimonials.length ? { testimonials } : {}),
+        ...(Array.isArray(blog) && blog.length ? { blog } : {}),
         lastSyncedAt: new Date().toISOString(),
       };
       break;

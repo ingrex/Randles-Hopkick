@@ -1,5 +1,3 @@
-
-
 const BASE_URL = "https://randnhop.onrender.com";
 const API      = `${BASE_URL}/api/v1`;
 
@@ -14,7 +12,16 @@ async function request(path, options = {}) {
   });
 
   const text = await res.text();
+
+  // ── DEBUG ──────────────────────────────────────────────────────────────────
+  console.log(`[auth.js] ${options.method ?? "GET"} ${path}`);
+  console.log(`[auth.js] Status:`, res.status, res.statusText);
+  console.log(`[auth.js] Raw response text:`, text);
+  // ──────────────────────────────────────────────────────────────────────────
+
   const data = text ? JSON.parse(text) : {};
+
+  console.log(`[auth.js] Parsed response object:`, data);
 
   if (!res.ok) {
     throw new Error(data?.message || data?.error || `Request failed (${res.status})`);
@@ -26,21 +33,30 @@ async function request(path, options = {}) {
 
 function authHeaders() {
   const token = localStorage.getItem("authToken");
+
+  // ── DEBUG 
+  console.log("[auth.js] authHeaders() — token present?", !!token);
+  if (token) console.log("[auth.js] Token preview:", token.slice(0, 30) + "...");
+  else console.warn("[auth.js] ⚠️  No auth token found in localStorage!");
+  // ──────────────────────────────────────────────────────────────────────────
+
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 /* ── Admin Gate Login ── */
 export async function apiAdminGateLogin({ password }) {
   const data = await request("/auth/admin-gate-login", {
-  
     method: "POST",
     body: JSON.stringify({ adminPassword: password }),
   });
+
+  // ── DEBUG ──────────────────────────────────────────────────────────────────
+  console.log("[auth.js] apiAdminGateLogin response:", data);
+  console.log("[auth.js] Token in response?", !!data?.token);
+  // ──────────────────────────────────────────────────────────────────────────
+
   if (data?.token) localStorage.setItem("authToken", data.token);
   return data;
-  console.log(
-    'this is a console for data==',data
-  )
 }
 
 /* ── Login ── */
@@ -79,7 +95,6 @@ export async function apiStaffRequest(payload) {
 
 // MARKETPLACE
 
-
 export async function apiGetMarketplace() {
   return request("/profile/marketplace", {
     method: "GET",
@@ -87,9 +102,13 @@ export async function apiGetMarketplace() {
   });
 }
 
-
- 
 export async function apiGetMasterMarketplace() {
+  
+  console.log("[auth.js] apiGetMasterMarketplace() called");
+  const token = localStorage.getItem("authToken");
+  console.log("[auth.js] Token for mastermarketplace:", token ? token.slice(0, 30) + "..." : "❌ MISSING");
+  
+
   return request("/admin/mastermarketplace", {
     method: "GET",
     cache: "no-store",
@@ -148,7 +167,6 @@ export async function apiSubmitReview(reqId, { staffId, rating, comment }) {
 }
 
 // ADMIN — staff registry
-
 
 export async function apiAddStaff(payload) {
   return request("/staff", {
@@ -214,7 +232,6 @@ export async function apiContactForm({ name, email, phone, subject, message }) {
 }
 
 // CONTACT MESSAGES (Admin)
-
 
 export async function apiGetContactMessages() {
   return request("/contact/admin/all", {

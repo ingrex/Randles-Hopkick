@@ -1421,38 +1421,80 @@ export function AdminPanel() {
   const [syncing,     setSyncing]     = useState(false);
   const [syncError,   setSyncError]   = useState("");
 
+  // ── DEBUG HELPER ────────────────────────────────────────────────────────────
+  const debugSync = async (raw) => {
+    console.group("🔍 [AdminPanel] syncData DEBUG");
+    console.log("1. raw type:", typeof raw);
+    console.log("2. raw is null/undefined?", raw == null);
+    console.log("3. raw value:", raw);
+    console.log("4. top-level keys:", Object.keys(raw ?? {}));
+    console.log("5. raw.data:", raw?.data);
+    console.log("6. raw.users  →", Array.isArray(raw?.users)  ? `Array(${raw.users.length})`  : raw?.users);
+    console.log("7. raw.staff  →", Array.isArray(raw?.staff)  ? `Array(${raw.staff.length})`  : raw?.staff);
+    console.log("8. raw.profile →", Array.isArray(raw?.profile) ? `Array(${raw.profile.length})` : raw?.profile);
+
+    // If wrapped inside raw.data
+    if (raw?.data) {
+      console.log("--- Checking raw.data ---");
+      console.log("raw.data keys:", Object.keys(raw.data ?? {}));
+      console.log("raw.data.users  →", Array.isArray(raw.data?.users)  ? `Array(${raw.data.users.length})`  : raw.data?.users);
+      console.log("raw.data.staff  →", Array.isArray(raw.data?.staff)  ? `Array(${raw.data.staff.length})`  : raw.data?.staff);
+      console.log("raw.data.profile →", Array.isArray(raw.data?.profile) ? `Array(${raw.data.profile.length})` : raw.data?.profile);
+    }
+
+    const parsed = parseMasterMarketplace(raw);
+    console.log("--- After parseMasterMarketplace ---");
+    console.log("9.  parsed.requests        →", parsed.requests?.length, parsed.requests);
+    console.log("10. parsed.registeredUsers →", parsed.registeredUsers?.length);
+    console.log("11. parsed.staff           →", parsed.staff?.length);
+    console.log("12. parsed.messages        →", parsed.messages?.length);
+    console.groupEnd();
+
+    return parsed;
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
   const syncData = async () => {
     setSyncing(true); setSyncError("");
     try {
+      console.log("[AdminPanel] syncData() — starting fetch...");
       const raw  = await apiGetMasterMarketplace();
-      const data = parseMasterMarketplace(raw);
+      const data = await debugSync(raw);
       dispatch({ type: "LOAD_MARKETPLACE", payload: data });
+      console.log("[AdminPanel] dispatch(LOAD_MARKETPLACE) called ✓");
     } catch (err) {
+      console.error("[AdminPanel] ❌ syncData FAILED:", err);
+      console.error("[AdminPanel] Error message:", err.message);
+      console.error("[AdminPanel] Full error:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       setSyncError(err.message ?? "Sync failed");
     } finally {
       setSyncing(false);
     }
   };
 
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setSyncing(true); setSyncError("");
       try {
-        const raw  = await apiGetMasterMarketplace();
+        console.log("[AdminPanel] useEffect sync — starting fetch...");
+        const raw = await apiGetMasterMarketplace();
         if (!cancelled) {
-          const data = parseMasterMarketplace(raw);
+          const data = await debugSync(raw);
           dispatch({ type: "LOAD_MARKETPLACE", payload: data });
+          console.log("[AdminPanel] useEffect dispatch(LOAD_MARKETPLACE) called ✓");
         }
       } catch (err) {
-        if (!cancelled) setSyncError(err.message ?? "Sync failed");
+        if (!cancelled) {
+          console.error("[AdminPanel] ❌ useEffect sync FAILED:", err);
+          console.error("[AdminPanel] Error message:", err.message);
+          setSyncError(err.message ?? "Sync failed");
+        }
       } finally {
         if (!cancelled) setSyncing(false);
       }
     })();
     return () => { cancelled = true; };
-
   }, []);
 
   const pendingCount  = state.requests.filter((r) => r.status === "Pending").length;
@@ -1579,7 +1621,6 @@ export function AdminPanel() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Manual refresh */}
             <button
               onClick={syncData}
               disabled={syncing}
@@ -1606,7 +1647,6 @@ export function AdminPanel() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-6">
-          {/* Loading skeleton */}
           {syncing && state.lastSyncedAt === null && (
             <div className="space-y-3 animate-pulse">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

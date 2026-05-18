@@ -5,7 +5,7 @@ import GetJobButton from "../components/buttons/GetJobButton";
 import HireStaffButton from "../components/buttons/HireStaffButton";
 import HireStaffModal from "../components/modals/HireStaffModal";
 
-/* ─── animation variants ─────────────────────────────────────────── */
+/* ─── animation variants ─*/
 const fadeUp = {
   hidden: { opacity: 0, y: 45 },
   visible: (d = 0) => ({
@@ -42,7 +42,7 @@ const scaleIn = {
   }),
 };
 
-/* ─── data ───────────────────────────────────────────────────────── */
+/* ─── data ── */
 const coreValues = [
   {
     title: "INTEGRITY",
@@ -66,7 +66,7 @@ const coreValues = [
   },
 ];
 
-/* ─── team data ──────────────────────────────────────────────────── */
+/* ─── team data ── */
 const founderBio = {
   name: "Mrs. Peace Obieke",
   role: "Founder & Head of Operations",
@@ -83,9 +83,7 @@ const technicalTeamContent = {
   ],
 };
 
-/* ═══════════════════════════════════════════════════════════════════
-   COMPONENT
-═══════════════════════════════════════════════════════════════════ */
+/* COMPONENT */
 export function AboutPage() {
   const [openIndex, setOpenIndex] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -157,7 +155,7 @@ export function AboutPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            className="fixed inset-0 z-9999 flex items-center justify-center"
             style={{
               background: "rgba(0,0,0,0.75)",
               backdropFilter: "blur(4px)",
@@ -177,9 +175,7 @@ export function AboutPage() {
         )}
       </AnimatePresence>
 
-      {/* ══════════════════════════════════════════════
-          HERO
-      ══════════════════════════════════════════════ */}
+      {/*HERO */}
       <section className="relative h-[70vh] flex items-center justify-center text-center text-white overflow-hidden">
         <div className="absolute inset-0">
           {slides.map((slide, i) => (
