@@ -74,15 +74,20 @@ const ERR_ST = { display:"block", fontSize:11, color:"rgba(252,165,165,.95)", ma
 const LOCKED_LABEL_ST = { ...LBL_ST, color:"rgba(195,222,255,.38)" };
 
 /* ─── validation ─────────────────────────────────────────────── */
-const isReq = (v) => (typeof v === "boolean" ? v : String(v || "").trim() !== "");
-
-const INIT = {
-  surname:"", otherName:"", email:"", phone:"", nationality:"", address:"",
-  maritalStatus:"", language:"", dobDay:"", dobMonth:"", dobYear:"", gender:"",
-  primarySkill:"", yearsExp:"", additionalSkills:"", bio:"", qualification:"", agreed:false,
+const isReq = (v) => {
+  if (typeof v === "boolean") return v;
+  if (Array.isArray(v)) return v.length > 0;
+  return String(v || "").trim() !== "";
 };
 
-const S1 = ["surname","otherName","email","phone","nationality","address"];
+const INIT = {
+  surname:"", otherName:"", email:"", phone:"", country:"", address:"",
+  maritalStatus:"", language:"", dobDay:"", dobMonth:"", dobYear:"", gender:"",
+  disabled: false, internallyDisplaced: false,
+  primarySkill:"", yearsExp:"", additionalSkills:[], bio:"", qualification:"", agreed:false,
+};
+
+const S1 = ["surname","otherName","email","phone","country","address"];
 const S2 = ["maritalStatus","language","dobDay","dobMonth","dobYear","gender"];
 const S3 = ["primarySkill","yearsExp","additionalSkills","bio","qualification","agreed"];
 
@@ -206,7 +211,155 @@ function GenderBtn({ label, active, onClick }) {
   );
 }
 
-/* ═══════════════════════ PROGRESS BAR ═════════════════════════ */
+/* ─── Checkbox component ─────────────────────────────────────── */
+function StyledCheckbox({ checked, onToggle, label }) {
+  return (
+    <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer" }}>
+      <div
+        onClick={onToggle}
+        style={{
+          flexShrink:0, width:22, height:22, borderRadius:7, cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          transition:"all .28s ease",
+          background: checked
+            ? `linear-gradient(135deg,${SKY[700]},${SKY[400]})`
+            : "rgba(255,255,255,.13)",
+          border: checked
+            ? `2px solid ${SKY[400]}bb`
+            : "2px solid rgba(255,255,255,.26)",
+          boxShadow: checked ? "0 0 12px rgba(14,165,233,.32)" : "none",
+        }}
+      >
+        {checked && (
+          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <path d="M1.5 5L4.5 8L10.5 2" stroke="#fff" strokeWidth="2.1"
+              strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </div>
+      <span style={{ fontSize:13, color:"rgba(175,210,245,.75)", fontWeight:400, fontFamily:FONT }}>
+        {label}
+      </span>
+    </label>
+  );
+}
+
+/* ═══════════════════════ ADDITIONAL SKILLS PICKER ══════════════ */
+const ADDITIONAL_SKILL_OPTIONS = [
+  "Driving","Cooking","Childcare","Cleaning","Gardening","Carpentry",
+  "Welding","Painting","Tailoring","Catering","First Aid","Event Planning",
+  "Data Entry","Customer Service","Sales","Photography","Videography",
+  "Graphic Design","Social Media","Translation","Bookkeeping","Typing",
+  "Machine Operation","Forklift Operation","Security","Other",
+];
+
+function AdditionalSkillsPicker({ value, onChange, err }) {
+  const [dropFocus, setDropFocus] = useState(false);
+  const [customText, setCustomText] = useState("");
+  const [customFocus, setCustomFocus] = useState(false);
+
+  const addFromDropdown = (e) => {
+    const skill = e.target.value;
+    if (!skill) return;
+    if (!value.includes(skill)) onChange([...value, skill]);
+    e.target.value = "";
+  };
+
+  const addCustom = () => {
+    const trimmed = customText.trim();
+    if (!trimmed) return;
+    if (!value.includes(trimmed)) onChange([...value, trimmed]);
+    setCustomText("");
+  };
+
+  const remove = (skill) => onChange(value.filter(s => s !== skill));
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
+      <label style={LBL_ST}>
+        Additional Skills<span style={{color:SKY[300]}}> *</span>
+      </label>
+
+      {/* Tag chips */}
+      {value.length > 0 && (
+        <div style={{
+          display:"flex", flexWrap:"wrap", gap:7, marginBottom:10,
+          padding:"10px 12px", borderRadius:16,
+          background:"rgba(14,165,233,.07)",
+          border:"1.5px solid rgba(14,165,233,.18)",
+        }}>
+          {value.map(skill => (
+            <span key={skill} style={{
+              display:"inline-flex", alignItems:"center", gap:6,
+              padding:"4px 10px 4px 12px", borderRadius:99,
+              background:`linear-gradient(135deg,rgba(14,165,233,.22),rgba(56,189,248,.12))`,
+              border:`1px solid ${SKY[400]}55`,
+              fontSize:12, fontWeight:500, color:SKY[300], fontFamily:FONT,
+              animation:"fadeUp .2s ease",
+            }}>
+              {skill}
+              <span
+                onClick={() => remove(skill)}
+                style={{
+                  display:"inline-flex", alignItems:"center", justifyContent:"center",
+                  width:15, height:15, borderRadius:"50%", cursor:"pointer",
+                  background:"rgba(255,255,255,.1)", color:"rgba(200,230,255,.6)",
+                  fontSize:10, lineHeight:1, transition:"all .2s ease",
+                  flexShrink:0,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background="rgba(248,113,113,.35)"; e.currentTarget.style.color="#fff"; }}
+                onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,.1)"; e.currentTarget.style.color="rgba(200,230,255,.6)"; }}
+              >✕</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown */}
+      <div style={{ position:"relative", minWidth:0, marginBottom:8 }}>
+        <select
+          style={err && value.length===0 ? sErr : dropFocus ? sFocus : sRest}
+          defaultValue=""
+          onChange={addFromDropdown}
+          onFocus={()=>setDropFocus(true)}
+          onBlur={()=>setDropFocus(false)}
+        >
+          <option value="">Select a skill to add…</option>
+          {ADDITIONAL_SKILL_OPTIONS.filter(o => !value.includes(o)).map(o => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+        <span style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
+      </div>
+
+      {/* Custom text input */}
+      <div style={{ display:"flex", gap:8, minWidth:0 }}>
+        <input
+          style={{ ...(customFocus ? iFocus : iRest), flex:1 }}
+          placeholder="Or type a custom skill and press Add…"
+          value={customText}
+          onChange={e => setCustomText(e.target.value)}
+          onFocus={()=>setCustomFocus(true)}
+          onBlur={()=>setCustomFocus(false)}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }}
+        />
+        <button
+          type="button"
+          onClick={addCustom}
+          style={{
+            flexShrink:0, padding:"10px 16px", borderRadius:20, border:"none",
+            cursor:"pointer", fontFamily:FONT, fontSize:12, fontWeight:600, color:"#fff",
+            background:`linear-gradient(135deg,${SKY[700]},${SKY[500]})`,
+            transition:"all .25s ease", whiteSpace:"nowrap",
+            opacity: customText.trim() ? 1 : 0.45,
+          }}
+        >+ Add</button>
+      </div>
+
+      {err && value.length === 0 && <span style={ERR_ST}>{err}</span>}
+    </div>
+  );
+}
 const STEP_LABELS = ["Personal Info", "More Details", "Professional"];
 
 function Progress({ step, pct }) {
@@ -323,17 +476,23 @@ function SecondaryBtn({ children, onClick }) {
 function SuccessModal({ onDashboard, onHome }) {
   return (
     <div style={{
-      position:"fixed", inset:0, zIndex:100,
+      width:"100%", minHeight:"85vh",
       display:"flex", alignItems:"center", justifyContent:"center",
-      background:"rgba(0,0,0,.72)", backdropFilter:"blur(14px)", padding:20,
+      padding:20,
+      borderRadius:20,
+      background:"rgba(255,255,255,0.08)",
+      backdropFilter:"blur(28px) saturate(130%)",
+      WebkitBackdropFilter:"blur(28px) saturate(130%)",
+      border:"1px solid rgba(255,255,255,0.12)",
+      boxShadow:"0 8px 32px rgba(0,0,0,0.3)",
     }}>
       <div style={{
-        background:"rgba(6,18,40,.93)",
+        background:"rgba(6,18,40,.6)",
         border:"1.5px solid rgba(14,165,233,.28)",
         borderRadius:28, padding:"48px 40px",
         maxWidth:420, width:"100%", textAlign:"center",
         backdropFilter:"blur(36px)",
-        boxShadow:"0 40px 100px rgba(0,0,0,.65), inset 0 1px 0 rgba(14,165,233,.14)",
+        boxShadow:"0 40px 100px rgba(0,0,0,.3), inset 0 1px 0 rgba(14,165,233,.14)",
         animation:"popIn .5s cubic-bezier(.34,1.56,.64,1)",
       }}>
         <div style={{
@@ -366,14 +525,9 @@ function SuccessModal({ onDashboard, onHome }) {
 }
 
 /* ═══════════════════════ OPTION LISTS ══════════════════════════ */
-const NATIONALITY_OPTIONS = [
-  { label:"Nigerian", value:"Nigerian" }, { label:"Ghanaian", value:"Ghanaian" },
-  { label:"Kenyan", value:"Kenyan" }, { label:"South African", value:"South African" },
-  { label:"Ethiopian", value:"Ethiopian" }, { label:"Cameroonian", value:"Cameroonian" },
-  { label:"Ugandan", value:"Ugandan" }, { label:"Tanzanian", value:"Tanzanian" },
-  { label:"British", value:"British" }, { label:"American", value:"American" },
-  { label:"Canadian", value:"Canadian" }, { label:"French", value:"French" },
-  { label:"Other", value:"Other" },
+const YOE_OPTIONS = [
+  "1 year", "2 years", "3 years", "4 years", "5 years",
+  "6 years", "7 years", "8 years", "9 years", "10 years", "10+ years",
 ];
 
 const PRIMARY_SKILL_OPTIONS = [
@@ -403,6 +557,23 @@ export function StaffForm({ onSubmit }) {
   const [animKey, setAnimKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [done,    setDone]    = useState(false);
+
+  const [countries,     setCountries]     = useState([]);
+  const [countriesLoad, setCountriesLoad] = useState(true);
+
+  useEffect(() => {
+    fetch("https://restcountries.com/v3.1/all?fields=name")
+      .then(r => r.json())
+      .then(data => {
+        const names = data
+          .map(c => c.name?.common)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
+        setCountries(names);
+      })
+      .catch(() => setCountries([]))
+      .finally(() => setCountriesLoad(false));
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -449,8 +620,8 @@ export function StaffForm({ onSubmit }) {
       const isoDate    = `${form.dobYear}-${monthIndex}-${form.dobDay}`;
 
       const yoeMap = {
-        "Less than 1 year": 0, "1 – 2 years": 1,
-        "3 – 5 years": 3, "6 – 10 years": 6, "10+ years": 10,
+        "1 year":1, "2 years":2, "3 years":3, "4 years":4, "5 years":5,
+        "6 years":6, "7 years":7, "8 years":8, "9 years":9, "10 years":10, "10+ years":10,
       };
 
       const payload = {
@@ -458,15 +629,17 @@ export function StaffForm({ onSubmit }) {
         otherNames:               form.otherName,
         email:                    form.email,
         phoneNumber:              form.phone,
-        nationality:              form.nationality,
+        country:                  form.country,
         homeAddress:              form.address,
         maritalStatus:            form.maritalStatus,
         languageSkill:            form.language,
         dateOfBirth:              isoDate,
         gender:                   form.gender,
+        disabled:                 form.disabled,
+        internallyDisplaced:      form.internallyDisplaced,
         primarySkills:            form.primarySkill,
         yearsOfExperience:        yoeMap[form.yearsExp] ?? 0,
-        additionalSkills:         form.additionalSkills,
+        additionalSkills:         form.additionalSkills.join(", "),
         bio:                      form.bio,
         educationalQualification: form.qualification,
         agreedToPolicy:           form.agreed,
@@ -494,6 +667,15 @@ export function StaffForm({ onSubmit }) {
     { title:"Additional Details",    sub:"A few more things to complete your profile."       },
     { title:"Professional Details",  sub:"Your skills and qualifications help us match you." },
   ];
+
+  if (done) {
+    return (
+      <SuccessModal
+        onDashboard={() => { onSubmit?.(); navigate("/dashboard"); }}
+        onHome={() => { onSubmit?.(); navigate("/"); }}
+      />
+    );
+  }
 
   return (
     <div style={{
@@ -540,17 +722,24 @@ export function StaffForm({ onSubmit }) {
               <LockedField label="Phone Number"  value={form.phone}     />
 
               <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-                <label style={LBL_ST}>Nationality<span style={{color:SKY[300]}}> *</span></label>
+                <label style={LBL_ST}>Country<span style={{color:SKY[300]}}> *</span></label>
                 <div style={{ position:"relative", minWidth:0 }}>
-                  <select style={errs.nationality ? sErr : sRest} value={form.nationality} onChange={set("nationality")}>
-                    <option value="">Select nationality</option>
-                    {NATIONALITY_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
+                  <select
+                    style={errs.country ? sErr : sRest}
+                    value={form.country}
+                    onChange={set("country")}
+                    disabled={countriesLoad}
+                  >
+                    <option value="">{countriesLoad ? "Loading countries…" : "Select country"}</option>
+                    {countries.map(c => (
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
-                  <span style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
+                  <span style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>
+                    {countriesLoad ? "…" : "▾"}
+                  </span>
                 </div>
-                {errs.nationality && <span style={ERR_ST}>{errs.nationality}</span>}
+                {errs.country && <span style={ERR_ST}>{errs.country}</span>}
               </div>
 
               <InputField label="Home Address" value={form.address} onChange={set("address")} placeholder="City, State, Country" err={errs.address} req/>
@@ -578,17 +767,39 @@ export function StaffForm({ onSubmit }) {
               <div className="ff" style={{ gridColumn:"1/-1" }}>
                 <GenderToggle value={form.gender} onChange={v => setForm(f => ({...f, gender:v}))} err={errs.gender}/>
               </div>
+
+              {/* ── Disabled / Internally Displaced ── */}
+              <div className="ff" style={{ gridColumn:"1/-1" }}>
+                <label style={{ ...LBL_ST, marginBottom:10 }}>Status <span style={{ fontSize:9, color:"rgba(155,200,240,.4)", textTransform:"none", letterSpacing:0, fontWeight:300 }}>(optional — check all that apply)</span></label>
+                <div style={{ display:"flex", gap:24, flexWrap:"wrap" }}>
+                  <StyledCheckbox
+                    checked={form.disabled}
+                    onToggle={() => setForm(f => ({ ...f, disabled: !f.disabled }))}
+                    label="Disabled"
+                  />
+                  <StyledCheckbox
+                    checked={form.internallyDisplaced}
+                    onToggle={() => setForm(f => ({ ...f, internallyDisplaced: !f.internallyDisplaced }))}
+                    label="Internally Displaced"
+                  />
+                </div>
+              </div>
+
             </div>
           )}
 
           {step===3 && (
             <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
               <SelectField label="Primary Skill" value={form.primarySkill} onChange={set("primarySkill")} placeholder="Select skill" err={errs.primarySkill} req opts={PRIMARY_SKILL_OPTIONS}/>
-              <SelectField label="Years of Experience" value={form.yearsExp} onChange={set("yearsExp")} placeholder="Select range" err={errs.yearsExp} req
-                opts={["Less than 1 year","1 – 2 years","3 – 5 years","6 – 10 years","10+ years"]}/>
+              <SelectField label="Years of Experience" value={form.yearsExp} onChange={set("yearsExp")} placeholder="Select years" err={errs.yearsExp} req
+                opts={YOE_OPTIONS}/>
 
               <div className="ff" style={{ gridColumn:"1/-1" }}>
-                <InputField label="Additional Skills" value={form.additionalSkills} onChange={set("additionalSkills")} placeholder="e.g. Driving, Cooking, Childcare" err={errs.additionalSkills} req/>
+                <AdditionalSkillsPicker
+                  value={form.additionalSkills}
+                  onChange={v => setForm(f => ({ ...f, additionalSkills: v }))}
+                  err={errs.additionalSkills}
+                />
               </div>
               <div className="ff" style={{ gridColumn:"1/-1" }}>
                 <TextareaField label="Bio" value={form.bio} onChange={set("bio")} rows={3}
@@ -661,12 +872,6 @@ export function StaffForm({ onSubmit }) {
 
       <div style={{ height:1, background:"linear-gradient(90deg,transparent,rgba(14,165,233,.1),transparent)" }}/>
 
-      {done && (
-        <SuccessModal
-          onDashboard={() => { onSubmit?.(); navigate("/dashboard"); }}
-          onHome={() => { onSubmit?.(); navigate("/"); }}
-        />
-      )}
     </div>
   );
 }

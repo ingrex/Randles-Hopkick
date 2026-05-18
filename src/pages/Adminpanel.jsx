@@ -69,9 +69,9 @@ function isReadyToApprove(r) {
 function Avatar({ src, name, size = "sm" }) {
   const initials = (name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const sz = size === "sm" ? "w-8 h-8 text-xs" : "w-10 h-10 text-sm";
-  if (src) return <img src={src} alt={name} className={`${sz} rounded-full object-cover flex-shrink-0 border border-[#b8d9f0]`} />;
+  if (src) return <img src={src} alt={name} className={`${sz} rounded-full object-cover shrink-0 border border-[#b8d9f0]`} />;
   return (
-    <div className={`${sz} rounded-full bg-[#eaf4fc] text-[#2385cd] font-semibold flex items-center justify-center flex-shrink-0`}>
+    <div className={`${sz} rounded-full bg-[#eaf4fc] text-[#2385cd] font-semibold flex items-center justify-center shrink-0`}>
       {initials}
     </div>
   );
@@ -162,7 +162,7 @@ function SkillTagInput({ value = [], onChange }) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
         <button type="button" onClick={add}
-          className="px-3 py-2 rounded-lg bg-[#eaf4fc] text-[#2385cd] text-xs font-medium hover:bg-[#b8d9f0] transition flex-shrink-0">
+          className="px-3 py-2 rounded-lg bg-[#eaf4fc] text-[#2385cd] text-xs font-medium hover:bg-[#b8d9f0] transition shrink-0">
           Add
         </button>
       </div>
@@ -241,14 +241,14 @@ function RequestsSection({ state, dispatch }) {
 
   const saveDates = async () => {
     dispatch({ type: "SET_DATES", id: activeReq.id, ...dates });
-    try { await apiSetDates(activeReq.backendId ?? activeReq.id, dates); } catch { /* local-only */ }
+    try { await apiSetDates(activeReq.backendId ?? activeReq.id, dates); } catch { }
     close();
   };
 
   const saveAssign = async () => {
     const staffList = Object.entries(selected).map(([id, name]) => ({ id: Number(id), name }));
     dispatch({ type: "ASSIGN_STAFF", reqId: activeReq.id, assignedStaff: staffList });
-    try { await apiAssignStaffCall(activeReq.backendId ?? activeReq.id, staffList); } catch { /* local-only */ }
+    try { await apiAssignStaffCall(activeReq.backendId ?? activeReq.id, staffList); } catch { }
     close();
   };
 
@@ -262,17 +262,17 @@ function RequestsSection({ state, dispatch }) {
   const handleApprove = async (r) => {
     if (!isReadyToApprove(r)) return;
     dispatch({ type: "APPROVE_REQUEST", id: r.id });
-    try { await apiApproveRequest(r.backendId ?? r.id); } catch { /* local-only */ }
+    try { await apiApproveRequest(r.backendId ?? r.id); } catch { }
   };
 
   const handleDecline = async (r) => {
     dispatch({ type: "DECLINE_REQUEST", id: r.id });
-    try { await apiRejectRequest(r.backendId ?? r.id); } catch { /* local-only */ }
+    try { await apiRejectRequest(r.backendId ?? r.id); } catch { }
   };
 
   const handleComplete = async (r) => {
     dispatch({ type: "COMPLETE_REQUEST", id: r.id });
-    try { await apiCompleteRequest(r.backendId ?? r.id); } catch { /* local-only */ }
+    try { await apiCompleteRequest(r.backendId ?? r.id); } catch { }
   };
 
   const stats = {
@@ -343,7 +343,7 @@ function RequestsSection({ state, dispatch }) {
     const noDates = !r.startDate?.trim();
     return (
       <div className="flex items-start gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mt-1">
-        <AlertTriangle size={11} className="flex-shrink-0 mt-0.5" />
+        <AlertTriangle size={11} className="shrink-0 mt-0.5" />
         {noStaff && noDates
           ? "Assign staff and set dates to unlock approval"
           : noStaff
@@ -372,7 +372,7 @@ function RequestsSection({ state, dispatch }) {
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
         {["All", "Pending", "Approved", "Active", "Completed", "Declined"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex-shrink-0 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition shrink-0 ${
               filter === f
                 ? "bg-[#2385cd] text-white shadow-sm"
                 : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
@@ -490,8 +490,8 @@ function RequestsSection({ state, dispatch }) {
                       <td className="px-4 py-3 text-xs text-gray-500">
                         {r.startDate ? (
                           <>
-                            <div className="flex items-center gap-1"><ArrowRightCircle size={11} className="text-green-500 flex-shrink-0" />{r.startDate}</div>
-                            <div className="flex items-center gap-1 mt-0.5"><StopCircle size={11} className="text-red-400 flex-shrink-0" />{r.endDate}</div>
+                            <div className="flex items-center gap-1"><ArrowRightCircle size={11} className="text-green-500 shrink-0" />{r.startDate}</div>
+                            <div className="flex items-center gap-1 mt-0.5"><StopCircle size={11} className="text-red-400 shrink-0" />{r.endDate}</div>
                           </>
                         ) : <span className="text-gray-300">Not set</span>}
                       </td>
@@ -620,7 +620,7 @@ function RequestsSection({ state, dispatch }) {
             </p>
             {liveReq.status === "Pending" && (
               <div className="flex items-center gap-1.5 text-xs text-[#1a6fa8] bg-[#eaf4fc] border border-[#b8d9f0] rounded-lg px-3 py-2 mb-2">
-                <AlertTriangle size={11} className="text-[#2385cd] flex-shrink-0" />
+                <AlertTriangle size={11} className="text-[#2385cd] shrink-0" />
                 Assign staff (and set dates) first — the Approve button unlocks only when both are done.
               </div>
             )}
@@ -685,9 +685,9 @@ function RequestsSection({ state, dispatch }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // SECTION: Staff Registry
-// ─────────────────────────────────────────────────────────────────────────────
+
 function StaffSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(null);
   const [editing, setEditing] = useState(null);
@@ -843,9 +843,9 @@ function StaffSection({ state, dispatch }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // SECTION: Registered Users
-// ─────────────────────────────────────────────────────────────────────────────
+
 function RegisteredSection({ state }) {
   const [search,  setSearch]  = useState("");
   const [modal,   setModal]   = useState(false);
@@ -866,7 +866,7 @@ function RegisteredSection({ state }) {
       <div className="flex items-center justify-between mb-4 gap-3">
         <input className={inputCls + " flex-1 max-w-xs"} placeholder="Search name or email…"
           value={search} onChange={(e) => setSearch(e.target.value)} />
-        <span className="text-xs text-gray-400 flex-shrink-0">{users.length} user{users.length !== 1 ? "s" : ""}</span>
+        <span className="text-xs text-gray-400 shrink-0">{users.length} user{users.length !== 1 ? "s" : ""}</span>
       </div>
 
       {users.length === 0 && (
@@ -989,9 +989,8 @@ function RegisteredSection({ state }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Blog
-// ─────────────────────────────────────────────────────────────────────────────
+
 function BlogSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1059,11 +1058,8 @@ function BlogSection({ state, dispatch }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Testimonials
-// All testimonial data comes from the mastermarketplace endpoint.
-// The separate apiFetchTestimonials call is kept only for create/update/delete ops.
-// ─────────────────────────────────────────────────────────────────────────────
+
 function TestimonialsSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1172,9 +1168,8 @@ function TestimonialsSection({ state, dispatch }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Messages
-// ─────────────────────────────────────────────────────────────────────────────
+
 function MessagesSection({ state, dispatch }) {
   const [filter,     setFilter]     = useState("all");
   const [active,     setActive]     = useState(null);
@@ -1204,11 +1199,11 @@ function MessagesSection({ state, dispatch }) {
       <div className="flex gap-2 mb-3 flex-wrap items-center overflow-x-auto pb-1">
         {[["all", "All"], ["contact", "Contact"], ["staff", "Staff requests"]].map(([k, l]) => (
           <button key={k} onClick={() => setFilter(k)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex-shrink-0 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition shrink-0 ${
               filter === k ? "bg-[#2385cd] text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
             }`}>{l}</button>
         ))}
-        {unread > 0 && <span className="ml-auto text-xs text-red-500 font-medium flex-shrink-0">{unread} unread</span>}
+        {unread > 0 && <span className="ml-auto text-xs text-red-500 font-medium shrink-0">{unread} unread</span>}
       </div>
 
       {state.messages.length === 0 && (
@@ -1229,7 +1224,7 @@ function MessagesSection({ state, dispatch }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1">
                 <p className={`text-sm truncate ${!m.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>{m.subject}</p>
-                <span className="text-xs text-gray-400 flex-shrink-0">
+                <span className="text-xs text-gray-400 shrink-0">
                   {m.time ? new Date(m.time).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
                 </span>
               </div>
@@ -1240,7 +1235,7 @@ function MessagesSection({ state, dispatch }) {
                 </span>
               )}
             </div>
-            {!m.read && <span className="w-2 h-2 rounded-full bg-[#2385cd] flex-shrink-0 mt-1.5" />}
+            {!m.read && <span className="w-2 h-2 rounded-full bg-[#2385cd] shrink-0 mt-1.5" />}
           </div>
         ))}
         {shown.length === 0 && state.messages.length > 0 && <p className="text-gray-400 text-sm p-4">No messages in this category.</p>}
@@ -1286,7 +1281,7 @@ function MessagesSection({ state, dispatch }) {
                 {new Date(r.sentAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
-            <div className="w-8 h-8 rounded-full bg-[#0f1e2e] text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">SA</div>
+            <div className="w-8 h-8 rounded-full bg-[#0f1e2e] text-white flex items-center justify-center text-xs font-semibold shrink-0">SA</div>
           </div>
         ))}
       </div>
@@ -1308,15 +1303,15 @@ function MessagesSection({ state, dispatch }) {
       </div>
       <div className="hidden md:flex gap-4 min-h-0">
         {MessageList}
-        {liveActive && <div className="w-80 flex-shrink-0">{MessageDetail}</div>}
+        {liveActive && <div className="w-80 shrink-0">{MessageDetail}</div>}
       </div>
     </>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // SECTION: Client Profiles
-// ─────────────────────────────────────────────────────────────────────────────
+
 function ProfilesSection({ state }) {
   const seen    = new Set();
   const clients = state.requests
@@ -1416,9 +1411,9 @@ function ProfilesSection({ state }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // ROOT: AdminPanel
-// ─────────────────────────────────────────────────────────────────────────────
+
 export function AdminPanel() {
   const { state, dispatch } = useStore();
   const [section,     setSection]     = useState("requests");
@@ -1439,8 +1434,7 @@ export function AdminPanel() {
     }
   };
 
-  // Fetch everything on mount from the single mastermarketplace endpoint.
-  // parseMasterMarketplace handles all normalisation including blog + testimonials.
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -1458,7 +1452,7 @@ export function AdminPanel() {
       }
     })();
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const pendingCount  = state.requests.filter((r) => r.status === "Pending").length;
@@ -1501,10 +1495,10 @@ export function AdminPanel() {
               backgroundColor: isActive ? "rgba(35,133,205,0.18)" : "transparent",
               borderRight:     isActive ? "2px solid #2385cd" : "2px solid transparent",
             }}>
-            <Icon size={14} className="flex-shrink-0" style={{ color: isActive ? "#2385cd" : undefined }} />
+            <Icon size={14} className="shrink-0" style={{ color: isActive ? "#2385cd" : undefined }} />
             <span className="flex-1 truncate font-medium">{label}</span>
             {badge > 0 && (
-              <span className="text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold flex-shrink-0"
+              <span className="text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold shrink-0"
                 style={{ backgroundColor: "#2385cd" }}>{badge}</span>
             )}
           </button>
@@ -1537,7 +1531,7 @@ export function AdminPanel() {
               {SidebarNav}
               <div className="px-3 py-4 border-t border-white/10">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-white truncate">Super Admin</p>
                     <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>admin@randlehopkick.ng</p>
@@ -1550,7 +1544,7 @@ export function AdminPanel() {
       </AnimatePresence>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-48 flex-shrink-0 flex-col" style={{ backgroundColor: "#0f1e2e" }}>
+      <aside className="hidden md:flex w-48 shrink-0 flex-col" style={{ backgroundColor: "#0f1e2e" }}>
         <div className="px-4 py-5 border-b border-white/10">
           <p className="font-bold text-white text-sm leading-tight">Randle&amp;Hopkick</p>
           <p className="text-xs font-medium mt-0.5" style={{ color: "#2385cd" }}>Admin Panel</p>
@@ -1558,7 +1552,7 @@ export function AdminPanel() {
         {SidebarNav}
         <div className="px-3 py-4 border-t border-white/10">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
             <div className="min-w-0">
               <p className="text-xs font-medium text-white truncate">Super Admin</p>
               <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>admin@randlehopkick.ng</p>
@@ -1569,9 +1563,9 @@ export function AdminPanel() {
 
       {/* Main */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <header className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0 gap-3 bg-[#0f1e2e] md:bg-white border-b border-white/10 md:border-gray-100">
+        <header className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0 gap-3 bg-[#0f1e2e] md:bg-white border-b border-white/10 md:border-gray-100">
           <div className="flex items-center gap-3 min-w-0">
-            <button className="md:hidden p-1.5 rounded-lg hover:bg-white/10 transition flex-shrink-0" onClick={() => setSidebarOpen(true)}>
+            <button className="md:hidden p-1.5 rounded-lg hover:bg-white/10 transition shrink-0" onClick={() => setSidebarOpen(true)}>
               <Menu size={18} className="text-white" />
             </button>
             <div className="min-w-0">
@@ -1584,7 +1578,7 @@ export function AdminPanel() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Manual refresh */}
             <button
               onClick={syncData}

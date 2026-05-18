@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, X, Lock } from "lucide-react";   // ← added Lock
 
 /* ───────── VALIDATION ───────── */
 function validate(email) {
@@ -11,9 +11,19 @@ function validate(email) {
   return null;
 }
 
-/* ───────── MOCK — replace with your real API call ───────── */
+/* ───────── REAL API CALL ───────── */
 async function sendResetEmail(email) {
-  await new Promise((res) => setTimeout(res, 1500));
+  const res = await fetch("/api/auth/forgot-password", {   // ← your endpoint
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Something went wrong. Please try again.");
+  }
+
   return { success: true };
 }
 
@@ -27,7 +37,6 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
 
   const handleClose = () => {
     onClose();
-    // reset state after exit animation finishes
     setTimeout(() => {
       setEmail("");
       setFieldError("");
@@ -51,11 +60,7 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
     setApiError("");
 
     try {
-      const result = await sendResetEmail(email);
-      if (!result.success) {
-        setApiError("Something went wrong. Please try again.");
-        return;
-      }
+      await sendResetEmail(email);
       setDone(true);
     } catch (err) {
       setApiError(err.message || "Something went wrong. Please try again.");
@@ -90,11 +95,10 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
             exit={{ opacity: 0, y: 20, scale: 0.96 }}
             transition={{ duration: 0.35, type: "spring", stiffness: 260, damping: 24 }}
             className="fixed inset-0 z-50 flex items-center justify-center px-4"
-            // stop clicks on the modal itself from closing
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="w-[420px] max-w-full p-8 rounded-3xl relative"
+              className="w-105 max-w-full p-8 rounded-3xl relative"
               style={{
                 background: "rgba(255,255,255,0.09)",
                 backdropFilter: "blur(30px)",
@@ -130,9 +134,7 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
                       className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
-                      style={{
-                        background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)",
-                      }}
+                      style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
                     >
                       <span className="text-4xl">✉</span>
                     </motion.div>
@@ -142,12 +144,8 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.25 }}
                     >
-                      <h2 className="text-2xl font-semibold mb-1 text-white">
-                        Check your inbox
-                      </h2>
-                      <p className="text-white/50 text-sm mb-3">
-                        We sent a reset link to:
-                      </p>
+                      <h2 className="text-2xl font-semibold mb-1 text-white">Check your inbox</h2>
+                      <p className="text-white/50 text-sm mb-3">We sent a reset link to:</p>
                       <p
                         className="text-sm font-medium mb-6 px-3 py-2 rounded-lg"
                         style={{
@@ -166,9 +164,7 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                         <button
                           onClick={() => { setDone(false); setEmail(""); }}
                           className="w-full py-3 rounded-xl font-medium transition-opacity hover:opacity-90"
-                          style={{
-                            background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)",
-                          }}
+                          style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
                         >
                           Try another email
                         </button>
@@ -211,15 +207,15 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                       Back to Sign In
                     </button>
 
-                    {/* ICON */}
+                    {/* ICON — replaced emoji with Lock icon */}
                     <div
                       className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
                       style={{
-                        background: "linear-gradient(135deg, #1a6dbd22, #2385cd33)",
+                        background: "rgba(35,133,205,0.13)",
                         border: "1px solid rgba(35,133,205,0.3)",
                       }}
                     >
-                      <span className="text-2xl">🔑</span>
+                      <Lock size={22} color="#42aae8" />   {/* ← clean icon */}
                     </div>
 
                     <h2 className="text-xl mb-1 text-white">Forgot password?</h2>
@@ -253,9 +249,7 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                       onClick={handleSubmit}
                       disabled={loading}
                       className="w-full py-3 rounded-xl disabled:opacity-60 transition-opacity hover:opacity-90 mb-4 font-medium"
-                      style={{
-                        background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)",
-                      }}
+                      style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
                     >
                       {loading ? "Sending link…" : "Send Reset Link →"}
                     </button>

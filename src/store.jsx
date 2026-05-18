@@ -69,50 +69,48 @@ function persistState(state) {
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseRequest
 //
-// Backend sends clientType as "Private" or "Organisation" (not "Individual").
-// Personal details are in personalDetails{ surname, otherName, email, phoneNo,
-// businessLocation } — NOT personalDetails.firstName / personalDetails.lastName.
+// Backend sends clientType as "Private" or "Organisation".
+// Personal details live in personalDetails{ surname, otherName, email, phoneNo,
+// businessLocation }.
+// Company details live in companyDetails{ companyName, companyEmail,
+// companyPhone, companyAddress } and repDetails{ surname, phoneNumber, jobRole }.
 // ─────────────────────────────────────────────────────────────────────────────
 export function normaliseRequest(raw) {
   if (!raw || typeof raw !== "object") return null;
 
-  const pd = raw.personalDetails ?? {};
-  const cd = raw.companyDetails  ?? {};
+  const pd  = raw.personalDetails ?? {};
+  const cd  = raw.companyDetails  ?? {};
+  const rep = raw.repDetails      ?? {};
 
-  // clientType: backend uses "Private" | "Organisation"
   const clientType =
     raw.clientType ??
-    (Object.keys(cd).length ? "Organisation" :
-     Object.keys(pd).length ? "Private"      : "Unknown");
+    (Object.keys(cd).length  ? "Organisation" :
+     Object.keys(pd).length  ? "Private"      : "Unknown");
 
   const isOrg = clientType === "Organisation";
 
-  // clientName
-const clientName = (() => {
+  const clientName = (() => {
     if (raw.clientName) return raw.clientName;
-    if (isOrg) return cd.companyName ?? cd.name ?? "";
+    if (isOrg) return cd.companyName ?? cd.name ?? rep.surname ?? "";
     const name = `${pd.surname ?? pd.firstName ?? ""} ${pd.otherName ?? pd.lastName ?? ""}`.trim();
     return name || raw.name || "";
   })();
 
-  // email
   const email =
     raw.email ??
     (isOrg ? (cd.companyEmail ?? cd.email ?? "") : (pd.email ?? ""));
 
-  // phone
   const phone =
     raw.phone ?? raw.phoneNumber ??
     (isOrg
-      ? (cd.companyPhone ?? cd.phone ?? cd.phoneNo ?? "")
+      ? (cd.companyPhone ?? cd.phone ?? rep.phoneNumber ?? "")
       : (pd.phoneNo ?? pd.phone ?? pd.phoneNumber ?? ""));
 
-  // location
   const location =
     raw.location ?? raw.address ??
     (isOrg
-      ? (cd.companyAddress ?? cd.address ?? cd.location ?? "")
-      : (pd.businessLocation ?? pd.address ?? pd.location ?? ""));
+      ? (cd.companyAddress ?? cd.address ?? "")
+      : (pd.businessLocation ?? pd.address ?? ""));
 
   const rawRoles = raw.roles ?? raw.requestedStaff ?? raw.staffRoles ?? raw.services ?? [];
   const roles = (Array.isArray(rawRoles) ? rawRoles : []).map((r) => {
@@ -124,14 +122,15 @@ const clientName = (() => {
   });
 
   const rawStatus = raw.status ?? "Pending";
-  const status    = rawStatus === "Rejected" ? "Declined" : rawStatus;
+  // Keep "Rejected" as-is in state; displayStatus() in the UI converts it to "Declined"
+  const status = rawStatus;
 
   const reviews = (raw.reviews ?? []).map((rv) => ({
-    rating:        rv.rating  ?? rv.stars   ?? 0,
-    comment:       rv.comment ?? rv.review  ?? rv.text  ?? "",
+    rating:        rv.rating  ?? rv.stars  ?? 0,
+    comment:       rv.comment ?? rv.review ?? rv.text ?? "",
     submittedAt:   rv.submittedAt ?? rv.createdAt ?? new Date().toISOString(),
     reviewedReqId: rv.reviewedReqId ?? raw._id ?? raw.id,
-    staffId:       rv.staffId  ?? rv.staff  ?? null,
+    staffId:       rv.staffId ?? rv.staff ?? null,
   }));
 
   const assignedStaff = (raw.assignedStaff ?? raw.assignedTo ?? []).map((s) =>
@@ -154,8 +153,8 @@ const clientName = (() => {
     endDate:       raw.endDate    ?? raw.end           ?? raw.endingDate   ?? "",
     assignedStaff,
     reviews,
-    reviewed:      raw.reviewed   ?? reviews.length > 0,
-    submittedAt:   raw.submittedAt ?? raw.createdAt   ?? raw.dateSubmitted ?? new Date().toISOString(),
+    reviewed:      raw.reviewed ?? reviews.length > 0,
+    submittedAt:   raw.submittedAt ?? raw.createdAt ?? raw.dateSubmitted ?? new Date().toISOString(),
   };
 }
 
@@ -188,10 +187,10 @@ export function normaliseUser(u) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseStaffProfile
-// Handles the "profile" array your backend returns. Each item has:
-//   - a nested user{} object with name, email, phone, photoUrl
+// Handles the "profile" array the backend returns. Each item has:
+//   - a nested user{} object with surname, otherNames, email, phoneNumber, photoUrl
 //   - primarySkills  → maps to role
-//   - yearsOfExperience, homeAddress, bio, gender, etc.
+//   - yearsOfExperience, homeAddress, bio, gender, nationality, etc.
 // ─────────────────────────────────────────────────────────────────────────────
 export function normaliseStaffProfile(s) {
   if (!s || typeof s !== "object") return null;
@@ -281,9 +280,7 @@ export function normaliseMessage(m, idx) {
     subject: m.subject ?? m.title   ?? m.topic       ?? "New message",
     body:    m.body    ?? m.message ?? m.content     ?? m.text   ?? "",
     type:    m.type    ?? "contact",
-    time:    m.time    ?? (m.createdAt
-               ? new Date(m.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
-               : "Recently"),
+    time:    m.time    ?? m.createdAt ?? "Recently",
     read:    m.read    ?? false,
     replies: (m.replies ?? []).map((r) => ({
       text:   r.text   ?? r.body ?? r.message ?? "",
@@ -297,21 +294,32 @@ export function normaliseMessage(m, idx) {
 // ─────────────────────────────────────────────────────────────────────────────
 // parseMasterMarketplace
 //
-// Backend response shape (confirmed from network tab):
+// Confirmed backend response shape:
 //   {
-//     users:             [...32 items]  ← registered users
-//     staff:             [...2 items]   ← CLIENT REQUESTS (backend named it "staff")
-//     profile:           [...9 items]   ← STAFF profiles / job-seekers
+//     users:             [...32 items]  ← registered user accounts
 //     userCount:         32
+//     staff:             [...2 items]   ← CLIENT REQUESTS (misleadingly named "staff")
 //     staffRequestCount: 2
+//     profile:           [...9 items]   ← STAFF / job-seeker profiles
 //     profileCount:      9
+//   }
+//
+// Returns:
+//   {
+//     registeredUsers: NormalisedUser[]
+//     requests:        NormalisedRequest[]
+//     staff:           NormalisedStaffProfile[]
+//     messages:        NormalisedMessage[]
+//     testimonials:    any[]
+//     blog:            any[]
 //   }
 // ─────────────────────────────────────────────────────────────────────────────
 export function parseMasterMarketplace(raw) {
   if (!raw || typeof raw !== "object") {
-    return { users: [], requests: [], messages: [], staff: [] };
+    return { registeredUsers: [], requests: [], messages: [], staff: [], testimonials: [], blog: [] };
   }
 
+  // Unwrap common envelope wrappers
   const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
 
   if (typeof window !== "undefined" && process?.env?.NODE_ENV !== "production") {
@@ -329,44 +337,48 @@ export function parseMasterMarketplace(raw) {
     console.groupEnd();
   }
 
-  // 1. Registered users — backend key: "users"
+  // 1. Registered users  ← backend key "users"
   const rawUsers = Array.isArray(root.users)
     ? root.users
     : Array.isArray(root.registeredUsers) ? root.registeredUsers : [];
 
-  // 2. Client requests — backend key: "staff" (confusingly named)
-  //    Items have: requestedStaff[], clientType ("Private"/"Organisation"),
-  //    personalDetails{ surname, otherName, email, phoneNo, businessLocation }
+  // 2. Client requests  ← backend key "staff" (confusingly named on the backend)
   const rawRequests = Array.isArray(root.staff)
     ? root.staff
     : Array.isArray(root.requests)      ? root.requests
     : Array.isArray(root.staffRequests) ? root.staffRequests : [];
 
-  // 3. Messages — backend key: "messages" (may not exist currently)
-  const rawMessages = Array.isArray(root.messages)
-    ? root.messages
-    : Array.isArray(root.contacts)   ? root.contacts
-    : Array.isArray(root.enquiries)  ? root.enquiries : [];
-
-  // 4. Staff profiles — backend key: "profile"
-  //    Items have: primarySkills, yearsOfExperience, homeAddress, nested user{}
+  // 3. Staff / job-seeker profiles  ← backend key "profile"
   const rawStaff = Array.isArray(root.profile)
     ? root.profile
-    : Array.isArray(root.profiles)      ? root.profiles
-    : Array.isArray(root.staffMembers)  ? root.staffMembers : [];
+    : Array.isArray(root.profiles)     ? root.profiles
+    : Array.isArray(root.staffMembers) ? root.staffMembers : [];
+
+  // 4. Contact messages  ← backend key "messages" or "contacts" (may not exist yet)
+  const rawMessages = Array.isArray(root.messages)
+    ? root.messages
+    : Array.isArray(root.contacts)  ? root.contacts
+    : Array.isArray(root.enquiries) ? root.enquiries : [];
+
+  const registeredUsers = rawUsers.map(normaliseUser).filter(Boolean);
+  const requests        = rawRequests.map(normaliseRequest).filter(Boolean);
+  const staff           = rawStaff.map(normaliseStaffProfile).filter(Boolean);
+  const messages        = rawMessages.map((m, i) => normaliseMessage(m, i)).filter(Boolean);
 
   if (typeof window !== "undefined" && process?.env?.NODE_ENV !== "production") {
     console.log(
-      `✅ [store] Mapped → users:${rawUsers.length} requests:${rawRequests.length}` +
-      ` messages:${rawMessages.length} staff:${rawStaff.length}`
+      `✅ [store] Parsed → registeredUsers:${registeredUsers.length}` +
+      ` requests:${requests.length} staff:${staff.length} messages:${messages.length}`
     );
   }
 
   return {
-    users:    rawUsers.map(normaliseUser).filter(Boolean),
-    requests: rawRequests.map(normaliseRequest).filter(Boolean),
-    messages: rawMessages.map((m, i) => normaliseMessage(m, i)).filter(Boolean),
-    staff:    rawStaff.map(normaliseStaffProfile).filter(Boolean),
+    registeredUsers,
+    requests,
+    staff,
+    messages,
+    testimonials: Array.isArray(root.testimonials) ? root.testimonials : [],
+    blog:         Array.isArray(root.blog)         ? root.blog         : [],
   };
 }
 
@@ -408,9 +420,20 @@ function reducer(state, action) {
 
   switch (action.type) {
 
+    // ── LOAD_MARKETPLACE ──────────────────────────────────────────────────────
+    // parseMasterMarketplace now returns { registeredUsers, requests, staff, messages, ... }
+    // This case must destructure "registeredUsers" (not "users") to match.
     case "LOAD_MARKETPLACE": {
-      const { users = [], requests = [], messages = [], staff = [] } = action.payload;
+      const {
+        registeredUsers = [],
+        requests        = [],
+        messages        = [],
+        staff           = [],
+        testimonials,
+        blog,
+      } = action.payload;
 
+      // ── Merge requests (prefer backend, keep local-only) ──────────────────
       const localReqMap    = new Map(state.requests.map((r) => [String(r.id), r]));
       const mergedRequests = requests.map((r) => {
         const local = localReqMap.get(String(r.id));
@@ -426,9 +449,11 @@ function reducer(state, action) {
         (r) => !r.backendId && !backendReqIds.has(String(r.id))
       );
 
-      const serverEmails   = new Set(users.map((u) => u.email));
+      // ── Merge registered users ────────────────────────────────────────────
+      const serverEmails   = new Set(registeredUsers.map((u) => u.email));
       const localOnlyUsers = state.registeredUsers.filter((u) => !serverEmails.has(u.email));
 
+      // ── Merge messages ────────────────────────────────────────────────────
       const localMsgMap    = new Map(state.messages.map((m) => [String(m.id), m]));
       const mergedMessages = messages.map((m) => {
         const local = localMsgMap.get(String(m.id));
@@ -442,6 +467,7 @@ function reducer(state, action) {
       const serverMsgIds  = new Set(messages.map((m) => String(m.id)));
       const localOnlyMsgs = state.messages.filter((m) => !serverMsgIds.has(String(m.id)));
 
+      // ── Merge staff (backend profiles + manually-added local staff) ────────
       const backendStaffMap = new Map(staff.map((s) => [String(s.id), s]));
       const mergedStaff     = state.staff.map((s) => {
         const b = backendStaffMap.get(String(s.id));
@@ -460,10 +486,15 @@ function reducer(state, action) {
       next = {
         ...state,
         requests:        [...mergedRequests, ...localOnlyReqs],
-        registeredUsers: [...users, ...localOnlyUsers],
+        registeredUsers: [...registeredUsers, ...localOnlyUsers],
         messages:        [...mergedMessages, ...localOnlyMsgs],
         staff:           [...mergedStaff, ...brandNewStaff],
-        lastSyncedAt:    new Date().toISOString(),
+        // Only overwrite blog/testimonials if the backend actually sent them
+        ...(Array.isArray(testimonials) && testimonials.length
+          ? { testimonials } : {}),
+        ...(Array.isArray(blog) && blog.length
+          ? { blog } : {}),
+        lastSyncedAt: new Date().toISOString(),
       };
       break;
     }
@@ -570,7 +601,7 @@ function reducer(state, action) {
       next = {
         ...state,
         requests: state.requests.map((r) =>
-          String(r.id) === String(action.id) ? { ...r, status: "Declined" } : r
+          String(r.id) === String(action.id) ? { ...r, status: "Rejected" } : r
         ),
       };
       break;

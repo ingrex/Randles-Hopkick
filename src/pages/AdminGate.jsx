@@ -1,12 +1,4 @@
-// src/pages/AdminGate.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Password screen that sits in front of the admin panel.
-// • URL is /admin-gate — not linked anywhere on the public site.
-// • Password is validated against the backend (POST /api/v1/auth/admin-gate-login).
-// • On success: stores the returned token in localStorage + sets a sessionStorage
-//   flag → navigates to /adminpanel.
-// • Session flag lasts until the browser tab is closed (sessionStorage).
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";

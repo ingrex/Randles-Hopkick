@@ -1,10 +1,9 @@
-// src/api/auth.js
-// ─── All API helpers for Randle & Hopkick ────────────────────────────────────
+
 
 const BASE_URL = "https://randnhop.onrender.com";
 const API      = `${BASE_URL}/api/v1`;
 
-// ── Internal request helper ────────────────────────────────────────────────
+// ── Internal request helper 
 async function request(path, options = {}) {
   const res = await fetch(`${API}${path}`, {
     headers: {
@@ -24,7 +23,7 @@ async function request(path, options = {}) {
   return data;
 }
 
-// ── Auth header helper ─────────────────────────────────────────────────────
+
 function authHeaders() {
   const token = localStorage.getItem("authToken");
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -33,11 +32,15 @@ function authHeaders() {
 /* ── Admin Gate Login ── */
 export async function apiAdminGateLogin({ password }) {
   const data = await request("/auth/admin-gate-login", {
+  
     method: "POST",
     body: JSON.stringify({ adminPassword: password }),
   });
   if (data?.token) localStorage.setItem("authToken", data.token);
   return data;
+  console.log(
+    'this is a console for data==',data
+  )
 }
 
 /* ── Login ── */
@@ -73,9 +76,9 @@ export async function apiStaffRequest(payload) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // MARKETPLACE
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 export async function apiGetMarketplace() {
   return request("/profile/marketplace", {
@@ -84,26 +87,8 @@ export async function apiGetMarketplace() {
   });
 }
 
-/**
- * Master marketplace — returns everything the admin panel needs in one call.
- *
- * Expected response shape (all fields optional; panel handles missing keys):
- * {
- *   users?:    RegisteredUser[]   // registered user accounts
- *   requests?: ClientRequest[]    // staff/service requests
- *   staff?:    StaffMember[]      // internal staff registry
- *   contacts?: ContactMessage[]   // contact-form submissions
- *   // Legacy aliases the panel also accepts:
- *   registeredUsers?, profiles?, messages?
- * }
- *
- * Cache-Control headers added to prevent 304 Not Modified from serving
- * stale/empty cached responses in the browser.
- */
-/**
- * cache: "no-store" is a native fetch option (not a header) so it bypasses
- * the browser cache without triggering a CORS preflight rejection.
- */
+
+ 
 export async function apiGetMasterMarketplace() {
   return request("/admin/mastermarketplace", {
     method: "GET",
@@ -115,9 +100,7 @@ export async function apiGetMasterMarketplace() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // ADMIN — request management
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiApproveRequest(id) {
   return request(`/profile/${id}/approve`, {
@@ -164,9 +147,8 @@ export async function apiSubmitReview(reqId, { staffId, rating, comment }) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // ADMIN — staff registry
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 export async function apiAddStaff(payload) {
   return request("/staff", {
@@ -191,9 +173,8 @@ export async function apiRemoveStaff(id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // TESTIMONIALS
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiFetchTestimonials() {
   return request("/testimonials", { method: "GET" });
@@ -222,10 +203,7 @@ export async function apiDeleteTestimonial(id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // CONTACT FORM  (public submission)
-// POST https://randnhop.onrender.com/api/v1/contact
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiContactForm({ name, email, phone, subject, message }) {
   return request("/contact", {
@@ -235,11 +213,8 @@ export async function apiContactForm({ name, email, phone, subject, message }) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // CONTACT MESSAGES (Admin)
-// Kept for manual/fallback use only. The AdminPanel now loads contact messages
-// via apiGetMasterMarketplace (contacts key) to avoid a duplicate network call.
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 export async function apiGetContactMessages() {
   return request("/contact/admin/all", {
