@@ -95,7 +95,6 @@ const FloatingInput = memo(({ name, value, onChange, placeholder, type = "text" 
   );
 });
 
-// Locked floating-label field — matches FloatingInput visually but read-only
 const LockedInput = ({ value, placeholder }) => (
   <div className="relative">
     <input
@@ -118,11 +117,11 @@ export function PrivateForm({ onSubmit }) {
   const { dispatch } = useStore();
   const { user }     = useAuth();
 
-  const [step,          setStep]          = useState(1);
-  const [countries,     setCountries]     = useState([]);
-  const [submitting,    setSubmitting]    = useState(false);
-  const [submitStatus,  setSubmitStatus]  = useState(null);
-  const [errorMessage,  setErrorMessage]  = useState("");
+  const [step,         setStep]         = useState(1);
+  const [countries,    setCountries]    = useState([]);
+  const [submitting,   setSubmitting]   = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [formData, setFormData] = useState(() => {
     try {
@@ -135,6 +134,7 @@ export function PrivateForm({ onSubmit }) {
           surname:   base.surname,
           otherName: base.otherName,
           phone:     base.phone,
+          email:     base.email,
         };
       }
       return base;
@@ -163,26 +163,30 @@ export function PrivateForm({ onSubmit }) {
     setFormData((p) => ({ ...p, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const isEmailValid = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
   const isStep1Valid = () =>
-    formData.surname.trim() && formData.email.trim() &&
-    formData.phone.trim() && formData.businessLocation.trim() && formData.nationality;
+    formData.surname.trim() &&
+    formData.email.trim() &&
+    formData.phone.trim() &&
+    formData.businessLocation.trim();
 
   const isStep2Valid = () =>
-    formData.employees.some((e) => e.name.trim()) && formData.agreed;
+    formData.nationality &&
+    formData.employees.some((e) => e.name.trim()) &&
+    formData.agreed;
 
   const progress = step === 1
     ? Math.floor(
-        [formData.surname, formData.email, formData.phone, formData.businessLocation, formData.nationality]
-          .filter(Boolean).length / 5 * 100
+        [formData.surname, formData.email, formData.phone, formData.businessLocation]
+          .filter(Boolean).length / 4 * 100
       )
     : isStep2Valid() ? 100 : 60;
 
   const updateEmployee = (index, field, value) => {
     setFormData((prev) => ({
       ...prev,
-      employees: prev.employees.map((emp, i) => i === index ? { ...emp, [field]: value } : emp),
+      employees: prev.employees.map((emp, i) =>
+        i === index ? { ...emp, [field]: value } : emp
+      ),
     }));
   };
 
@@ -207,7 +211,10 @@ export function PrivateForm({ onSubmit }) {
   const removeEmployee = (index) => {
     setFormData((prev) => {
       const updated = prev.employees.filter((_, i) => i !== index);
-      return { ...prev, employees: updated.length ? updated : [{ name: "", quantity: 1, search: "" }] };
+      return {
+        ...prev,
+        employees: updated.length ? updated : [{ name: "", quantity: 1, search: "" }],
+      };
     });
   };
 
@@ -221,7 +228,7 @@ export function PrivateForm({ onSubmit }) {
   };
 
   const buildPayload = () => ({
-    clientType: "Individual",
+    clientType: "Private",
     personalDetails: {
       surname:           formData.surname.trim(),
       otherName:         formData.otherName.trim(),
@@ -296,61 +303,87 @@ export function PrivateForm({ onSubmit }) {
         {steps.map((label, i) => (
           <div key={label} className="flex items-center gap-2 flex-1">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-              step > i + 1 ? "bg-sky-400 text-black"
-              : step === i + 1 ? "bg-sky-400/30 border border-sky-400 text-sky-300"
-              : "bg-white/10 text-white/30"
+              step > i + 1
+                ? "bg-sky-400 text-black"
+                : step === i + 1
+                ? "bg-sky-400/30 border border-sky-400 text-sky-300"
+                : "bg-white/10 text-white/30"
             }`}>
               {step > i + 1 ? "✓" : i + 1}
             </div>
-            <span className={`text-xs ${step === i + 1 ? "text-sky-300" : "text-white/30"}`}>{label}</span>
-            {i < steps.length - 1 && <div className={`flex-1 h-px ${step > i + 1 ? "bg-sky-400" : "bg-white/10"}`} />}
+            <span className={`text-xs ${step === i + 1 ? "text-sky-300" : "text-white/30"}`}>
+              {label}
+            </span>
+            {i < steps.length - 1 && (
+              <div className={`flex-1 h-px ${step > i + 1 ? "bg-sky-400" : "bg-white/10"}`} />
+            )}
           </div>
         ))}
       </div>
 
       <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-6">
-        <div className="h-full bg-sky-400 rounded-full transition-all duration-400" style={{ width: `${progress}%` }} />
+        <div
+          className="h-full bg-sky-400 rounded-full transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        />
       </div>
 
       <AnimatePresence mode="wait">
-        {/* ── Step 1 ── */}
+        {/* ── Step 1 — Personal Info ── */}
         {step === 1 && (
-          <motion.div key="s1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
+          <motion.div
+            key="s1"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            className="space-y-4"
+          >
             <div className="grid grid-cols-2 gap-4">
-
-              {/* Surname — locked */}
-              <LockedInput value={formData.surname} placeholder="Surname" />
-
-              {/* Other Name — locked */}
+              <LockedInput value={formData.surname}   placeholder="Surname" />
               <LockedInput value={formData.otherName} placeholder="Other Name" />
-
-              {/* Email — locked */}
-              <LockedInput value={formData.email} placeholder="Email Address" />
-
-              {/* Phone — locked */}
-              <LockedInput value={formData.phone} placeholder="Phone Number" />
+              <LockedInput value={formData.email}     placeholder="Email Address" />
+              <LockedInput value={formData.phone}     placeholder="Phone Number" />
 
               <div className="col-span-2">
-                <Select options={countries} value={formData.nationality} onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))} placeholder="Nationality *" styles={glassSelectStyles} />
-              </div>
-              <div className="col-span-2">
-                <FloatingInput name="businessLocation" value={formData.businessLocation} onChange={handleChange} placeholder="Business / Home Location *" />
-              </div>
-              <div className="col-span-2">
-                <textarea name="additionalComment" value={formData.additionalComment} onChange={handleChange} rows={3} placeholder="Additional comments (optional)" className={glass + " resize-none"} />
+                <FloatingInput
+                  name="businessLocation"
+                  value={formData.businessLocation}
+                  onChange={handleChange}
+                  placeholder="Business / Home Location *"
+                />
               </div>
             </div>
+
             <div className="flex justify-end">
-              <button onClick={() => setStep(2)} disabled={!isStep1Valid()} className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40">
+              <button
+                onClick={() => setStep(2)}
+                disabled={!isStep1Valid()}
+                className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40"
+              >
                 Next →
               </button>
             </div>
           </motion.div>
         )}
 
-        {/* ── Step 2 ── */}
+        {/* ── Step 2 — Staff Request ── */}
         {step === 2 && (
-          <motion.div key="s2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
+          <motion.div
+            key="s2"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            className="space-y-4"
+          >
+            {/* Country */}
+            <Select
+              options={countries}
+              value={formData.nationality}
+              onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))}
+              placeholder="Country *"
+              styles={glassSelectStyles}
+            />
+
             <p className="text-white/50 text-sm">Add the staff roles you need:</p>
 
             {formData.employees.map((emp, index) => {
@@ -373,7 +406,11 @@ export function PrivateForm({ onSubmit }) {
                       {emp.search && filtered.length > 0 && (
                         <div className="bg-slate-900/90 border border-white/10 rounded-lg max-h-44 overflow-y-auto">
                           {filtered.map((role) => (
-                            <div key={role} onClick={() => selectRole(index, role)} className="px-3 py-2 hover:bg-sky-400/20 cursor-pointer text-sm text-white/80 hover:text-white transition">
+                            <div
+                              key={role}
+                              onClick={() => selectRole(index, role)}
+                              className="px-3 py-2 hover:bg-sky-400/20 cursor-pointer text-sm text-white/80 hover:text-white transition"
+                            >
                               {role}
                             </div>
                           ))}
@@ -389,7 +426,10 @@ export function PrivateForm({ onSubmit }) {
                         <span className="bg-sky-400/20 text-sky-300 border border-sky-400/30 rounded-lg px-3 py-1 text-sm font-medium">
                           {emp.name}
                         </span>
-                        <button onClick={() => clearRole(index)} className="text-white/30 hover:text-red-400 transition text-xs">
+                        <button
+                          onClick={() => clearRole(index)}
+                          className="text-white/30 hover:text-red-400 transition text-xs"
+                        >
                           ✕ Change
                         </button>
                       </div>
@@ -410,7 +450,10 @@ export function PrivateForm({ onSubmit }) {
                     </div>
                   )}
                   {formData.employees.length > 1 && (
-                    <button onClick={() => removeEmployee(index)} className="text-red-400/50 hover:text-red-400 transition text-xs w-full text-right">
+                    <button
+                      onClick={() => removeEmployee(index)}
+                      className="text-red-400/50 hover:text-red-400 transition text-xs w-full text-right"
+                    >
                       Remove this role
                     </button>
                   )}
@@ -422,8 +465,25 @@ export function PrivateForm({ onSubmit }) {
               + Add Another Role
             </button>
 
+            {/* Additional Comment */}
+            <textarea
+              name="additionalComment"
+              value={formData.additionalComment}
+              onChange={handleChange}
+              rows={3}
+              placeholder="Additional comments (optional)"
+              className={glass + " resize-none"}
+            />
+
+            {/* Agreement */}
             <label className="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" name="agreed" checked={formData.agreed} onChange={handleChange} className="mt-1 accent-sky-400" />
+              <input
+                type="checkbox"
+                name="agreed"
+                checked={formData.agreed}
+                onChange={handleChange}
+                className="mt-1 accent-sky-400"
+              />
               <span className="text-white/70 text-sm">
                 I agree to the terms and conditions, and confirm that the information provided is accurate.
               </span>
@@ -436,7 +496,11 @@ export function PrivateForm({ onSubmit }) {
             )}
 
             <div className="flex justify-between pt-2">
-              <button onClick={() => setStep(1)} disabled={submitting} className="px-4 py-2 text-white/60 hover:text-white transition disabled:opacity-40">
+              <button
+                onClick={() => setStep(1)}
+                disabled={submitting}
+                className="px-4 py-2 text-white/60 hover:text-white transition disabled:opacity-40"
+              >
                 ← Back
               </button>
               <button
@@ -444,9 +508,14 @@ export function PrivateForm({ onSubmit }) {
                 disabled={!isStep2Valid() || submitting}
                 className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40 flex items-center gap-2"
               >
-                {submitting
-                  ? <><span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />Submitting...</>
-                  : "Submit Request"}
+                {submitting ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit Request"
+                )}
               </button>
             </div>
           </motion.div>

@@ -119,75 +119,72 @@ export async function apiGetMasterMarketplace() {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // ADMIN — request management
+// All four action endpoints now use /admin/:id/... per the backend contract.
+// ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Approve a staff request.
+ * PATCH /api/v1/admin/:id/approve
+ */
 export async function apiApproveRequest(id) {
-  return request(`/profile/${id}/approve`, {
+  return request(`/admin/${id}/approve`, {
     method: "PATCH",
     headers: authHeaders(),
   });
 }
 
+/**
+ * Reject / decline a staff request.
+ * PATCH /api/v1/admin/:id/reject
+ */
 export async function apiRejectRequest(id) {
-  return request(`/profile/${id}/reject`, {
+  return request(`/admin/${id}/reject`, {
     method: "PATCH",
     headers: authHeaders(),
   });
 }
 
-export async function apiSetDates(id, { startDate, endDate }) {
-  return request(`/profile/${id}/dates`, {
+/**
+ * Mark a request as completed.
+ * PATCH /api/v1/admin/:id/complete
+ */
+export async function apiCompleteRequest(id) {
+  return request(`/admin/${id}/complete`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ startDate, endDate }),
+    headers: authHeaders(),
   });
 }
 
+/**
+ * Assign staff members to a request.
+ * PATCH /api/v1/admin/:id/assign
+ *
+ * @param {string|number} reqId        - The request's backend ID.
+ * @param {Array<{id,name}>} assignedStaff - Staff objects to assign.
+ */
 export async function apiAssignStaff(reqId, assignedStaff) {
-  return request(`/profile/${reqId}/assign`, {
+  return request(`/admin/${reqId}/assign`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ assignedStaff }),
   });
 }
 
-export async function apiCompleteRequest(id) {
-  return request(`/profile/${id}/complete`, {
+/**
+ * Set start / end dates for a request.
+ * PATCH /api/v1/admin/:id/dates
+ *
+ * Note: no dedicated endpoint was provided for dates; this retains the
+ * existing /admin/:id/dates path.  Update to the correct route once your
+ * backend colleague confirms it.
+ */
+export async function apiSetDates(id, { startDate, endDate }) {
+  return request(`/admin/${id}/dates`, {
     method: "PATCH",
-    headers: authHeaders(),
-  });
-}
-
-export async function apiSubmitReview(reqId, { staffId, rating, comment }) {
-  return request(`/profile/${reqId}/review`, {
-    method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ staffId, rating, comment }),
-  });
-}
-
-// ADMIN — staff registry
-
-export async function apiAddStaff(payload) {
-  return request("/staff", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function apiUpdateStaff(id, payload) {
-  return request(`/staff/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function apiRemoveStaff(id) {
-  return request(`/staff/${id}`, {
-    method: "DELETE",
-    headers: authHeaders(),
+    body: JSON.stringify({ startDate, endDate }),
   });
 }
 
@@ -237,5 +234,30 @@ export async function apiGetContactMessages() {
   return request("/contact/admin/all", {
     method: "GET",
     headers: { "Content-Type": "application/json", ...authHeaders() },
+  });
+}
+
+// STAFF REGISTRY — admin CRUD
+
+export async function apiAddStaff(payload) {
+  return request("/staff", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiUpdateStaff(id, payload) {
+  return request(`/staff/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiRemoveStaff(id) {
+  return request(`/staff/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
   });
 }

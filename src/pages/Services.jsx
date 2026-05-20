@@ -86,6 +86,10 @@ const RAW_CSS = `
     from { opacity: 0; }
     to   { opacity: 1; }
   }
+  @keyframes svc-accordion-open {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 
   /* ── CSS Variables scoped to .svc ── */
   .svc {
@@ -388,7 +392,7 @@ const RAW_CSS = `
     border: 1px solid rgba(14,165,233,0.22);
     border-radius: 18px;
     overflow: hidden;
-    margin-bottom: 48px;
+    margin-bottom: 32px;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
     backdrop-filter: blur(6px);
     box-shadow: 0 4px 32px rgba(14,165,233,0.08), inset 0 1px 0 rgba(56,189,248,0.1);
@@ -490,7 +494,178 @@ const RAW_CSS = `
     letter-spacing: 0.05em;
   }
 
-  /* ── SUBCATEGORY ── */
+  /* ── TRAINING PROGRAMMES SUMMARY ── */
+  .training-summary {
+    margin-top: 16px;
+  }
+  .training-summary-label {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'Jost', sans-serif;
+    margin-bottom: 12px;
+  }
+  .training-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .training-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 13px;
+    border-radius: 20px;
+    background: rgba(14,165,233,0.08);
+    border: 1px solid rgba(14,165,233,0.2);
+    font-size: 12px;
+    font-family: 'Jost', sans-serif;
+    font-weight: 400;
+    color: var(--text-secondary);
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .training-pill:hover {
+    background: rgba(14,165,233,0.15);
+    border-color: rgba(14,165,233,0.4);
+    color: var(--text-primary);
+  }
+  .training-pill-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--sky);
+    flex-shrink: 0;
+  }
+  .training-cta {
+    margin-top: 20px;
+  }
+  .training-cta-btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    background: var(--sky);
+    border: none;
+    color: #fff;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: 'Jost', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .training-cta-btn:hover {
+    background: var(--sky-light);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(14,165,233,0.3);
+  }
+
+  /* ── ACCORDION SUBCATEGORIES ── */
+  .accordion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .accordion-item {
+    border: 1px solid rgba(14,165,233,0.18);
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(13,14,24,0.7);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .accordion-item--open {
+    border-color: rgba(14,165,233,0.38);
+    box-shadow: 0 8px 32px rgba(14,165,233,0.08);
+  }
+  .accordion-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    gap: 16px;
+    transition: background 0.2s ease;
+  }
+  .accordion-trigger:hover {
+    background: rgba(14,165,233,0.05);
+  }
+  .accordion-trigger-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .accordion-trigger-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: rgba(14,165,233,0.1);
+    border: 1px solid rgba(14,165,233,0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+  }
+  .accordion-item--open .accordion-trigger-icon {
+    background: rgba(14,165,233,0.2);
+  }
+  .accordion-trigger-icon svg {
+    width: 15px;
+    height: 15px;
+    stroke: var(--sky);
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .accordion-trigger-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .accordion-name {
+    font-family: 'Jost', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+  }
+  .accordion-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'Jost', sans-serif;
+  }
+  .accordion-chevron {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    transition: transform 0.3s cubic-bezier(0.22,0.68,0,1.2);
+    color: var(--text-muted);
+  }
+  .accordion-item--open .accordion-chevron {
+    transform: rotate(180deg);
+    color: var(--sky);
+  }
+  .accordion-body {
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1);
+    max-height: 0;
+  }
+  .accordion-item--open .accordion-body {
+    max-height: 3000px;
+  }
+  .accordion-body-inner {
+    padding: 0 20px 22px;
+    animation: svc-accordion-open 0.35s ease both;
+  }
+
+  /* ── SUBCATEGORY (legacy, kept for non-accordion use) ── */
   .subcategory { margin-bottom: 52px; }
   .sub-label-row {
     display: flex;
@@ -910,81 +1085,21 @@ const serviceData = [
       {
         name: "Domestic Staff Training",
         roles: [
-          {
-            name: "Housekeeping & Cleaning Standards",
-            brief: "Professional techniques for impeccable home maintenance.",
-            description:
-              "A comprehensive training programme covering professional cleaning techniques, organisation systems, surface-care best practices and household management standards — equipping domestic staff to maintain homes to the highest possible level of cleanliness and order.",
-            image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=700&q=80",
-          },
-          {
-            name: "Childcare & Nanny Training",
-            brief: "Child development and safety essentials for caregivers.",
-            description:
-              "Structured training covering early childhood development, age-appropriate activities, emergency first aid, child safety protocols and effective communication with parents — ensuring caregivers are fully equipped to provide nurturing and professional childcare.",
-            image: "https://images.unsplash.com/photo-1587614382346-4ec70e388b28?w=700&q=80",
-          },
-          {
-            name: "Cooking & Culinary Skills",
-            brief: "Kitchen mastery from preparation to plating.",
-            description:
-              "Practical culinary training designed for domestic cooks and private chefs  covering meal planning, food hygiene, dietary considerations, recipe execution and kitchen organisation to enable consistently high-quality home cooking.",
-            image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=700&q=80",
-          },
-          {
-            name: "Elderly Care & Support",
-            brief: "Compassionate care techniques for senior support staff.",
-            description:
-              "Specialist training focused on the physical and emotional needs of elderly individuals  including safe mobility assistance, medication awareness, communication with family members and maintaining dignity and independence in daily care routines.",
-            image: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=700&q=80",
-          },
-          {
-            name: "Etiquette & Household Protocols",
-            brief: "Professionalism and discretion in a household setting.",
-            description:
-              "Training in professional household etiquette, personal presentation, discretion, correct forms of address, service standards and the unspoken expectations of working within a private residence — ensuring staff conduct themselves with refinement at all times.",
-            image: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=700&q=80",
-          },
+          { name: "Housekeeping & Cleaning Standards", brief: "Professional techniques for impeccable home maintenance." },
+          { name: "Childcare & Nanny Training", brief: "Child development and safety essentials for caregivers." },
+          { name: "Cooking & Culinary Skills", brief: "Kitchen mastery from preparation to plating." },
+          { name: "Elderly Care & Support", brief: "Compassionate care techniques for senior support staff." },
+          { name: "Etiquette & Household Protocols", brief: "Professionalism and discretion in a household setting." },
         ],
       },
       {
         name: "Corporate Staff Training",
         roles: [
-          {
-            name: "Customer Service Excellence",
-            brief: "Delivering outstanding client experiences every time.",
-            description:
-              "An intensive programme developing communication skills, conflict resolution, empathy, active listening and brand-aligned service delivery equipping customer-facing staff to consistently exceed client expectations across all touchpoints.",
-            image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=700&q=80",
-          },
-          {
-            name: "Office Administration & Productivity",
-            brief: "Structured workflows and administrative best practices.",
-            description:
-              "Practical training covering office organisation, document management, scheduling, email communication, time management and administrative best practices enabling office staff to operate with greater efficiency and professionalism.",
-            image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=700&q=80",
-          },
-          {
-            name: "Sales & Business Development",
-            brief: "Proven techniques to drive revenue and client growth.",
-            description:
-              "A results-oriented programme covering prospecting, needs analysis, persuasive communication, objection handling, negotiation and closing techniques designed to sharpen the commercial instincts of sales teams and drive measurable revenue growth.",
-            image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=700&q=80",
-          },
-          {
-            name: "Leadership & Team Management",
-            brief: "Building capable, confident and inspiring leaders.",
-            description:
-              "A structured leadership development programme covering management styles, team motivation, performance conversations, delegation, decision-making and emotional intelligence — transforming capable employees into effective, inspiring leaders.",
-            image: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=700&q=80",
-          },
-          {
-            name: "Health, Safety & Workplace Compliance",
-            brief: "Creating safer, compliant and legally sound workplaces.",
-            description:
-              "Comprehensive training on occupational health and safety regulations, hazard identification, emergency response procedures, workplace rights and compliance obligations — equipping staff and managers to maintain a safe and legally compliant working environment.",
-            image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=700&q=80",
-          },
+          { name: "Customer Service Excellence", brief: "Delivering outstanding client experiences every time." },
+          { name: "Office Administration & Productivity", brief: "Structured workflows and administrative best practices." },
+          { name: "Sales & Business Development", brief: "Proven techniques to drive revenue and client growth." },
+          { name: "Leadership & Team Management", brief: "Building capable, confident and inspiring leaders." },
+          { name: "Health, Safety & Workplace Compliance", brief: "Creating safer, compliant and legally sound workplaces." },
         ],
       },
     ],
@@ -1004,64 +1119,55 @@ const serviceData = [
           {
             name: "Housekeepers / Cleaners",
             brief: "Spotless homes maintained to the highest standard of cleanliness.",
-            description:
-              "Thoroughly vetted professionals who maintain your home to the highest standard of cleanliness and order. From routine tidying to deep cleans, they bring discipline and attention to every corner of your living space.",
+            description: "Thoroughly vetted professionals who maintain your home to the highest standard of cleanliness and order. From routine tidying to deep cleans, they bring discipline and attention to every corner of your living space.",
             image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=700&q=80",
           },
           {
             name: "Maids (Live-in / Part-time)",
             brief: "Reliable domestic support for any household arrangement.",
-            description:
-              "Dependable domestic staff available for full residential live-in arrangements or flexible scheduled visits. Discreet, professional and trained to your household's specific preferences and routines.",
+            description: "Dependable domestic staff available for full residential live-in arrangements or flexible scheduled visits. Discreet, professional and trained to your household's specific preferences and routines.",
             image: "https://images.unsplash.com/photo-1584820927498-cad0e4f49b68?w=700&q=80",
           },
           {
             name: "Nannies / Babysitters",
             brief: "Caring, vetted childcare specialists for your family.",
-            description:
-              "Carefully screened childcare specialists who provide nurturing, developmental and safety-conscious care for your children. Available for live-in and visiting arrangements tailored to your family's schedule.",
+            description: "Carefully screened childcare specialists who provide nurturing, developmental and safety-conscious care for your children. Available for live-in and visiting arrangements tailored to your family's schedule.",
             image: "https://images.unsplash.com/photo-1587614382346-4ec70e388b28?w=700&q=80",
           },
           {
             name: "Laundry Assistants",
             brief: "Expert garment care and wardrobe management.",
-            description:
-              "Skilled laundry professionals handling the full wash cycle sorting, washing, pressing, folding and wardrobe organisation with special care for delicate and premium garments.",
+            description: "Skilled laundry professionals handling the full wash cycle sorting, washing, pressing, folding and wardrobe organisation with special care for delicate and premium garments.",
             image: "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=700&q=80",
           },
           {
             name: "Elderly & Health Support",
             brief: "Compassionate daily care for your loved ones at home.",
-            description:
-              "Compassionate and trained caregivers providing daily living assistance, medication reminders, mobility support and companionship for elderly family members, all in the comfort of home.",
+            description: "Compassionate and trained caregivers providing daily living assistance, medication reminders, mobility support and companionship for elderly family members, all in the comfort of home.",
             image: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=700&q=80",
           },
           {
             name: "Private Chefs",
             brief: "Bespoke culinary experiences crafted in your home.",
-            description:
-              "Accomplished culinary professionals who design and prepare bespoke daily menus tailored to your dietary needs and preferences, delivering a restaurant-quality dining experience within your own residence.",
+            description: "Accomplished culinary professionals who design and prepare bespoke daily menus tailored to your dietary needs and preferences, delivering a restaurant-quality dining experience within your own residence.",
             image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=700&q=80",
           },
           {
             name: "Cooks (Event)",
             brief: "High-quality event catering for any scale.",
-            description:
-              "Experienced event cooks who execute high-volume, high-quality meal preparation for private gatherings, celebrations and corporate events of any scale; seamlessly and professionally.",
+            description: "Experienced event cooks who execute high-volume, high-quality meal preparation for private gatherings, celebrations and corporate events of any scale; seamlessly and professionally.",
             image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=700&q=80",
           },
           {
             name: "Personal Drivers",
             brief: "Safe, discreet and punctual transportation professionals.",
-            description:
-              "Professional, punctual and discreet drivers providing safe, comfortable transportation for you and your family. Fully licensed with extensive knowledge of local routes and a commitment to discretion.",
+            description: "Professional, punctual and discreet drivers providing safe, comfortable transportation for you and your family. Fully licensed with extensive knowledge of local routes and a commitment to discretion.",
             image: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=700&q=80",
           },
           {
             name: "Security Guard / Gatekeeper",
             brief: "Round-the-clock access control and residential protection.",
-            description:
-              "Trained and vetted security personnel providing vigilant, round-the-clock access control and protection for your residence; ensuring complete peace of mind for your household at all times.",
+            description: "Trained and vetted security personnel providing vigilant, round-the-clock access control and protection for your residence; ensuring complete peace of mind for your household at all times.",
             image: "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=700&q=80",
           },
         ],
@@ -1083,29 +1189,25 @@ const serviceData = [
           {
             name: "Receptionists",
             brief: "Polished first impressions for your organisation.",
-            description:
-              "Polished, articulate front-desk professionals who create outstanding first impressions and manage visitor relations, call routing and scheduling with ease and consistent professionalism.",
+            description: "Polished, articulate front-desk professionals who create outstanding first impressions and manage visitor relations, call routing and scheduling with ease and consistent professionalism.",
             image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=700&q=80",
           },
           {
             name: "Office Assistants",
             brief: "Versatile support for day-to-day office operations.",
-            description:
-              "Versatile administrative support staff handling clerical duties, documentation, correspondence and general office coordination — keeping your operations running smoothly every single day.",
+            description: "Versatile administrative support staff handling clerical duties, documentation, correspondence and general office coordination — keeping your operations running smoothly every single day.",
             image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=700&q=80",
           },
           {
             name: "Data Entry Clerks",
             brief: "Accurate records and clean information systems.",
-            description:
-              "Meticulous and fast-typing clerks who maintain data accuracy, manage records and ensure your information systems stay clean, current and fully organised at all times.",
+            description: "Meticulous and fast-typing clerks who maintain data accuracy, manage records and ensure your information systems stay clean, current and fully organised at all times.",
             image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=700&q=80",
           },
           {
             name: "Secretaries / Executive Assistants",
             brief: "Strategic administrative support for senior leadership.",
-            description:
-              "Highly organised professionals adept at calendar management, executive scheduling, travel coordination and handling sensitive correspondence on behalf of senior leadership — with absolute discretion.",
+            description: "Highly organised professionals adept at calendar management, executive scheduling, travel coordination and handling sensitive correspondence on behalf of senior leadership — with absolute discretion.",
             image: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=700&q=80",
           },
         ],
@@ -1116,29 +1218,25 @@ const serviceData = [
           {
             name: "Cleaners / Janitors",
             brief: "Hygienic, well-presented commercial environments.",
-            description:
-              "Reliable cleaning personnel who maintain hygienic, well-presented work environments — from routine daily cleaning to scheduled deep cleans of commercial and industrial premises.",
+            description: "Reliable cleaning personnel who maintain hygienic, well-presented work environments — from routine daily cleaning to scheduled deep cleans of commercial and industrial premises.",
             image: "https://images.unsplash.com/photo-1563453392212-326f5e854473?w=700&q=80",
           },
           {
             name: "Facility Managers",
             brief: "End-to-end management of your entire facility.",
-            description:
-              "Experienced managers who oversee operations, maintenance and safety compliance across your entire facility — coordinating vendors and ensuring uninterrupted business continuity.",
+            description: "Experienced managers who oversee operations, maintenance and safety compliance across your entire facility — coordinating vendors and ensuring uninterrupted business continuity.",
             image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=700&q=80",
           },
           {
             name: "Maintenance Technicians",
             brief: "Proactive repairs keeping your facility at full capacity.",
-            description:
-              "Multi-skilled technicians who perform preventive maintenance, identify issues proactively and execute timely repairs to keep your facilities functioning at full operational capacity.",
+            description: "Multi-skilled technicians who perform preventive maintenance, identify issues proactively and execute timely repairs to keep your facilities functioning at full operational capacity.",
             image: "https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=700&q=80",
           },
           {
             name: "Electricians",
             brief: "Safe, certified electrical work for commercial premises.",
-            description:
-              "Certified electrical professionals handling installations, fault-finding, rewiring and compliance inspections for commercial office spaces and facilities — always safe and to code.",
+            description: "Certified electrical professionals handling installations, fault-finding, rewiring and compliance inspections for commercial office spaces and facilities — always safe and to code.",
             image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=700&q=80",
           },
         ],
@@ -1149,15 +1247,13 @@ const serviceData = [
           {
             name: "Customer Service Representatives",
             brief: "Consistent, brand-aligned customer experiences.",
-            description:
-              "Trained communication professionals who resolve queries, manage complaints and deliver consistent, brand-aligned customer experiences across voice, email and digital channels.",
+            description: "Trained communication professionals who resolve queries, manage complaints and deliver consistent, brand-aligned customer experiences across voice, email and digital channels.",
             image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=700&q=80",
           },
           {
             name: "Sales Representatives",
             brief: "Goal-driven professionals growing your revenue base.",
-            description:
-              "Results-driven sales professionals skilled in lead generation, client acquisition, relationship building and closing deals — consistently growing your revenue base and market reach.",
+            description: "Results-driven sales professionals skilled in lead generation, client acquisition, relationship building and closing deals — consistently growing your revenue base and market reach.",
             image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=700&q=80",
           },
         ],
@@ -1168,8 +1264,7 @@ const serviceData = [
           {
             name: "IT Support Staff",
             brief: "Keeping your digital infrastructure operational.",
-            description:
-              "Competent technical support professionals who manage helpdesk queries, troubleshoot hardware and software issues and maintain your organisation's digital infrastructure with minimal downtime.",
+            description: "Competent technical support professionals who manage helpdesk queries, troubleshoot hardware and software issues and maintain your organisation's digital infrastructure with minimal downtime.",
             image: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=700&q=80",
           },
         ],
@@ -1180,15 +1275,13 @@ const serviceData = [
           {
             name: "Dispatch Riders",
             brief: "Swift, reliable last-mile delivery solutions.",
-            description:
-              "Reliable and swift riders who ensure timely, safe last-mile delivery of packages, documents and goods across your operational network — efficiently and on schedule.",
+            description: "Reliable and swift riders who ensure timely, safe last-mile delivery of packages, documents and goods across your operational network — efficiently and on schedule.",
             image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=80",
           },
           {
             name: "Drivers",
             brief: "Professional drivers for all corporate operations.",
-            description:
-              "Professional drivers for corporate logistics, staff movement, airport transfers and supply chain operations — punctual, courteous and knowledgeable of local routes.",
+            description: "Professional drivers for corporate logistics, staff movement, airport transfers and supply chain operations — punctual, courteous and knowledgeable of local routes.",
             image: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=700&q=80",
           },
         ],
@@ -1210,36 +1303,31 @@ const serviceData = [
           {
             name: "Masons / Bricklayers",
             brief: "Precise, durable brickwork for any structure.",
-            description:
-              "Experienced masons who deliver precise, durable brickwork and masonry for residential foundations, commercial structures and decorative finishes — built to last.",
+            description: "Experienced masons who deliver precise, durable brickwork and masonry for residential foundations, commercial structures and decorative finishes — built to last.",
             image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=700&q=80",
           },
           {
             name: "Carpenters",
             brief: "Bespoke woodwork and structural joinery.",
-            description:
-              "Skilled carpenters crafting and installing furniture frameworks, structural woodwork, door frames, roofing timbers and bespoke joinery — all to exacting standards.",
+            description: "Skilled carpenters crafting and installing furniture frameworks, structural woodwork, door frames, roofing timbers and bespoke joinery — all to exacting standards.",
             image: "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=700&q=80",
           },
           {
             name: "Painters",
             brief: "Flawless interior and exterior finishes.",
-            description:
-              "Professional painters providing flawless interior and exterior finishes — from surface preparation and priming through to final coat application and detailed touch-ups.",
+            description: "Professional painters providing flawless interior and exterior finishes — from surface preparation and priming through to final coat application and detailed touch-ups.",
             image: "https://images.unsplash.com/photo-1562259929-b4e1fd3aef09?w=700&q=80",
           },
           {
             name: "Tilers",
             brief: "Immaculate tile installations on any surface.",
-            description:
-              "Expert tilers delivering immaculate, perfectly level tile installations on floors, walls and outdoor surfaces across residential and commercial settings — with precision.",
+            description: "Expert tilers delivering immaculate, perfectly level tile installations on floors, walls and outdoor surfaces across residential and commercial settings — with precision.",
             image: "https://images.unsplash.com/photo-1584622781564-1d987f7333c1?w=700&q=80",
           },
           {
             name: "Plumbers",
             brief: "Complete plumbing installations and repairs.",
-            description:
-              "Licensed plumbers handling full-system installations, pipe repairs, leak fixes and maintenance for residential, commercial and industrial plumbing networks.",
+            description: "Licensed plumbers handling full-system installations, pipe repairs, leak fixes and maintenance for residential, commercial and industrial plumbing networks.",
             image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=700&q=80",
           },
         ],
@@ -1250,29 +1338,25 @@ const serviceData = [
           {
             name: "Electricians",
             brief: "Safe, code-compliant electrical work.",
-            description:
-              "Certified electricians for residential and commercial wiring, DB installations, fault diagnosis, fixture mounting and power system upgrades — always compliant and safe.",
+            description: "Certified electricians for residential and commercial wiring, DB installations, fault diagnosis, fixture mounting and power system upgrades — always compliant and safe.",
             image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=700&q=80",
           },
           {
             name: "Generator Technicians",
             brief: "Expert genset installation, servicing and repair.",
-            description:
-              "Specialists in the installation, routine servicing, load testing and emergency repair of diesel and petrol generating sets of all capacities — keeping your power reliable.",
+            description: "Specialists in the installation, routine servicing, load testing and emergency repair of diesel and petrol generating sets of all capacities — keeping your power reliable.",
             image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=700&q=80",
           },
           {
             name: "HVAC Technicians (AC Repair)",
             brief: "Optimal cooling performance maintained year-round.",
-            description:
-              "Trained technicians who install, service and repair split-unit, cassette and ducted air-conditioning systems — ensuring optimal cooling performance throughout every season.",
+            description: "Trained technicians who install, service and repair split-unit, cassette and ducted air-conditioning systems — ensuring optimal cooling performance throughout every season.",
             image: "https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=700&q=80",
           },
           {
             name: "Welders / Fabricators",
             brief: "Precision metalwork using advanced welding techniques.",
-            description:
-              "Skilled welders producing precision metal fabrications — gates, grilles, structural frames, tanks and bespoke metalwork — using MIG, TIG and arc welding techniques.",
+            description: "Skilled welders producing precision metal fabrications — gates, grilles, structural frames, tanks and bespoke metalwork — using MIG, TIG and arc welding techniques.",
             image: "https://res.cloudinary.com/dotvnclej/image/upload/v1777905578/3_Key_Safety_Clothing_for_Machinists_-_Vents_MagaZine_fdclfb.jpg",
           },
         ],
@@ -1283,22 +1367,19 @@ const serviceData = [
           {
             name: "Furniture Makers",
             brief: "Custom-crafted pieces built to your specification.",
-            description:
-              "Talented craftspeople designing and handcrafting custom wood, metal and upholstered furniture pieces tailored to client specifications and interior styles.",
+            description: "Talented craftspeople designing and handcrafting custom wood, metal and upholstered furniture pieces tailored to client specifications and interior styles.",
             image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=700&q=80",
           },
           {
             name: "Interior Decorators",
             brief: "Spaces transformed into refined environments.",
-            description:
-              "Creative decorators who conceptualise and execute interior transformations — from colour schemes and material selection to spatial arrangement and accessory styling.",
+            description: "Creative decorators who conceptualise and execute interior transformations — from colour schemes and material selection to spatial arrangement and accessory styling.",
             image: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=700&q=80",
           },
           {
             name: "Upholsterers",
             brief: "Furniture restored to showroom condition.",
-            description:
-              "Specialist craftspeople who restore, re-pad and re-cover furniture pieces with premium fabrics, leather and foam — returning worn items to showroom condition.",
+            description: "Specialist craftspeople who restore, re-pad and re-cover furniture pieces with premium fabrics, leather and foam — returning worn items to showroom condition.",
             image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=700&q=80",
           },
         ],
@@ -1309,22 +1390,19 @@ const serviceData = [
           {
             name: "Tailors / Fashion Designers",
             brief: "Bespoke garments crafted with precision and style.",
-            description:
-              "Expert tailors and designers creating perfectly fitted bespoke garments — from corporate attire and occasion wear to everyday fashion — with precision and personal style.",
+            description: "Expert tailors and designers creating perfectly fitted bespoke garments — from corporate attire and occasion wear to everyday fashion — with precision and personal style.",
             image: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=700&q=80",
           },
           {
             name: "Barbers / Hair Stylists",
             brief: "Sharp cuts and sophisticated styles delivered.",
-            description:
-              "Talented grooming professionals delivering sharp fades, precision cuts and sophisticated styling for both male and female clients in residential and salon settings.",
+            description: "Talented grooming professionals delivering sharp fades, precision cuts and sophisticated styling for both male and female clients in residential and salon settings.",
             image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=700&q=80",
           },
           {
             name: "Makeup Artists",
             brief: "Flawless looks for every occasion and event.",
-            description:
-              "Professional makeup artists specialising in bridal, editorial, event and everyday looks — using premium products and proven techniques to deliver consistently flawless results.",
+            description: "Professional makeup artists specialising in bridal, editorial, event and everyday looks — using premium products and proven techniques to deliver consistently flawless results.",
             image: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=700&q=80",
           },
         ],
@@ -1335,22 +1413,19 @@ const serviceData = [
           {
             name: "Handymen",
             brief: "Reliable multi-skilled help for any property task.",
-            description:
-              "Versatile multi-skilled workers who handle a broad range of repair, maintenance and light construction tasks around the home or workplace — reliable, efficient and professional.",
+            description: "Versatile multi-skilled workers who handle a broad range of repair, maintenance and light construction tasks around the home or workplace — reliable, efficient and professional.",
             image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=700&q=80",
           },
           {
             name: "Installers (Solar, CCTV, etc.)",
             brief: "Certified installation of all technical equipment.",
-            description:
-              "Certified technicians for the installation and commissioning of solar panels, CCTV systems, access control, satellite dishes and other technical equipment.",
+            description: "Certified technicians for the installation and commissioning of solar panels, CCTV systems, access control, satellite dishes and other technical equipment.",
             image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=700&q=80",
           },
           {
             name: "Painters & Finishers",
             brief: "Specialist decorative and protective finishes.",
-            description:
-              "Specialist painters trained in decorative and protective surface finishes including epoxy floors, textured coatings, stencil work and spray applications for distinctive results.",
+            description: "Specialist painters trained in decorative and protective surface finishes including epoxy floors, textured coatings, stencil work and spray applications for distinctive results.",
             image: "https://images.unsplash.com/photo-1562259929-b4e1fd3aef09?w=700&q=80",
           },
         ],
@@ -1378,6 +1453,25 @@ function useReveal() {
     return () => obs.disconnect();
   }, []);
   return ref;
+}
+
+// ─── SUBCATEGORY ICON (generic layers icon) ──────────────────────────────────
+function SubcatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+      <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+    </svg>
+  );
+}
+
+// ─── CHEVRON ICON ─────────────────────────────────────────────────────────────
+function ChevronDown({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
 }
 
 // ─── MODAL ────────────────────────────────────────────────────────────────────
@@ -1471,8 +1565,74 @@ function RoleCard({ role, onLearnMore, delay = 0 }) {
   );
 }
 
+// ─── TRAINING SUMMARY ─────────────────────────────────────────────────────────
+function TrainingSummary({ subcategories }) {
+  return (
+    <div className="training-summary">
+      {subcategories.map((sub, si) => (
+        <div key={si} style={{ marginBottom: si < subcategories.length - 1 ? 20 : 0 }}>
+          <p className="training-summary-label">{sub.name}</p>
+          <div className="training-pills">
+            {sub.roles.map((role, ri) => (
+              <span key={ri} className="training-pill">
+                <span className="training-pill-dot" />
+                {role.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="training-cta">
+        <a href="/contact" className="training-cta-btn">Enquire About Training</a>
+      </div>
+    </div>
+  );
+}
+
+// ─── ACCORDION SUBCATEGORY ────────────────────────────────────────────────────
+function AccordionSubcategory({ sub, onLearnMore, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const bodyRef = useRef(null);
+
+  return (
+    <div className={`accordion-item${open ? " accordion-item--open" : ""}`}>
+      <button
+        className="accordion-trigger"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div className="accordion-trigger-left">
+          <div className="accordion-trigger-icon">
+            <SubcatIcon />
+          </div>
+          <div className="accordion-trigger-text">
+            <span className="accordion-name">{sub.name}</span>
+            <span className="accordion-count">{sub.roles.length} role{sub.roles.length !== 1 ? "s" : ""}</span>
+          </div>
+        </div>
+        <ChevronDown className="accordion-chevron" />
+      </button>
+
+      <div className="accordion-body" ref={bodyRef}>
+        <div className="accordion-body-inner">
+          <div className="roles-grid">
+            {sub.roles.map((role, ri) => (
+              <RoleCard
+                key={ri}
+                role={role}
+                onLearnMore={onLearnMore}
+                delay={ri * 60}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── CATEGORY HEADER ─────────────────────────────────────────────────────────
-function CategoryHeader({ service }) {
+function CategoryHeader({ service, isTraining }) {
   const totalRoles = service.subcategories.reduce((a, s) => a + s.roles.length, 0);
   const ref = useReveal();
   return (
@@ -1486,10 +1646,14 @@ function CategoryHeader({ service }) {
         <p className="cat-eyebrow">Services Category</p>
         <h2 className="cat-title">{service.title}</h2>
         <p className="cat-desc">{service.description}</p>
-        <div className="cat-meta">
-          <div className="cat-meta-line" />
-          <span className="cat-meta-text">{totalRoles} programmes available</span>
-        </div>
+        {isTraining ? (
+          <TrainingSummary subcategories={service.subcategories} />
+        ) : (
+          <div className="cat-meta">
+            <div className="cat-meta-line" />
+            <span className="cat-meta-text">{totalRoles} roles available across {service.subcategories.length} categories</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1499,29 +1663,27 @@ function CategoryHeader({ service }) {
 function ServiceSection({ service, user }) {
   const [activeRole, setActiveRole] = useState(null);
   const isTraining = service.id === "training";
+
   return (
     <section id={service.id} className="service-section">
       <div className="section-inner">
-        <CategoryHeader service={service} />
-        {service.subcategories.map((sub, si) => (
-          <div key={si} className="subcategory">
-            <div className="sub-label-row">
-              <span className="sub-label">{sub.name}</span>
-              <div className="sub-rule" />
-            </div>
-            <div className="roles-grid">
-              {sub.roles.map((role, ri) => (
-                <RoleCard
-                  key={ri}
-                  role={role}
-                  onLearnMore={setActiveRole}
-                  delay={ri * 60}
-                />
-              ))}
-            </div>
+        <CategoryHeader service={service} isTraining={isTraining} />
+
+        {/* Training: no cards below the header */}
+        {!isTraining && (
+          <div className="accordion-list">
+            {service.subcategories.map((sub, si) => (
+              <AccordionSubcategory
+                key={si}
+                sub={sub}
+                onLearnMore={setActiveRole}
+                defaultOpen={false}
+              />
+            ))}
           </div>
-        ))}
+        )}
       </div>
+
       {activeRole && (
         <Modal
           role={activeRole}

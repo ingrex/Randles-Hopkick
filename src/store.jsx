@@ -805,7 +805,7 @@ export function useStore() {
   return ctx;
 }
 
-// ─── Profile helpers ──────────────────────────────────────────────────────────
+// ─── Profile helpers ── //
 const PROFILE_KEY = "rnh_profile_v1";
 export function loadProfile() {
   try {

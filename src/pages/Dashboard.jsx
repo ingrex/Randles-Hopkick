@@ -13,7 +13,7 @@ const MODES = ["Private", "Organization", "Staff"];
 
 function Stat({ label, value }) {
   return (
-    <motion.div whileHover={{ scale: 1.05 }} className="bg-white/20 backdrop-blur px-4 py-2 rounded-lg flex-shrink-0">
+    <motion.div whileHover={{ scale: 1.05 }} className="bg-white/20 backdrop-blur px-4 py-2 rounded-lg shrink-0">
       <p className="text-xs opacity-80">{label}</p>
       <h4 className="font-bold text-sm sm:text-base">{value}</h4>
     </motion.div>
