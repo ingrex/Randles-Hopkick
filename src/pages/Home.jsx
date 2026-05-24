@@ -283,7 +283,7 @@ const Home = () => {
               image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778601888/Untitled_design_16_szvtnk.jpg",
             },
             {
-              title: "Training Programs",
+              title: "Staff Training",
               desc: "We train staff to meet modern workplace standards.",
               image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778602221/Untitled_design_17_o8eevf.jpg",
             },
@@ -417,7 +417,7 @@ const Home = () => {
                       marginBottom: "20px",
                     }}
                   >
-                    {/* ✅ Replace item.image in the testimonials array at the top with your real photo URLs */}
+                 
                     <img
                       src={item.image}
                       alt={item.name}

@@ -25,7 +25,7 @@ const STYLES = `
 
 @keyframes fadeUp  { from { opacity:0; transform:translateY(22px) } to { opacity:1; transform:translateY(0) } }
 @keyframes slideIn { from { opacity:0; transform:translateX(-16px) } to { opacity:1; transform:translateX(0) } }
-@keyframes pulse   { 0%,100% { box-shadow:0 0 0 0 rgba(14,165,233,.4) } 50% { box-shadow:0 0 0 10px rgba(14,165,233,0) } }
+@keyframes pulse   { 0%,100% { box-shadow:0 0 0 0 rgba(14,165,233,.4) } 50% { box-shadow:0 0 10px rgba(14,165,233,0) } }
 @keyframes spin    { to { transform:rotate(360deg) } }
 @keyframes float   { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-7px) } }
 
@@ -180,7 +180,6 @@ function yearsLabel(n) {
 
 /* ─────────────────────────── SUB-COMPONENTS ────────────────────────── */
 
-/* CSS spinner — kept as pure CSS to avoid extra deps */
 function Spinner({ size = 16 }) {
   return (
     <span style={{
@@ -194,7 +193,6 @@ function Spinner({ size = 16 }) {
   );
 }
 
-/* Labelled read-only field */
 function FieldRow({ label, value, icon: Icon, delay = 0, accent = false }) {
   const empty = !value;
   return (
@@ -222,7 +220,6 @@ function FieldRow({ label, value, icon: Icon, delay = 0, accent = false }) {
   );
 }
 
-/* Editable field */
 function EditField({ label, name, value, onChange, type = "text", opts }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
@@ -249,7 +246,6 @@ function EditField({ label, name, value, onChange, type = "text", opts }) {
   );
 }
 
-/* Section wrapper card — icon is now a lucide JSX element */
 function SectionCard({ title, subtitle, icon, children, action, delay = 0, accent = false }) {
   return (
     <div
@@ -290,7 +286,6 @@ function SectionCard({ title, subtitle, icon, children, action, delay = 0, accen
   );
 }
 
-/* Stat mini-card — icon is now a lucide JSX element */
 function StatCard({ label, value, icon, delay = 0 }) {
   return (
     <div
@@ -333,22 +328,59 @@ export function Profile({ onNavigate }) {
     catch { return ""; }
   });
 
-  /* ── fetch staff profile ── */
+  /* ── fetch staff profile, fall back to user context if API returns nothing ── */
   useEffect(() => {
     (async () => {
       setFetchLoading(true);
       try {
         const data    = await apiGetProfile();
         const profile = data?.profile || data?.staffProfile || data?.staff || data || {};
-        setStaffData(profile);
-        setEditDraft(profile);
+
+        // If the API returns an empty/sparse profile but the user already
+        // submitted the form this session, hydrate from the context object
+        // so the profile page shows data immediately without a re-login.
+        const merged = { ...profile };
+        const staffFields = [
+          "nationality","homeAddress","maritalStatus","languageSkill","dateOfBirth",
+          "gender","primarySkills","yearsOfExperience","additionalSkills","bio",
+          "educationalQualification","agreedToPolicy",
+        ];
+        if (user) {
+          staffFields.forEach(k => {
+            if (!merged[k] && user[k] != null) merged[k] = user[k];
+          });
+        }
+
+        setStaffData(merged);
+        setEditDraft(merged);
       } catch (e) {
-        setFetchError(e.message || "Could not load profile data.");
+        // API failed — fall back entirely to whatever is stored in the user context
+        if (user) {
+          const fallback = {
+            nationality:              user.nationality,
+            homeAddress:              user.homeAddress,
+            maritalStatus:            user.maritalStatus,
+            languageSkill:            user.languageSkill,
+            dateOfBirth:              user.dateOfBirth,
+            gender:                   user.gender,
+            primarySkills:            user.primarySkills,
+            yearsOfExperience:        user.yearsOfExperience,
+            additionalSkills:         user.additionalSkills,
+            bio:                      user.bio,
+            educationalQualification: user.educationalQualification,
+            agreedToPolicy:           user.agreedToPolicy,
+          };
+          setStaffData(fallback);
+          setEditDraft(fallback);
+        } else {
+          setFetchError(e.message || "Could not load profile data.");
+        }
       } finally {
         setFetchLoading(false);
       }
     })();
-  }, []);
+  // Re-run whenever the user object changes (e.g. right after StaffForm submit)
+  }, [user]);
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
@@ -389,7 +421,9 @@ export function Profile({ onNavigate }) {
   /* ── derived values ── */
   const displayName   = [user?.surname, user?.otherNames].filter(Boolean).join(" ") || "Your Name";
   const hasStaffData  = staffData && Object.values(staffData).some(v => v != null && v !== "");
-  const staffComplete = !!(staffData?.primarySkills && staffData?.bio);
+
+  // Verified if the form was submitted (flag in user context or staff data has a primary skill)
+  const staffComplete = !!(user?.staffProfileSubmitted || (staffData?.primarySkills && staffData?.bio));
 
   const skillTags = [
     staffData?.primarySkills,

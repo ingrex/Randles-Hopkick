@@ -177,10 +177,11 @@ export async function apiCompleteRequest(id) {
  */
 export async function apiAssignStaff(reqId, assignedStaff) {
   const staffIds = assignedStaff.map((s) => s.id);
+   console.log("POST body:", { reqId, staffIds });
   return request(`/admin/${reqId}/assign`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ profiles: staffIds }),
+    body: JSON.stringify({ staffIds }),
   });
 }
 

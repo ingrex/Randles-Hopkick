@@ -23,6 +23,7 @@ const KEYFRAMES = `
 @keyframes checkDraw{ from{ stroke-dashoffset:40 } to { stroke-dashoffset:0 } }
 @keyframes cardIn   { from{ opacity:0; transform:translateY(32px) scale(.97) } to { opacity:1; transform:translateY(0) scale(1) } }
 @keyframes errShake { 0%,100%{ transform:translateX(0) } 20%,60%{ transform:translateX(-5px) } 40%,80%{ transform:translateX(5px) } }
+@keyframes float    { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-7px) } }
 
 input::placeholder  { color: rgba(170,205,240,.42); }
 textarea::placeholder { color: rgba(170,205,240,.42); }
@@ -482,6 +483,60 @@ function SecondaryBtn({ children, onClick }) {
   );
 }
 
+/* ═══════════════════════ ALREADY SUBMITTED SCREEN ════════════════ */
+function AlreadySubmittedScreen({ onDashboard, onHome }) {
+  return (
+    <div style={{
+      width:"100%", minHeight:"85vh",
+      display:"flex", alignItems:"center", justifyContent:"center",
+      padding:20,
+      borderRadius:20,
+      background:"rgba(255,255,255,0.08)",
+      backdropFilter:"blur(28px) saturate(130%)",
+      WebkitBackdropFilter:"blur(28px) saturate(130%)",
+      border:"1px solid rgba(255,255,255,0.12)",
+      boxShadow:"0 8px 32px rgba(0,0,0,0.3)",
+    }}>
+      <div style={{
+        background:"rgba(6,18,40,.6)",
+        border:"1.5px solid rgba(14,165,233,.28)",
+        borderRadius:28, padding:"48px 40px",
+        maxWidth:440, width:"100%", textAlign:"center",
+        backdropFilter:"blur(36px)",
+        boxShadow:"0 40px 100px rgba(0,0,0,.3), inset 0 1px 0 rgba(14,165,233,.14)",
+        animation:"popIn .5s cubic-bezier(.34,1.56,.64,1)",
+      }}>
+        {/* Icon */}
+        <div style={{
+          width:82, height:82, borderRadius:"50%", margin:"0 auto 22px",
+          background:`linear-gradient(135deg,${SKY[800]},${SKY[600]})`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          boxShadow:"0 0 36px rgba(14,165,233,.3)",
+          animation:"float 3s ease infinite",
+        }}>
+          <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+            <path d="M19 8v14M19 26v2" stroke="#fff" strokeWidth="3" strokeLinecap="round"/>
+          </svg>
+        </div>
+
+        <h2 style={{ fontFamily:SERIF, fontSize:28, fontWeight:700, color:"#e8f0fe", letterSpacing:"-.02em", marginBottom:10 }}>
+          Already Submitted
+        </h2>
+        <p style={{ fontSize:13, color:"rgba(175,210,245,.58)", lineHeight:1.75, fontFamily:FONT, fontWeight:300, marginBottom:10 }}>
+          You have already submitted your staff application. Each account may only submit the form once.
+        </p>
+        <p style={{ fontSize:12, color:"rgba(140,190,240,.38)", lineHeight:1.7, fontFamily:FONT, fontWeight:300, marginBottom:30 }}>
+          If you need to make changes to your profile, please contact the Randle &amp; Hopkins admin team directly.
+        </p>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <PrimaryBtn onClick={onDashboard}>Go to Dashboard →</PrimaryBtn>
+          <SecondaryBtn onClick={onHome}>Back to Home</SecondaryBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════ SUCCESS MODAL ════════════════════════ */
 function SuccessModal({ onDashboard, onHome }) {
   return (
@@ -557,8 +612,8 @@ const QUALIFICATION_OPTIONS = [
 
 /* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
 export function StaffForm({ onSubmit }) {
-  const navigate    = useNavigate();
-  const { user }    = useAuth();
+  const navigate              = useNavigate();
+  const { user, updateUser }  = useAuth();   // ← pull in updateUser
 
   const [step,    setStep]    = useState(1);
   const [form,    setForm]    = useState(INIT);
@@ -596,6 +651,17 @@ export function StaffForm({ onSubmit }) {
     }));
   }, [user?.surname, user?.otherNames, user?.email, user?.phoneNumber]);
 
+  /* ── Guard: already submitted ── */
+  // Show the locked screen immediately (before any step renders) if the
+  // user has already submitted the form. We check both the context flag
+  // and a localStorage fallback so it survives a hard refresh.
+  const alreadySubmitted =
+    user?.staffProfileSubmitted === true ||
+    (() => {
+      try { return JSON.parse(localStorage.getItem("user") || "{}").staffProfileSubmitted === true; }
+      catch { return false; }
+    })();
+
   const set = k => e =>
     setForm(f => ({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
 
@@ -617,11 +683,6 @@ export function StaffForm({ onSubmit }) {
     setErrs({});
 
     if (step < 3) { transition(step + 1, "fwd"); return; }
-
-    if (user?.staffProfileSubmitted) {
-      alert("This form has already been submitted. Contact admin for updates.");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -654,8 +715,24 @@ export function StaffForm({ onSubmit }) {
         agreedToPolicy:           form.agreed,
       };
 
-      // ── Uses /profile endpoint (staff job application) ──
       await apiStaffProfile(payload);
+
+      /* ── Sync to AuthContext + localStorage ── */
+      updateUser({
+        nationality:              form.country,
+        homeAddress:              payload.homeAddress,
+        maritalStatus:            payload.maritalStatus,
+        languageSkill:            payload.languageSkill,
+        dateOfBirth:              payload.dateOfBirth,
+        gender:                   payload.gender,
+        primarySkills:            payload.primarySkills,
+        yearsOfExperience:        payload.yearsOfExperience,
+        additionalSkills:         payload.additionalSkills,
+        bio:                      payload.bio,
+        educationalQualification: payload.educationalQualification,
+        agreedToPolicy:           payload.agreedToPolicy,
+        staffProfileSubmitted:    true,   // ← locks the form for this user
+      });
 
       localStorage.removeItem("staffRequestDraft");
       setDone(true);
@@ -679,12 +756,29 @@ export function StaffForm({ onSubmit }) {
     { title:"Professional Details",  sub:"Your skills and qualifications help us match you." },
   ];
 
+  /* ── Already submitted — show locked screen ── */
+  if (alreadySubmitted) {
+    return (
+      <>
+        <style>{KEYFRAMES}</style>
+        <AlreadySubmittedScreen
+          onDashboard={() => { onSubmit?.(); navigate("/dashboard"); }}
+          onHome={() => { onSubmit?.(); navigate("/"); }}
+        />
+      </>
+    );
+  }
+
+  /* ── Success screen ── */
   if (done) {
     return (
-      <SuccessModal
-        onDashboard={() => { onSubmit?.(); navigate("/dashboard"); }}
-        onHome={() => { onSubmit?.(); navigate("/"); }}
-      />
+      <>
+        <style>{KEYFRAMES}</style>
+        <SuccessModal
+          onDashboard={() => { onSubmit?.(); navigate("/dashboard"); }}
+          onHome={() => { onSubmit?.(); navigate("/"); }}
+        />
+      </>
     );
   }
 

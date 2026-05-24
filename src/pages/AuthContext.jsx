@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
@@ -7,19 +6,19 @@ const BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/v1/auth`;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true); // ✅ start true — wait for localStorage check
+  const [loading, setLoading] = useState(true);
 
-  /*  Restore session on page reload */
+  /* Restore session on page reload */
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) {
       try { setUser(JSON.parse(stored)); }
       catch { localStorage.removeItem("user"); }
     }
-    setLoading(false); 
+    setLoading(false);
   }, []);
 
-  /*  LOGIN */
+  /* LOGIN */
   const login = async (email, password) => {
     setLoading(true);
     try {
@@ -34,7 +33,6 @@ export const AuthProvider = ({ children }) => {
 
       const userData = data.user || data;
 
-
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
       if (data.token)       localStorage.setItem("authToken", data.token);
@@ -48,7 +46,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /*  REGISTER */
+  /* REGISTER */
   const register = async (formData) => {
     setLoading(true);
     try {
@@ -61,8 +59,6 @@ export const AuthProvider = ({ children }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Register failed");
 
-      // ✅ If backend returns user/token on register, auto-login them
-      //    so "Go to Dashboard" works without a separate login step
       if (data.user || data.token) {
         const userData = data.user || data;
         setUser(userData);
@@ -86,8 +82,19 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("authToken");
   };
 
+  /* UPDATE USER — merges new fields into the existing user object
+     and persists to localStorage so Profile always reflects the
+     latest data without an extra API round-trip.               */
+  const updateUser = (patch) => {
+    setUser((prev) => {
+      const next = { ...prev, ...patch };
+      localStorage.setItem("user", JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
