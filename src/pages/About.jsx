@@ -33,14 +33,43 @@ const fadeRight = {
   }),
 };
 
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.87 },
+const fadeInOnly = {
+  hidden: { opacity: 0 },
   visible: (d = 0) => ({
     opacity: 1,
-    scale: 1,
-    transition: { duration: 0.6, delay: d, ease: "easeOut" },
+    transition: { duration: 0.65, delay: d, ease: "easeOut" },
   }),
 };
+
+
+/* ─── FAQ DATA ─── */
+const faqs = [
+  {
+    question: "What services does Randle & Hopkick provide?",
+    answer:
+      "We provide domestic outsourcing and staffing solutions including cleaners, drivers, domestic staff, facility support personnel, janitorial services, and other professional workforce solutions for homes and businesses.",
+  },
+  {
+    question: "How do I hire staff through the platform?",
+    answer:
+      "Simply click the Hire Staff button, complete the hiring request process, and our team will connect you with qualified and verified professionals that match your needs.",
+  },
+  {
+    question: "Are your workers verified and trained?",
+    answer:
+      "Yes. Our workforce undergoes screening, verification, and professional orientation to ensure competence, integrity, professionalism, and reliability.",
+  },
+  {
+    question: "Can job seekers apply through the website?",
+    answer:
+      "Yes. Job seekers can use the Get Job option to register, complete their profile, and apply for available opportunities through the platform.",
+  },
+  {
+    question: "Do you provide services for corporate organizations?",
+    answer:
+      "Absolutely. We provide staffing and outsourcing services for homes, SMEs, and large corporate organizations across multiple industries.",
+  },
+];
 
 /* ─── data ── */
 const coreValues = [
@@ -116,14 +145,16 @@ export function AboutPage() {
     {
       image:
         "https://res.cloudinary.com/dotvnclej/image/upload/v1777915998/Workers_jkh5ha.jpg",
-      title: "ABOUT US",
+      titleWhite: "ABOUT ",
+      titleBlue: "US",
       description:
         "Connecting trusted professionals with homes and businesses across Nigeria.",
     },
     {
       image:
         "https://res.cloudinary.com/dotvnclej/image/upload/v1777916140/Our_team_bwvejv.jpg",
-      title: "OUR TEAM",
+      titleWhite: "OUR ",
+      titleBlue: "TEAM",
       description:
         "Professional and experienced workforce, ready to serve.",
     },
@@ -175,8 +206,11 @@ export function AboutPage() {
         )}
       </AnimatePresence>
 
-      {/*HERO */}
+      {/* ══════════════════════════════════════════════
+          HERO
+      ══════════════════════════════════════════════ */}
       <section className="relative h-[70vh] flex items-center justify-center text-center text-white overflow-hidden">
+        {/* Slide images */}
         <div className="absolute inset-0">
           {slides.map((slide, i) => (
             <motion.div
@@ -198,6 +232,7 @@ export function AboutPage() {
           ))}
         </div>
 
+        {/* Overlay */}
         <div
           className="absolute inset-0"
           style={{
@@ -206,28 +241,47 @@ export function AboutPage() {
           }}
         />
 
-        <motion.div
-          key={currentSlide}
-          initial={{ opacity: 0, y: 45 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          className="relative z-30 px-6"
-        >
-          <h1
-            className="text-4xl md:text-6xl font-extrabold mb-4 tracking-wider"
-            style={{
-              color: "#2385cd",
-              textShadow: "0 2px 24px rgba(35,133,205,0.55)",
-            }}
+        {/*
+          ── FIX ──────────────────────────────────────────────────────────────
+          The outer wrapper has NO key prop, so it never remounts.
+          Only the inner motion.div (title + description) carries key={currentSlide}
+          and re-animates on each slide change.
+          The buttons live outside that keyed div so they are never unmounted,
+          keeping any open popup state in GetJobButton intact.
+          ─────────────────────────────────────────────────────────────────── */}
+        <div className="relative z-30 px-6 flex flex-col items-center">
+          {/* Re-animates on slide change */}
+          <motion.div
+            key={currentSlide}
+            initial={{ opacity: 0, y: 45 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
           >
-            {slides[currentSlide].title}
-          </h1>
+            <h1
+              className="text-4xl md:text-6xl font-extrabold mb-4 tracking-wider"
+              style={{ textShadow: "0 2px 24px rgba(35,133,205,0.55)" }}
+            >
+              <span className="text-white">
+                {slides[currentSlide].titleWhite}
+              </span>
+              <span style={{ color: "#2385cd" }}>
+                {slides[currentSlide].titleBlue}
+              </span>
+            </h1>
 
-          <p className="max-w-xl mx-auto text-sm md:text-base opacity-85 leading-relaxed">
-            {slides[currentSlide].description}
-          </p>
+            <p className="max-w-xl mx-auto text-sm md:text-base opacity-85 leading-relaxed">
+              {slides[currentSlide].description}
+            </p>
+          </motion.div>
 
-          <div className="flex justify-center gap-4 mt-8">
+          {/* Buttons are OUTSIDE the keyed div — they never remount on slide change */}
+          <motion.div
+            variants={fadeInOnly}
+            initial="hidden"
+            animate="visible"
+            custom={0.4}
+            className="flex justify-center gap-4 mt-8"
+          >
             <button
               onClick={handleHireClick}
               className="px-8 py-3 rounded-full font-semibold text-white
@@ -240,8 +294,8 @@ export function AboutPage() {
             </button>
 
             <GetJobButton user={user} />
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </section>
 
       {/* ══════════════════════════════════════════════
@@ -314,120 +368,123 @@ export function AboutPage() {
         </motion.div>
       </section>
 
+      {/* ══════════════════════════════════════════════
+          MISSION & VISION
+      ══════════════════════════════════════════════ */}
       <section
-  className="text-white grid md:grid-cols-2 gap-0 items-stretch"
-  style={{
-    background:
-      "linear-gradient(135deg, #0a1e2e 0%, #0f3351 50%, #1a5580 100%)",
-  }}
->
-  {[
-    {
-      label: "MISSION",
-      text:
-        "To redefine the perception of service delivery and professionalism by domestic employees and local service providers, raising the standard of what clients can expect from every interaction.",
-      img:
-        "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=700&q=80",
-      alt: "Mission — team collaboration",
-      anim: fadeLeft,
-      style: {
-        borderRight: "1px solid rgba(35,133,205,0.25)",
-      },
-    },
-    {
-      label: "VISION",
-      text:
-        "To provide homes and corporate bodies with the most efficient and trusted staffing available in Nigeria, helping them focus on their core activities with complete peace of mind.",
-      img:
-        "https://images.unsplash.com/photo-1497366216548-37526070297c?w=700&q=80",
-      alt: "Vision — modern professional workspace",
-      anim: fadeRight,
-      style: {},
-    },
-  ].map((card, i) => (
-    <motion.div
-      key={i}
-      variants={card.anim}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.25 }}
-      className="p-8 md:p-12 flex flex-col group relative overflow-hidden"
-      style={card.style}
-    >
-      {/* premium glow */}
-      <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        className="text-white grid md:grid-cols-2 gap-0 items-stretch"
         style={{
           background:
-            "linear-gradient(120deg, rgba(35,133,205,0.12) 0%, transparent 70%)",
-        }}
-      />
-
-      {/* top line */}
-      <motion.div
-        className="h-1 rounded mb-5 relative z-10"
-        style={{
-          background: "#2385cd",
-          originX: 0,
-        }}
-        initial={{ width: 0 }}
-        whileInView={{ width: "3rem" }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        viewport={{ once: true }}
-      />
-
-      {/* title */}
-      <h3
-        className="font-bold text-2xl mb-4 tracking-[0.2em] relative z-10"
-        style={{ color: "#2385cd" }}
-      >
-        {card.label}
-      </h3>
-
-      {/* text */}
-      <p className="text-sm md:text-[15px] opacity-90 leading-[2] text-justify mb-8 relative z-10">
-        {card.text}
-      </p>
-
-      {/* image */}
-      <div
-        className="rounded-2xl overflow-hidden mt-auto relative"
-        style={{
-          height: "240px",
-          border: "1px solid rgba(255,255,255,0.08)",
+            "linear-gradient(135deg, #0a1e2e 0%, #0f3351 50%, #1a5580 100%)",
         }}
       >
-        <img
-          src={card.img}
-          alt={card.alt}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
+        {[
+          {
+            label: "MISSION",
+            text:
+              "To redefine the perception of service delivery and professionalism by domestic employees and local service providers, raising the standard of what clients can expect from every interaction.",
+            img:
+              "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=700&q=80",
+            alt: "Mission — team collaboration",
+            anim: fadeLeft,
+            style: {
+              borderRight: "1px solid rgba(35,133,205,0.25)",
+            },
+          },
+          {
+            label: "VISION",
+            text:
+              "To provide homes and corporate bodies with the most efficient and trusted staffing available in Nigeria, helping them focus on their core activities with complete peace of mind.",
+            img:
+              "https://images.unsplash.com/photo-1497366216548-37526070297c?w=700&q=80",
+            alt: "Vision — modern professional workspace",
+            anim: fadeRight,
+            style: {},
+          },
+        ].map((card, i) => (
+          <motion.div
+            key={i}
+            variants={card.anim}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.25 }}
+            className="p-8 md:p-12 flex flex-col group relative overflow-hidden"
+            style={card.style}
+          >
+            {/* premium glow */}
+            <div
+              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+              style={{
+                background:
+                  "linear-gradient(120deg, rgba(35,133,205,0.12) 0%, transparent 70%)",
+              }}
+            />
 
-        {/* overlay */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to top, rgba(8,18,28,0.78) 0%, rgba(8,18,28,0.12) 60%, transparent 100%)",
-          }}
-        />
+            {/* top line */}
+            <motion.div
+              className="h-1 rounded mb-5 relative z-10"
+              style={{
+                background: "#2385cd",
+                originX: 0,
+              }}
+              initial={{ width: 0 }}
+              whileInView={{ width: "3rem" }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              viewport={{ once: true }}
+            />
 
-        {/* floating label */}
-        <div
-          className="absolute bottom-4 left-4 px-4 py-2 rounded-full text-xs tracking-widest font-semibold"
-          style={{
-            background: "rgba(35,133,205,0.16)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(35,133,205,0.35)",
-            color: "#ffffff",
-          }}
-        >
-          RANDLE & HOPKICK
-        </div>
-      </div>
-    </motion.div>
-  ))}
-</section>
+            {/* title */}
+            <h3
+              className="font-bold text-2xl mb-4 tracking-[0.2em] relative z-10"
+              style={{ color: "#2385cd" }}
+            >
+              {card.label}
+            </h3>
+
+            {/* text */}
+            <p className="text-sm md:text-[15px] opacity-90 leading-[2] text-justify mb-8 relative z-10">
+              {card.text}
+            </p>
+
+            {/* image */}
+            <div
+              className="rounded-2xl overflow-hidden mt-auto relative"
+              style={{
+                height: "240px",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              <img
+                src={card.img}
+                alt={card.alt}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+
+              {/* overlay */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(to top, rgba(8,18,28,0.78) 0%, rgba(8,18,28,0.12) 60%, transparent 100%)",
+                }}
+              />
+
+              {/* floating label */}
+              <div
+                className="absolute bottom-4 left-4 px-4 py-2 rounded-full text-xs tracking-widest font-semibold"
+                style={{
+                  background: "rgba(35,133,205,0.16)",
+                  backdropFilter: "blur(10px)",
+                  border: "1px solid rgba(35,133,205,0.35)",
+                  color: "#ffffff",
+                }}
+              >
+                RANDLE & HOPKICK
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </section>
 
       {/* ══════════════════════════════════════════════
           PREMIUM TEAM SECTION
@@ -588,9 +645,6 @@ export function AboutPage() {
                   </motion.p>
                 ))}
               </div>
-
-              {/* premium stats */}
-
             </div>
           </motion.div>
         </div>
@@ -643,6 +697,104 @@ export function AboutPage() {
               <p className="opacity-75 text-xs leading-relaxed text-justify">
                 {item.description}
               </p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════
+          FAQ SECTION
+      ══════════════════════════════════════════════ */}
+      <section
+        className="relative py-20 px-6 md:px-14 text-white overflow-hidden"
+        style={{
+          background:
+            "linear-gradient(180deg, #07131f 0%, #0d2236 55%, #133b5e 100%)",
+        }}
+      >
+        {/* background glow */}
+        <div
+          className="absolute top-0 right-0 w-100 h-100 rounded-full blur-3xl opacity-20"
+          style={{
+            background: "#2385cd",
+          }}
+        />
+
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="relative z-10 text-center mb-14"
+        >
+          <div
+            className="w-16 h-1 rounded-full mx-auto mb-5"
+            style={{ background: "#2385cd" }}
+          />
+
+          <h2 className="text-3xl md:text-5xl font-bold tracking-wide">
+            FREQUENTLY ASKED QUESTIONS
+          </h2>
+
+          <p className="mt-5 max-w-2xl mx-auto text-sm md:text-base opacity-75 leading-relaxed">
+            Everything you need to know about our staffing,
+            outsourcing and recruitment services.
+          </p>
+        </motion.div>
+
+        <div className="relative z-10 max-w-4xl mx-auto space-y-5">
+          {faqs.map((faq, index) => (
+            <motion.div
+              key={index}
+              variants={fadeUp}
+              custom={index * 0.1}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="rounded-2xl overflow-hidden"
+              style={{
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <button
+                onClick={() =>
+                  setOpenIndex(openIndex === index ? null : index)
+                }
+                className="w-full flex items-center justify-between text-left px-6 py-5"
+              >
+                <span className="font-semibold text-sm md:text-base pr-5">
+                  {faq.question}
+                </span>
+
+                <motion.span
+                  animate={{
+                    rotate: openIndex === index ? 45 : 0,
+                  }}
+                  transition={{ duration: 0.25 }}
+                  className="text-3xl font-light"
+                  style={{ color: "#2385cd" }}
+                >
+                  +
+                </motion.span>
+              </button>
+
+              <AnimatePresence>
+                {openIndex === index && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-6 pb-6 text-sm md:text-[15px] leading-[1.9] opacity-80 text-justify">
+                      {faq.answer}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ))}
         </div>

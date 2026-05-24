@@ -1,9 +1,3 @@
-// src/ApplicationForms/ClientForm1.jsx
-// ─── Changes from previous version ───────────────────────────────────────────
-// 1. Imports useAuth to pull logged-in user's name/phone.
-// 2. surname, otherName, phone are pre-filled from auth and rendered read-only.
-// 3. Draft restores but always overrides those three fields with live auth data.
-// ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";

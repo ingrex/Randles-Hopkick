@@ -10,8 +10,8 @@ import {
   apiRejectRequest,
   apiCompleteRequest,
   apiSetDates,
-  apiAssignStaff as apiAssignStaffCall,
-  apiGetContactMessages,           // ── FIX: import contact messages fetcher
+  apiAssignStaff,
+  apiGetContactMessages,
 } from "../api/auth";
 import {
   ClipboardList, Users, UserCheck, Newspaper, MessageSquare, Mail, BadgeCheck,
@@ -45,7 +45,6 @@ function statusColor(s) {
   return {
     Pending:           "yellow",
     Approved:          "sky",
-    Active:            "blue",
     Rejected:          "red",
     Declined:          "red",
     Completed:         "gray",
@@ -65,6 +64,12 @@ function isReadyToApprove(r) {
     r.startDate?.trim() &&
     r.endDate?.trim()
   );
+}
+
+function resolveBackendId(r) {
+  const id = r.backendId ?? r._id ?? r.id;
+  console.log(`[AdminPanel] resolveBackendId — local id: ${r.id}  backendId: ${r.backendId}  resolved: ${id}`);
+  return id;
 }
 
 function Avatar({ src, name, size = "sm" }) {
@@ -220,11 +225,14 @@ function RequestsSection({ state, dispatch }) {
     ? (state.requests.find((r) => String(r.id) === String(activeReq.id)) ?? activeReq)
     : null;
 
+  // ── Filter logic ────────────────────────────────────────────────────────────
   const shown = filter === "All"
     ? state.requests
     : filter === "Declined"
       ? state.requests.filter((r) => r.status === "Rejected" || r.status === "Declined")
-      : state.requests.filter((r) => r.status === filter);
+      : filter === "Awaiting Review"
+        ? state.requests.filter((r) => r.status === "Completed" && !r.reviewed)
+        : state.requests.filter((r) => r.status === filter);
 
   const open = (type, req) => {
     setActiveReq(req);
@@ -241,16 +249,31 @@ function RequestsSection({ state, dispatch }) {
 
   const saveDates = async () => {
     dispatch({ type: "SET_DATES", id: activeReq.id, ...dates });
-    try { await apiSetDates(activeReq.backendId ?? activeReq.id, dates); } catch { }
+    try {
+      await apiSetDates(resolveBackendId(activeReq), dates);
+    } catch (err) {
+      console.error("[AdminPanel] apiSetDates failed:", err.message);
+    }
     close();
   };
 
-  const saveAssign = async () => {
-    const staffList = Object.entries(selected).map(([id, name]) => ({ id: Number(id), name }));
-    dispatch({ type: "ASSIGN_STAFF", reqId: activeReq.id, assignedStaff: staffList });
-    try { await apiAssignStaffCall(activeReq.backendId ?? activeReq.id, staffList); } catch { }
-    close();
-  };
+const saveAssign = async () => {
+  const staffList = Object.entries(selected).map(([id, name]) => ({ id, name }));
+
+  console.log("=== SAVE ASSIGN DEBUG ===");
+  console.log("selected object:", selected);
+  console.log("staffList:", staffList);
+  console.log("state.staff sample:", state.staff.slice(0, 3).map(s => ({ id: s.id, name: s.name })));
+  console.log("resolveBackendId:", resolveBackendId(activeReq));
+
+  dispatch({ type: "ASSIGN_STAFF", reqId: activeReq.id, assignedStaff: staffList });
+  try {
+    await apiAssignStaff(resolveBackendId(activeReq), staffList);
+  } catch (err) {
+    console.error("[AdminPanel] apiAssignStaff failed:", err.message);
+  }
+  close();
+};
 
   const toggleStaff = (s) =>
     setSelected((prev) => {
@@ -262,24 +285,25 @@ function RequestsSection({ state, dispatch }) {
   const handleApprove = async (r) => {
     if (!isReadyToApprove(r)) return;
     dispatch({ type: "APPROVE_REQUEST", id: r.id });
-    try { await apiApproveRequest(r.backendId ?? r.id); } catch { }
+    try { await apiApproveRequest(resolveBackendId(r)); } catch (err) { console.error(err.message); }
   };
 
   const handleDecline = async (r) => {
     dispatch({ type: "DECLINE_REQUEST", id: r.id });
-    try { await apiRejectRequest(r.backendId ?? r.id); } catch { }
+    try { await apiRejectRequest(resolveBackendId(r)); } catch (err) { console.error(err.message); }
   };
 
   const handleComplete = async (r) => {
     dispatch({ type: "COMPLETE_REQUEST", id: r.id });
-    try { await apiCompleteRequest(r.backendId ?? r.id); } catch { }
+    try { await apiCompleteRequest(resolveBackendId(r)); } catch (err) { console.error(err.message); }
   };
 
+  // ── Stats: replaced "Active" with "Awaiting Review" ─────────────────────────
   const stats = {
-    total:    state.requests.length,
-    pending:  state.requests.filter((r) => r.status === "Pending").length,
-    approved: state.requests.filter((r) => r.status === "Approved").length,
-    active:   state.requests.filter((r) => r.status === "Active").length,
+    total:          state.requests.length,
+    pending:        state.requests.filter((r) => r.status === "Pending").length,
+    approved:       state.requests.filter((r) => r.status === "Approved").length,
+    awaitingReview: state.requests.filter((r) => r.status === "Completed" && !r.reviewed).length,
   };
 
   const roleKeywords = liveReq?.roles?.map((x) => x.role.toLowerCase()) ?? [];
@@ -289,50 +313,44 @@ function RequestsSection({ state, dispatch }) {
   });
   const staffToShow = filteredStaff.length > 0 ? filteredStaff : state.staff;
 
+  // ── ActionButtons: review-aware for completed jobs ───────────────────────────
   const ActionButtons = ({ r }) => {
     const ready = isReadyToApprove(r);
     return (
       <div className="flex flex-wrap gap-1.5">
         {r.status === "Pending" && (
           <>
-            <Btn variant="primary" onClick={() => open("assign", r)}>
-              <UserPlus size={12} /> Assign Staff
-            </Btn>
-            <Btn variant="brand" onClick={() => open("dates", r)}>
-              <CalendarDays size={12} /> Set Dates
-            </Btn>
+            <Btn variant="primary" onClick={() => open("assign", r)}><UserPlus size={12} /> Assign Staff</Btn>
+            <Btn variant="brand" onClick={() => open("dates", r)}><CalendarDays size={12} /> Set Dates</Btn>
             {ready ? (
-              <Btn variant="success" onClick={() => handleApprove(r)}>
-                <Check size={12} /> Approve
-              </Btn>
+              <Btn variant="success" onClick={() => handleApprove(r)}><Check size={12} /> Approve</Btn>
             ) : (
-              <span
-                title="Assign staff and set dates first to unlock approval"
+              <span title="Assign staff and set dates first to unlock approval"
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-50 text-gray-300 border border-dashed border-gray-200 cursor-not-allowed select-none">
                 <Check size={12} /> Approve
               </span>
             )}
-            <Btn variant="danger" onClick={() => handleDecline(r)}>
-              <X size={12} /> Decline
-            </Btn>
+            <Btn variant="danger" onClick={() => handleDecline(r)}><X size={12} /> Decline</Btn>
           </>
         )}
-        {(r.status === "Approved" || r.status === "Active") && (
+        {r.status === "Approved" && (
           <>
-            <Btn variant="primary" onClick={() => handleComplete(r)}>
-              <CheckCheck size={12} /> Complete
-            </Btn>
-            <Btn variant="primary" onClick={() => open("assign", r)}>
-              <UserPlus size={12} /> Re-assign
-            </Btn>
-            <Btn variant="brand" onClick={() => open("dates", r)}>
-              <CalendarDays size={12} /> Dates
-            </Btn>
+            <Btn variant="primary" onClick={() => handleComplete(r)}><CheckCheck size={12} /> Complete</Btn>
+            <Btn variant="primary" onClick={() => open("assign", r)}><UserPlus size={12} /> Re-assign</Btn>
+            <Btn variant="brand" onClick={() => open("dates", r)}><CalendarDays size={12} /> Dates</Btn>
           </>
         )}
-        <Btn variant="ghost" onClick={() => open("detail", r)}>
-          <Eye size={12} /> View
-        </Btn>
+        {r.status === "Completed" && !r.reviewed && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-orange-50 text-orange-600 border border-orange-100 select-none">
+            <Star size={11} /> Awaiting review
+          </span>
+        )}
+        {r.status === "Completed" && r.reviewed && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-600 border border-green-100 select-none">
+            <CheckCheck size={11} /> Reviewed
+          </span>
+        )}
+        <Btn variant="ghost" onClick={() => open("detail", r)}><Eye size={12} /> View</Btn>
       </div>
     );
   };
@@ -344,10 +362,8 @@ function RequestsSection({ state, dispatch }) {
     return (
       <div className="flex items-start gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mt-1">
         <AlertTriangle size={11} className="shrink-0 mt-0.5" />
-        {noStaff && noDates
-          ? "Assign staff and set dates to unlock approval"
-          : noStaff
-          ? "Assign at least one staff member to unlock approval"
+        {noStaff && noDates ? "Assign staff and set dates to unlock approval"
+          : noStaff ? "Assign at least one staff member to unlock approval"
           : "Set start & end dates to unlock approval"}
       </div>
     );
@@ -355,12 +371,13 @@ function RequestsSection({ state, dispatch }) {
 
   return (
     <div>
+      {/* ── Stat cards: Total / Pending / Approved / Awaiting Review ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Total",    value: stats.total,    color: "text-gray-900",   bg: "bg-white"     },
-          { label: "Pending",  value: stats.pending,  color: "text-yellow-600", bg: "bg-yellow-50" },
-          { label: "Approved", value: stats.approved, color: "text-[#2385cd]",  bg: "bg-[#eaf4fc]" },
-          { label: "Active",   value: stats.active,   color: "text-[#1a6fa8]",  bg: "bg-[#eaf4fc]" },
+          { label: "Total",           value: stats.total,          color: "text-gray-900",   bg: "bg-white"      },
+          { label: "Pending",         value: stats.pending,        color: "text-yellow-600", bg: "bg-yellow-50"  },
+          { label: "Approved",        value: stats.approved,       color: "text-[#2385cd]",  bg: "bg-[#eaf4fc]"  },
+          { label: "Awaiting Review", value: stats.awaitingReview, color: "text-orange-600", bg: "bg-orange-50"  },
         ].map((s) => (
           <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-[#b8d9f0]/40`}>
             <p className="text-xs text-gray-400">{s.label}</p>
@@ -369,28 +386,24 @@ function RequestsSection({ state, dispatch }) {
         ))}
       </div>
 
+      {/* ── Filter tabs: removed "Active", added "Awaiting Review" ── */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
-        {["All", "Pending", "Approved", "Active", "Completed", "Declined"].map((f) => (
+        {["All", "Pending", "Approved", "Completed", "Awaiting Review", "Declined"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition shrink-0 ${
-              filter === f
-                ? "bg-[#2385cd] text-white shadow-sm"
-                : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
+              filter === f ? "bg-[#2385cd] text-white shadow-sm" : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
             }`}>{f}</button>
         ))}
       </div>
 
       {shown.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState
-            icon={ClipboardList}
-            title="No requests found"
-            subtitle={filter === "All" ? "Requests submitted through the website will appear here." : `No ${filter.toLowerCase()} requests at the moment.`}
-          />
+          <EmptyState icon={ClipboardList} title="No requests found"
+            subtitle={filter === "All" ? "Requests submitted through the website will appear here." : `No ${filter.toLowerCase()} requests at the moment.`} />
         </div>
       )}
 
-      {/* Mobile Cards */}
+      {/* ── Mobile Cards ── */}
       <div className="block md:hidden space-y-3">
         {shown.map((r) => {
           const ds = displayStatus(r);
@@ -406,19 +419,13 @@ function RequestsSection({ state, dispatch }) {
               </div>
               {r.status === "Pending" && (
                 <div className="flex gap-3 text-[10px]">
-                  <span className={r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}>
-                    {r.assignedStaff?.length ? "✓" : "○"} Staff assigned
-                  </span>
-                  <span className={r.startDate?.trim() ? "text-green-600" : "text-gray-300"}>
-                    {r.startDate?.trim() ? "✓" : "○"} Dates set
-                  </span>
+                  <span className={r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}>{r.assignedStaff?.length ? "✓" : "○"} Staff assigned</span>
+                  <span className={r.startDate?.trim() ? "text-green-600" : "text-gray-300"}>{r.startDate?.trim() ? "✓" : "○"} Dates set</span>
                 </div>
               )}
               <div className="flex flex-wrap gap-1">
                 {r.roles.map((x, i) => (
-                  <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
-                    {x.role} ×{x.quantity}
-                  </span>
+                  <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
                 ))}
               </div>
               {r.startDate && (
@@ -434,23 +441,43 @@ function RequestsSection({ state, dispatch }) {
                   ))}
                 </div>
               )}
+              {/* ── Review status badge (mobile) ── */}
+              {r.status === "Completed" && (
+                <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${r.reviewed ? "bg-green-50 border-green-100 text-green-700" : "bg-orange-50 border-orange-100 text-orange-700"}`}>
+                  {r.reviewed ? <CheckCheck size={11} className="shrink-0" /> : <Star size={11} className="shrink-0" />}
+                  {r.reviewed ? "Client reviewed" : "Awaiting client review"}
+                </div>
+              )}
+              {/* ── Inline review preview (mobile) ── */}
+              {r.reviews?.length > 0 && (
+                <div className="bg-[#eaf4fc]/60 rounded-lg px-2.5 py-2 space-y-1">
+                  {r.reviews.map((rv, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="inline-flex gap-0.5 shrink-0 mt-0.5">
+                        {Array.from({ length: 5 }, (_, si) => (
+                          <Star key={si} size={10} className={si < Math.round(rv.rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
+                        ))}
+                      </span>
+                      {rv.comment && <p className="text-xs text-gray-500 italic truncate">"{rv.comment}"</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
               <ReadinessHint r={r} />
-              <div className="pt-1 border-t border-gray-50">
-                <ActionButtons r={r} />
-              </div>
+              <div className="pt-1 border-t border-gray-50"><ActionButtons r={r} /></div>
             </div>
           );
         })}
       </div>
 
-      {/* Desktop Table */}
+      {/* ── Desktop Table ── */}
       {shown.length > 0 && (
         <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
-                  {["Client", "Roles", "Status", "Dates", "Assigned", "Actions"].map((h) => (
+                  {["Client", "Roles", "Status", "Dates", "Assigned", "Review", "Actions"].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
                   ))}
                 </tr>
@@ -468,9 +495,7 @@ function RequestsSection({ state, dispatch }) {
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {r.roles.map((x, i) => (
-                            <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
-                              {x.role} ×{x.quantity}
-                            </span>
+                            <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
                           ))}
                         </div>
                       </td>
@@ -478,12 +503,8 @@ function RequestsSection({ state, dispatch }) {
                         <Pill label={ds} color={statusColor(ds)} />
                         {r.status === "Pending" && (
                           <div className="mt-1 flex flex-col gap-0.5">
-                            <span className={`text-[10px] ${r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}`}>
-                              {r.assignedStaff?.length ? "✓" : "○"} Staff assigned
-                            </span>
-                            <span className={`text-[10px] ${r.startDate?.trim() ? "text-green-600" : "text-gray-300"}`}>
-                              {r.startDate?.trim() ? "✓" : "○"} Dates set
-                            </span>
+                            <span className={`text-[10px] ${r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}`}>{r.assignedStaff?.length ? "✓" : "○"} Staff assigned</span>
+                            <span className={`text-[10px] ${r.startDate?.trim() ? "text-green-600" : "text-gray-300"}`}>{r.startDate?.trim() ? "✓" : "○"} Dates set</span>
                           </div>
                         )}
                       </td>
@@ -502,9 +523,30 @@ function RequestsSection({ state, dispatch }) {
                             ))}</div>
                           : <span className="text-xs text-gray-300">Unassigned</span>}
                       </td>
+                      {/* ── Review column (desktop) ── */}
                       <td className="px-4 py-3">
-                        <ActionButtons r={r} />
+                        {r.status === "Completed" ? (
+                          <div className="space-y-1.5">
+                            <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 border font-medium ${r.reviewed ? "bg-green-50 border-green-100 text-green-700" : "bg-orange-50 border-orange-100 text-orange-700"}`}>
+                              {r.reviewed ? <CheckCheck size={10} /> : <Star size={10} />}
+                              {r.reviewed ? "Reviewed" : "Awaiting"}
+                            </span>
+                            {r.reviews?.length > 0 && r.reviews.map((rv, i) => (
+                              <div key={i} className="flex items-center gap-1">
+                                <span className="inline-flex gap-0.5">
+                                  {Array.from({ length: 5 }, (_, si) => (
+                                    <Star key={si} size={9} className={si < Math.round(rv.rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
+                                  ))}
+                                </span>
+                                {rv.comment && (
+                                  <span className="text-[10px] text-gray-400 italic truncate max-w-[120px]" title={rv.comment}>"{rv.comment}"</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : <span className="text-xs text-gray-300">—</span>}
                       </td>
+                      <td className="px-4 py-3"><ActionButtons r={r} /></td>
                     </tr>
                   );
                 })}
@@ -514,33 +556,22 @@ function RequestsSection({ state, dispatch }) {
         </div>
       )}
 
-      {/* Detail Modal */}
-      <Modal open={modal === "detail"} title={`Request — ${liveReq?.clientName}`} onClose={close}
-        footer={<Btn onClick={close}>Close</Btn>}>
+      {/* ── Detail Modal ── */}
+      <Modal open={modal === "detail"} title={`Request — ${liveReq?.clientName}`} onClose={close} footer={<Btn onClick={close}>Close</Btn>}>
         {liveReq && (
           <div className="space-y-3 text-sm">
             <div className="grid grid-cols-2 gap-3">
-              {[
-                ["Name",     liveReq.clientName],
-                ["Type",     liveReq.clientType],
-                ["Email",    liveReq.email],
-                ["Phone",    liveReq.phone],
-                ["Location", liveReq.location],
-                ["Status",   displayStatus(liveReq)],
-              ].map(([l, v]) => (
-                <div key={l}>
-                  <p className="text-xs text-gray-400">{l}</p>
-                  <p className="font-medium break-all">{v}</p>
-                </div>
+              {[["Name", liveReq.clientName], ["Type", liveReq.clientType], ["Email", liveReq.email],
+                ["Phone", liveReq.phone], ["Location", liveReq.location], ["Status", displayStatus(liveReq)],
+                ["Backend ID", resolveBackendId(liveReq)]].map(([l, v]) => (
+                <div key={l}><p className="text-xs text-gray-400">{l}</p><p className="font-medium break-all">{v}</p></div>
               ))}
             </div>
             <div>
               <p className="text-xs text-gray-400 mb-1">Roles requested</p>
               <div className="flex flex-wrap gap-1">
                 {liveReq.roles.map((x, i) => (
-                  <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">
-                    {x.role} ×{x.quantity}
-                  </span>
+                  <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
                 ))}
               </div>
             </div>
@@ -580,44 +611,28 @@ function RequestsSection({ state, dispatch }) {
         )}
       </Modal>
 
-      {/* Dates Modal */}
+      {/* ── Dates Modal ── */}
       <Modal open={modal === "dates"} title={`Set dates — ${liveReq?.clientName}`} onClose={close}
-        footer={
-          <>
-            <Btn onClick={close}>Cancel</Btn>
-            <Btn variant="primary" onClick={saveDates}><Save size={12} /> Save dates</Btn>
-          </>
-        }>
+        footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={saveDates}><Save size={12} /> Save dates</Btn></>}>
         <p className="text-xs text-gray-400">
-          {liveReq?.status === "Pending"
-            ? "Once staff is also assigned, the Approve button will become active."
-            : "Setting both dates will mark the request as Active."}
+          {liveReq?.status === "Pending" ? "Once staff is also assigned, the Approve button will become active." : "Setting both dates will mark the request as Active."}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
           <FormField label="Start date">
-            <input type="date" className={inputCls} value={dates.startDate}
-              onChange={(e) => setDates((p) => ({ ...p, startDate: e.target.value }))} />
+            <input type="date" className={inputCls} value={dates.startDate} onChange={(e) => setDates((p) => ({ ...p, startDate: e.target.value }))} />
           </FormField>
           <FormField label="End date">
-            <input type="date" className={inputCls} value={dates.endDate}
-              onChange={(e) => setDates((p) => ({ ...p, endDate: e.target.value }))} />
+            <input type="date" className={inputCls} value={dates.endDate} onChange={(e) => setDates((p) => ({ ...p, endDate: e.target.value }))} />
           </FormField>
         </div>
       </Modal>
 
-      {/* Assign Modal */}
+      {/* ── Assign Modal ── */}
       <Modal open={modal === "assign"} title={`Assign staff — ${liveReq?.clientName}`} onClose={close}
-        footer={
-          <>
-            <Btn onClick={close}>Cancel</Btn>
-            <Btn variant="primary" onClick={saveAssign}><Save size={12} /> Save assignment</Btn>
-          </>
-        }>
+        footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={saveAssign}><Save size={12} /> Save assignment</Btn></>}>
         {liveReq && (
           <>
-            <p className="text-xs text-gray-500 mb-1">
-              Roles needed: {liveReq.roles.map((x) => `${x.role} ×${x.quantity}`).join(", ")}
-            </p>
+            <p className="text-xs text-gray-500 mb-1">Roles needed: {liveReq.roles.map((x) => `${x.role} ×${x.quantity}`).join(", ")}</p>
             {liveReq.status === "Pending" && (
               <div className="flex items-center gap-1.5 text-xs text-[#1a6fa8] bg-[#eaf4fc] border border-[#b8d9f0] rounded-lg px-3 py-2 mb-2">
                 <AlertTriangle size={11} className="text-[#2385cd] shrink-0" />
@@ -625,27 +640,21 @@ function RequestsSection({ state, dispatch }) {
               </div>
             )}
             {state.staff.length === 0 ? (
-              <div className="py-6 text-center text-xs text-gray-400">
-                No staff records found. Staff data is loaded from the backend.
-              </div>
+              <div className="py-6 text-center text-xs text-gray-400">No staff records found. Staff data is loaded from the backend.</div>
             ) : (
               <>
                 <div className="flex gap-2 mb-3">
                   {["primary", "other"].map((f) => (
                     <button key={f} onClick={() => setSkillFilter(f)}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition ${
-                        skillFilter === f
-                          ? "bg-[#2385cd] text-white border-[#2385cd]"
-                          : "bg-white text-gray-600 border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
+                        skillFilter === f ? "bg-[#2385cd] text-white border-[#2385cd]" : "bg-white text-gray-600 border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
                       }`}>
                       {f === "primary" ? "🎯 Primary Skill" : "🔄 Alt. Skills"}
                     </button>
                   ))}
                 </div>
                 {filteredStaff.length === 0 && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">
-                    No exact skill match — showing all staff.
-                  </p>
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">No exact skill match — showing all staff.</p>
                 )}
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {staffToShow.map((s) => {
@@ -686,8 +695,9 @@ function RequestsSection({ state, dispatch }) {
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Staff Registry
-
+// ─────────────────────────────────────────────────────────────────────────────
 function StaffSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(null);
   const [editing, setEditing] = useState(null);
@@ -716,18 +726,13 @@ function StaffSection({ state, dispatch }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-3">
-        <input className={inputCls + " flex-1 max-w-xs"} placeholder="Search name, role, or skill…"
-          value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className={inputCls + " flex-1 max-w-xs"} placeholder="Search name, role, or skill…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <Btn variant="primary" onClick={openAdd}><Plus size={13} /> Add staff</Btn>
       </div>
 
       {state.staff.length === 0 && !search && (
         <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState
-            icon={Users}
-            title="No staff records yet"
-            subtitle="Staff data will load from the backend. You can also add staff manually."
-          />
+          <EmptyState icon={Users} title="No staff records yet" subtitle="Staff data will load from the backend. You can also add staff manually." />
         </div>
       )}
 
@@ -782,12 +787,7 @@ function StaffSection({ state, dispatch }) {
               <tbody>
                 {shown.map((s) => (
                   <tr key={s.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Avatar name={s.name} />
-                        <span className="font-medium text-gray-900">{s.name}</span>
-                      </div>
-                    </td>
+                    <td className="px-4 py-3"><div className="flex items-center gap-2"><Avatar name={s.name} /><span className="font-medium text-gray-900">{s.name}</span></div></td>
                     <td className="px-4 py-3 text-gray-600">{s.role}</td>
                     <td className="px-4 py-3">
                       {s.otherSkills?.length > 0
@@ -844,8 +844,9 @@ function StaffSection({ state, dispatch }) {
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Registered Users
-
+// ─────────────────────────────────────────────────────────────────────────────
 function RegisteredSection({ state }) {
   const [search,  setSearch]  = useState("");
   const [modal,   setModal]   = useState(false);
@@ -864,18 +865,13 @@ function RegisteredSection({ state }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-3">
-        <input className={inputCls + " flex-1 max-w-xs"} placeholder="Search name or email…"
-          value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className={inputCls + " flex-1 max-w-xs"} placeholder="Search name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <span className="text-xs text-gray-400 shrink-0">{users.length} user{users.length !== 1 ? "s" : ""}</span>
       </div>
 
       {users.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState
-            icon={UserCheck}
-            title="No registered users yet"
-            subtitle="Users who sign up on the website will appear here automatically."
-          />
+          <EmptyState icon={UserCheck} title="No registered users yet" subtitle="Users who sign up on the website will appear here automatically." />
         </div>
       )}
 
@@ -920,21 +916,14 @@ function RegisteredSection({ state }) {
                   const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
                   return (
                     <tr key={u.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Avatar src={u.photoUrl} name={fullName} />
-                          <span className="font-medium text-gray-900">{fullName}</span>
-                        </div>
-                      </td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-2"><Avatar src={u.photoUrl} name={fullName} /><span className="font-medium text-gray-900">{fullName}</span></div></td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{u.email}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{u.phoneNumber || "—"}</td>
                       <td className="px-4 py-3 text-gray-400 text-xs">
                         {u.registeredAt ? new Date(u.registeredAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
                       </td>
                       <td className="px-4 py-3 text-center"><span className="font-medium text-[#2385cd]">{reqCount(u.email)}</span></td>
-                      <td className="px-4 py-3">
-                        <Btn variant="ghost" onClick={() => { setViewing(u); setModal(true); }}><Eye size={13} /> View</Btn>
-                      </td>
+                      <td className="px-4 py-3"><Btn variant="ghost" onClick={() => { setViewing(u); setModal(true); }}><Eye size={13} /> View</Btn></td>
                     </tr>
                   );
                 })}
@@ -989,8 +978,9 @@ function RegisteredSection({ state }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Blog
-
+// ─────────────────────────────────────────────────────────────────────────────
 function BlogSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1014,11 +1004,7 @@ function BlogSection({ state, dispatch }) {
 
       {state.blog.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState
-            icon={Newspaper}
-            title="No blog posts yet"
-            subtitle="Blog posts from the backend will appear here. You can also create new posts."
-          />
+          <EmptyState icon={Newspaper} title="No blog posts yet" subtitle="Blog posts from the backend will appear here. You can also create new posts." />
         </div>
       )}
 
@@ -1041,6 +1027,7 @@ function BlogSection({ state, dispatch }) {
           </div>
         ))}
       </div>
+
       <Modal open={modal} title={editing ? "Edit post" : "New post"} onClose={close}
         footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={save}><Save size={12} /> Save</Btn></>}>
         <FormField label="Title"><input name="title" className={inputCls} value={form.title} onChange={handle} /></FormField>
@@ -1058,22 +1045,27 @@ function BlogSection({ state, dispatch }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Testimonials
-
+// ─────────────────────────────────────────────────────────────────────────────
 function TestimonialsSection({ state, dispatch }) {
+  const blankForm = { name: "", role: "", text: "", image: "", rating: 5, visible: true };
+
   const [modal,   setModal]   = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form,    setForm]    = useState({ name: "", role: "", text: "", rating: 5, visible: true });
+  const [form,    setForm]    = useState(blankForm);
   const [saving,  setSaving]  = useState(false);
   const [apiNote, setApiNote] = useState("");
 
-  const openEdit = (t) => { setEditing(t); setForm({ ...t }); setModal(true); setApiNote(""); };
-  const openNew  = ()  => { setEditing(null); setForm({ name: "", role: "", text: "", rating: 5, visible: true }); setModal(true); setApiNote(""); };
+  const openEdit = (t) => { setEditing(t); setForm({ ...blankForm, ...t }); setModal(true); setApiNote(""); };
+  const openNew  = ()  => { setEditing(null); setForm(blankForm); setModal(true); setApiNote(""); };
   const close    = ()  => { setModal(false); setApiNote(""); };
-  const handle   = (e) => {
+
+  const handle = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((p) => ({ ...p, [name]: type === "checkbox" ? checked : value }));
   };
+
   const save = async () => {
     setSaving(true); setApiNote("");
     const payload = { ...form, rating: Number(form.rating) };
@@ -1088,7 +1080,7 @@ function TestimonialsSection({ state, dispatch }) {
       close();
     } catch {
       if (editing) dispatch({ type: "UPDATE_TESTI", payload: { ...editing, ...payload } });
-      else         dispatch({ type: "ADD_TESTI",    payload: { ...payload } });
+      else         dispatch({ type: "ADD_TESTI",    payload: { ...payload, id: Date.now() } });
       setApiNote("Saved locally — backend sync failed.");
     } finally { setSaving(false); }
   };
@@ -1103,45 +1095,72 @@ function TestimonialsSection({ state, dispatch }) {
     dispatch({ type: "DELETE_TESTI", id: t.id });
   };
 
+  function TestiAvatar({ src, name, size = 40 }) {
+    const [broken, setBroken] = useState(false);
+    const initials = (name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+    if (src && !broken) {
+      return (
+        <img src={src} alt={name} onError={() => setBroken(true)}
+          style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "2px solid rgba(35,133,205,0.35)" }} />
+      );
+    }
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: "50%",
+        background: "linear-gradient(135deg, #2385cd, #0055cc)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: size * 0.35, fontWeight: 700, color: "#fff", flexShrink: 0,
+      }}>{initials}</div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-2">
-        <p className="text-xs text-gray-400 hidden sm:block">Changes sync to the backend and reflect on the public site immediately.</p>
+        <div className="hidden sm:block">
+          <p className="text-xs text-gray-400">Changes sync to the backend and reflect on the public site immediately.</p>
+          <p className="text-xs text-[#2385cd] mt-0.5">Only <strong>visible</strong> testimonials are shown on the website.</p>
+        </div>
         <Btn variant="primary" onClick={openNew}><Plus size={13} /> Add testimonial</Btn>
       </div>
 
       {state.testimonials.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState
-            icon={MessageSquare}
-            title="No testimonials yet"
-            subtitle="Testimonials from the backend will load here. You can also add them manually."
-          />
+          <EmptyState icon={MessageSquare} title="No testimonials yet" subtitle="Testimonials from the backend will load here. You can also add them manually." />
         </div>
       )}
 
       <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
         {state.testimonials.map((t) => (
           <div key={t.id} className="flex gap-3 p-4 hover:bg-[#eaf4fc]/20 transition">
-            <Avatar name={t.name} size="md" />
+            <TestiAvatar src={t.image} name={t.name} size={44} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-0.5">
                 <p className="font-medium text-sm text-gray-900">{t.name}</p>
                 <Pill label={t.visible ? "Visible" : "Hidden"} color={t.visible ? "green" : "yellow"} />
               </div>
               <p className="text-xs text-gray-400 mb-1">{t.role}</p>
-              <div className="mb-1"><StarRating rating={t.rating} /></div>
+              <div className="mb-1 flex items-center gap-1.5">
+                <StarRating rating={t.rating} />
+                <span className="text-xs text-gray-400">{t.rating}/5</span>
+              </div>
               <p className="text-sm text-gray-600 italic line-clamp-2">"{t.text}"</p>
+              {t.image && (
+                <p className="text-[10px] text-gray-300 truncate mt-0.5" title={t.image}>🖼 {t.image}</p>
+              )}
               <div className="flex gap-2 mt-2 flex-wrap">
                 <Btn variant="ghost" onClick={() => openEdit(t)}><Pencil size={13} /> Edit</Btn>
-                <Btn variant="brand" onClick={() => toggleVisible(t)}>{t.visible ? "Hide" : "Show"}</Btn>
+                <Btn variant="brand" onClick={() => toggleVisible(t)}>
+                  <Eye size={13} /> {t.visible ? "Hide" : "Show"}
+                </Btn>
                 <Btn variant="danger" onClick={() => remove(t)}><Trash2 size={13} /></Btn>
               </div>
             </div>
           </div>
         ))}
       </div>
-      <Modal open={modal} title={editing ? "Edit testimonial" : "Add testimonial"} onClose={close}
+
+      <Modal open={modal} title={editing ? `Edit — ${editing.name}` : "Add testimonial"} onClose={close}
         footer={
           <>
             {apiNote && <p className="text-xs text-amber-600 mr-auto self-center flex items-center gap-1"><AlertTriangle size={12} /> {apiNote}</p>}
@@ -1149,27 +1168,88 @@ function TestimonialsSection({ state, dispatch }) {
             <Btn variant="primary" onClick={save} disabled={saving}>{saving ? "Saving…" : <><Save size={12} /> Save</>}</Btn>
           </>
         }>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField label="Name"><input name="name" className={inputCls} value={form.name} onChange={handle} /></FormField>
-          <FormField label="Role / company"><input name="role" className={inputCls} value={form.role} onChange={handle} /></FormField>
+          <FormField label="Full name">
+            <input name="name" className={inputCls} value={form.name} onChange={handle} placeholder="Sandra Okafor" />
+          </FormField>
+          <FormField label="Role / company">
+            <input name="role" className={inputCls} value={form.role} onChange={handle} placeholder="CEO, Company" />
+          </FormField>
         </div>
-        <FormField label="Testimonial text"><textarea name="text" className={inputCls + " resize-none"} rows={3} value={form.text} onChange={handle} /></FormField>
+
+        <FormField label="Testimonial text">
+          <textarea name="text" className={inputCls + " resize-none"} rows={3} value={form.text} onChange={handle}
+            placeholder="From onboarding to placement, the experience was seamless…" />
+        </FormField>
+
+        <FormField label="Avatar image URL (optional)">
+          <div className="flex gap-2 items-center">
+            <input name="image" className={inputCls} value={form.image} onChange={handle}
+              placeholder="https://example.com/photo.jpg  or  Cloudinary URL" />
+            {form.image && (
+              <div className="shrink-0">
+                <TestiAvatar src={form.image} name={form.name || "?"} size={36} />
+              </div>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">
+            Paste any public image URL (Cloudinary, CDN, etc.). Leave blank to show initials instead.
+          </p>
+        </FormField>
+
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Rating (1–5)"><input name="rating" type="number" min="1" max="5" className={inputCls} value={form.rating} onChange={handle} /></FormField>
-          <FormField label="Visible on site">
+          <FormField label="Rating (1–5)">
+            <div className="flex items-center gap-2">
+              <input name="rating" type="number" min="1" max="5" step="0.5" className={inputCls} value={form.rating} onChange={handle} />
+              <div className="flex gap-0.5 shrink-0">
+                {[1,2,3,4,5].map((s) => (
+                  <span key={s} style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "#e5e7eb", fontSize: 16 }}>★</span>
+                ))}
+              </div>
+            </div>
+          </FormField>
+          <FormField label="Visibility">
             <div className="flex items-center gap-2 mt-2">
               <input type="checkbox" name="visible" checked={!!form.visible} onChange={handle} className="w-4 h-4 rounded accent-[#2385cd]" />
               <span className="text-sm text-gray-600">Show on website</span>
             </div>
           </FormField>
         </div>
+
+        {(form.name || form.text) && (
+          <div>
+            <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Live preview</p>
+            <div className="rounded-2xl relative"
+              style={{ background: "linear-gradient(135deg, #0a0f1e 0%, #0d1b2a 100%)", border: "1px solid rgba(35,133,205,0.25)", padding: "18px 16px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <TestiAvatar src={form.image} name={form.name || "?"} size={46} />
+                <div>
+                  <p style={{ fontWeight: 700, color: "#fff", fontSize: "0.88rem", margin: "0 0 2px" }}>{form.name || "Client name"}</p>
+                  <p style={{ color: "#2385cd", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 5px" }}>{form.role || "Role, Company"}</p>
+                  <div style={{ display: "flex", gap: 2 }}>
+                    {[1,2,3,4,5].map((s) => (
+                      <span key={s} style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "rgba(35,133,205,0.2)", fontSize: 11 }}>★</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ width: 26, height: 2, background: "#2385cd", borderRadius: 2, marginBottom: 10 }} />
+              <p style={{ color: "#c8d8e8", fontSize: "0.85rem", fontStyle: "italic", margin: 0 }}>
+                "{form.text || "Testimonial text will appear here…"}"
+              </p>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
 }
 
-// SECTION: Messages
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION: Messages
+// ─────────────────────────────────────────────────────────────────────────────
 function MessagesSection({ state, dispatch }) {
   const [filter,     setFilter]     = useState("all");
   const [active,     setActive]     = useState(null);
@@ -1208,11 +1288,7 @@ function MessagesSection({ state, dispatch }) {
 
       {state.messages.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState
-            icon={Mail}
-            title="No messages yet"
-            subtitle="Contact form submissions will appear here when received."
-          />
+          <EmptyState icon={Mail} title="No messages yet" subtitle="Contact form submissions will appear here when received." />
         </div>
       )}
 
@@ -1253,9 +1329,7 @@ function MessagesSection({ state, dispatch }) {
           <Avatar name={liveActive.from} size="md" />
           <div>
             <p className="font-medium text-sm text-gray-900">{liveActive.from}</p>
-            <p className="text-xs text-gray-400">
-              {liveActive.time ? new Date(liveActive.time).toLocaleString("en-GB") : ""}
-            </p>
+            <p className="text-xs text-gray-400">{liveActive.time ? new Date(liveActive.time).toLocaleString("en-GB") : ""}</p>
           </div>
         </div>
         <p className="font-semibold text-sm text-gray-900 mt-2">{liveActive.subject}</p>
@@ -1269,9 +1343,7 @@ function MessagesSection({ state, dispatch }) {
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         <div className="flex gap-2">
           <Avatar name={liveActive.from} size="sm" />
-          <div className="bg-gray-50 rounded-xl rounded-tl-none px-3 py-2 text-sm text-gray-600 leading-relaxed max-w-[85%]">
-            {liveActive.body}
-          </div>
+          <div className="bg-gray-50 rounded-xl rounded-tl-none px-3 py-2 text-sm text-gray-600 leading-relaxed max-w-[85%]">{liveActive.body}</div>
         </div>
         {liveActive.replies?.map((r, i) => (
           <div key={i} className="flex gap-2 justify-end">
@@ -1310,15 +1382,16 @@ function MessagesSection({ state, dispatch }) {
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Client Profiles
-
+// ─────────────────────────────────────────────────────────────────────────────
 function ProfilesSection({ state }) {
   const seen    = new Set();
   const clients = state.requests
     .filter((r) => { if (seen.has(r.email)) return false; seen.add(r.email); return true; })
     .map((r) => ({
-      name:     r.clientName, email: r.email, phone: r.phone,
-      type:     r.clientType, location: r.location,
+      name: r.clientName, email: r.email, phone: r.phone,
+      type: r.clientType, location: r.location,
       requests: state.requests.filter((x) => x.email === r.email).length,
       regUser:  (state.registeredUsers || []).find((u) => u.email === r.email),
     }));
@@ -1330,11 +1403,7 @@ function ProfilesSection({ state }) {
     <div>
       {clients.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState
-            icon={BadgeCheck}
-            title="No client profiles yet"
-            subtitle="Client profiles are built automatically from submitted requests."
-          />
+          <EmptyState icon={BadgeCheck} title="No client profiles yet" subtitle="Client profiles are built automatically from submitted requests." />
         </div>
       )}
 
@@ -1413,8 +1482,6 @@ function ProfilesSection({ state }) {
 
 
 // ── Helper: normalise a raw contact message from /contact/admin/all ───────────
-// The contact endpoint uses slightly different field names from the marketplace
-// messages, so we map them explicitly before passing to normaliseMessage.
 function normaliseContactMessage(m, idx) {
   if (!m || typeof m !== "object") return null;
   const mapped = {
@@ -1432,8 +1499,9 @@ function normaliseContactMessage(m, idx) {
   return normaliseMessage(mapped, idx);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // ROOT: AdminPanel
-
+// ─────────────────────────────────────────────────────────────────────────────
 export function AdminPanel() {
   const { state, dispatch } = useStore();
   const [section,     setSection]     = useState("requests");
@@ -1441,7 +1509,6 @@ export function AdminPanel() {
   const [syncing,     setSyncing]     = useState(false);
   const [syncError,   setSyncError]   = useState("");
 
-  // ── DEBUG HELPER ────────────────────────────────────────────────────────────
   const debugSync = async (raw) => {
     console.group("🔍 [AdminPanel] syncData DEBUG");
     console.log("1. raw type:", typeof raw);
@@ -1452,7 +1519,6 @@ export function AdminPanel() {
     console.log("6. raw.users  →", Array.isArray(raw?.users)  ? `Array(${raw.users.length})`  : raw?.users);
     console.log("7. raw.staff  →", Array.isArray(raw?.staff)  ? `Array(${raw.staff.length})`  : raw?.staff);
     console.log("8. raw.profile →", Array.isArray(raw?.profile) ? `Array(${raw.profile.length})` : raw?.profile);
-
     if (raw?.data) {
       console.log("--- Checking raw.data ---");
       console.log("raw.data keys:", Object.keys(raw.data ?? {}));
@@ -1460,7 +1526,6 @@ export function AdminPanel() {
       console.log("raw.data.staff  →", Array.isArray(raw.data?.staff)  ? `Array(${raw.data.staff.length})`  : raw.data?.staff);
       console.log("raw.data.profile →", Array.isArray(raw.data?.profile) ? `Array(${raw.data.profile.length})` : raw.data?.profile);
     }
-
     const parsed = parseMasterMarketplace(raw);
     console.log("--- After parseMasterMarketplace ---");
     console.log("9.  parsed.requests        →", parsed.requests?.length, parsed.requests);
@@ -1468,64 +1533,39 @@ export function AdminPanel() {
     console.log("11. parsed.staff           →", parsed.staff?.length);
     console.log("12. parsed.messages        →", parsed.messages?.length);
     console.groupEnd();
-
     return parsed;
   };
-  // ──────────────────────────────────────────────────────────────────────────
 
-  // ── FIX: fetch contact messages and merge them into the marketplace data ──
-  // Runs both API calls in parallel; contact messages are normalised and
-  // de-duplicated against whatever the mastermarketplace already returned.
   const fetchAndMergeContacts = async (marketplaceData) => {
     try {
       const raw = await apiGetContactMessages();
-      // The endpoint may return an array directly, or wrap it in data/messages
-      const list = Array.isArray(raw)
-        ? raw
+      const list = Array.isArray(raw) ? raw
         : Array.isArray(raw?.data)     ? raw.data
         : Array.isArray(raw?.messages) ? raw.messages
         : Array.isArray(raw?.contacts) ? raw.contacts
         : [];
-
       console.log(`[AdminPanel] /contact/admin/all → ${list.length} messages`);
-
-      const contactMsgs = list
-        .map((m, i) => normaliseContactMessage(m, i))
-        .filter(Boolean);
-
-      // Merge: keep existing messages, append any contact messages not already present
+      const contactMsgs = list.map((m, i) => normaliseContactMessage(m, i)).filter(Boolean);
       const existingIds = new Set(marketplaceData.messages.map((m) => String(m.id)));
       const newContacts = contactMsgs.filter((m) => !existingIds.has(String(m.id)));
-
-      return {
-        ...marketplaceData,
-        messages: [...marketplaceData.messages, ...newContacts],
-      };
+      return { ...marketplaceData, messages: [...marketplaceData.messages, ...newContacts] };
     } catch (err) {
       console.warn("[AdminPanel] Could not fetch contact messages:", err.message);
-      // Non-fatal — return marketplace data unchanged
       return marketplaceData;
     }
   };
-  // ── end FIX ────────────────────────────────────────────────────────────────
 
   const syncData = async () => {
     setSyncing(true); setSyncError("");
     try {
-      console.log("[AdminPanel] syncData() — starting fetch...");
       const raw  = await apiGetMasterMarketplace();
       let   data = await debugSync(raw);
-      data = await fetchAndMergeContacts(data);   // ── FIX: layer in contacts
+      data = await fetchAndMergeContacts(data);
       dispatch({ type: "LOAD_MARKETPLACE", payload: data });
-      console.log("[AdminPanel] dispatch(LOAD_MARKETPLACE) called ✓");
     } catch (err) {
       console.error("[AdminPanel] ❌ syncData FAILED:", err);
-      console.error("[AdminPanel] Error message:", err.message);
-      console.error("[AdminPanel] Full error:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       setSyncError(err.message ?? "Sync failed");
-    } finally {
-      setSyncing(false);
-    }
+    } finally { setSyncing(false); }
   };
 
   useEffect(() => {
@@ -1533,23 +1573,18 @@ export function AdminPanel() {
     (async () => {
       setSyncing(true); setSyncError("");
       try {
-        console.log("[AdminPanel] useEffect sync — starting fetch...");
         const raw = await apiGetMasterMarketplace();
         if (!cancelled) {
           let data = await debugSync(raw);
-          data = await fetchAndMergeContacts(data); // ── FIX: layer in contacts
+          data = await fetchAndMergeContacts(data);
           dispatch({ type: "LOAD_MARKETPLACE", payload: data });
-          console.log("[AdminPanel] useEffect dispatch(LOAD_MARKETPLACE) called ✓");
         }
       } catch (err) {
         if (!cancelled) {
           console.error("[AdminPanel] ❌ useEffect sync FAILED:", err);
-          console.error("[AdminPanel] Error message:", err.message);
           setSyncError(err.message ?? "Sync failed");
         }
-      } finally {
-        if (!cancelled) setSyncing(false);
-      }
+      } finally { if (!cancelled) setSyncing(false); }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -1633,7 +1668,7 @@ export function AdminPanel() {
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-white truncate">Super Admin</p>
-                    <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>admin@randlehopkick.ng</p>
+                    <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>randle&hopkick@gmail.com</p>
                   </div>
                 </div>
               </div>
@@ -1654,7 +1689,7 @@ export function AdminPanel() {
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
             <div className="min-w-0">
               <p className="text-xs font-medium text-white truncate">Super Admin</p>
-              <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>admin@randlehopkick.ng</p>
+              <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>randle&hopkick@gmail.com</p>
             </div>
           </div>
         </div>
@@ -1678,10 +1713,7 @@ export function AdminPanel() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={syncData}
-              disabled={syncing}
-              title="Refresh data from backend"
+            <button onClick={syncData} disabled={syncing} title="Refresh data from backend"
               className="p-1.5 rounded-lg text-white/50 md:text-gray-400 hover:bg-white/10 md:hover:bg-gray-100 transition disabled:opacity-40">
               <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
             </button>

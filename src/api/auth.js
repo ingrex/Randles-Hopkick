@@ -92,14 +92,25 @@ export async function apiStaffRequest(payload) {
   });
 }
 
+/* ── Staff Profile Submission (authenticated) ── */
+export async function apiStaffProfile(payload) {
+  return request("/profile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+}
+
 
 // MARKETPLACE
 
 export async function apiGetMarketplace() {
-  return request("/profile/marketplace", {
+  const data = await request("/profile/marketplace", {
     method: "GET",
     headers: { "Content-Type": "application/json", ...authHeaders() },
   });
+  console.log("=== apiGetMarketplace RAW ===", JSON.stringify(data).slice(0, 1000));
+  return data;
 }
 
 export async function apiGetMasterMarketplace() {
@@ -165,29 +176,21 @@ export async function apiCompleteRequest(id) {
  * @param {Array<{id,name}>} assignedStaff - Staff objects to assign.
  */
 export async function apiAssignStaff(reqId, assignedStaff) {
+  const staffIds = assignedStaff.map((s) => s.id);
   return request(`/admin/${reqId}/assign`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ assignedStaff }),
+    body: JSON.stringify({ profiles: staffIds }),
   });
 }
 
-/**
- * Set start / end dates for a request.
- * PATCH /api/v1/admin/:id/dates
- *
- * Note: no dedicated endpoint was provided for dates; this retains the
- * existing /admin/:id/dates path.  Update to the correct route once your
- * backend colleague confirms it.
- */
 export async function apiSetDates(id, { startDate, endDate }) {
-  return request(`/admin/${id}/dates`, {
+  return request(`/admin/${id}/date`, {   // ← was /dates
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ startDate, endDate }),
   });
 }
-
 
 // TESTIMONIALS
 
@@ -259,5 +262,22 @@ export async function apiRemoveStaff(id) {
   return request(`/staff/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
+  });
+}
+
+// REVIEWS
+
+/**
+ * Submit a client review for a completed request.
+ * POST /api/v1/profile/:requestId/review
+ *
+ * @param {string|number} requestId - The backend ID of the completed request.
+ * @param {{ staffId: number, rating: number, comment?: string }} payload
+ */
+export async function apiSubmitReview(requestId, { staffId, rating, comment }) {
+  return request(`/profile/${requestId}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ staffId, rating, comment }),
   });
 }

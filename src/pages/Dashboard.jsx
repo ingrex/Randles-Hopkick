@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import ClientForm1 from "../ApplicationForms/ClientForm1";
@@ -6,10 +6,9 @@ import StaffForm   from "../ApplicationForms/StaffForm";
 import PrivateForm from "../ApplicationForms/PrivateForm";
 import { useStore, parseMasterMarketplace } from "../store";
 import { useAuth }  from "./AuthContext";
-import { apiGetMasterMarketplace } from "../api/auth"; // ── FIX: import for re-sync
+import { apiGetMarketplace, apiSubmitReview } from "../api/auth";
 
 const MODES = ["Private", "Organization", "Staff"];
-
 
 function Stat({ label, value }) {
   return (
@@ -32,12 +31,12 @@ function Field({ label, value }) {
 function StatusBadge({ status, awaitingReview = false }) {
   const displayStatus = status === "Completed" && awaitingReview ? "Awaiting Review" : status;
   const map = {
-    Pending:          "text-yellow-700 bg-yellow-50  border-yellow-200",
-    Approved:         "text-green-700  bg-green-50   border-green-200",
-    Declined:         "text-red-700    bg-red-50     border-red-200",
-    Completed:        "text-purple-700 bg-purple-50  border-purple-200",
-    Rejected:         "text-red-700    bg-red-50     border-red-200",
-    "Awaiting Review":"text-orange-700 bg-orange-50  border-orange-200",
+    Pending:           "text-yellow-700 bg-yellow-50  border-yellow-200",
+    Approved:          "text-green-700  bg-green-50   border-green-200",
+    Declined:          "text-red-700    bg-red-50     border-red-200",
+    Completed:         "text-purple-700 bg-purple-50  border-purple-200",
+    Rejected:          "text-red-700    bg-red-50     border-red-200",
+    "Awaiting Review": "text-orange-700 bg-orange-50  border-orange-200",
   };
   return (
     <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${map[displayStatus] ?? "text-gray-600 bg-gray-50 border-gray-200"}`}>
@@ -58,7 +57,6 @@ function StarRating({ value, max = 5, size = "sm" }) {
   );
 }
 
-// ── Avatar ────────────────────────────────────────────────────────────────────
 function UserAvatar({ photoUrl, initials, size = "md" }) {
   const dim = size === "lg" ? "w-16 h-16 sm:w-20 sm:h-20 text-2xl" : "w-14 h-14 sm:w-16 sm:h-16 text-xl";
   return (
@@ -74,7 +72,6 @@ function UserAvatar({ photoUrl, initials, size = "md" }) {
   );
 }
 
-// ── Modal shell ───────────────────────────────────────────────────────────────
 function Modal({ open, onClose, children }) {
   if (!open) return null;
   return (
@@ -82,13 +79,11 @@ function Modal({ open, onClose, children }) {
       <motion.div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
+        onClick={onClose}>
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
           className="relative w-full max-w-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
+          onClick={(e) => e.stopPropagation()}>
           <div className="absolute inset-0 bg-sky-400/10 blur-3xl rounded-xl pointer-events-none" />
           <button onClick={onClose}
             className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-slate-700 border border-white/20 text-white flex items-center justify-center hover:bg-slate-600 transition">
@@ -102,7 +97,7 @@ function Modal({ open, onClose, children }) {
 }
 
 // ── Review Modal ──────────────────────────────────────────────────────────────
-function ReviewModal({ request, staffList, onSubmit, onClose }) {
+function ReviewModal({ request, staffList, onSubmit, onClose, submitting }) {
   const [rating,  setRating]  = useState(0);
   const [hover,   setHover]   = useState(0);
   const [comment, setComment] = useState("");
@@ -120,6 +115,15 @@ function ReviewModal({ request, staffList, onSubmit, onClose }) {
       <h2 className="text-xl font-semibold">Review completed job</h2>
       <p className="text-white/60 text-sm">Your rating helps us match the best staff with future clients.</p>
 
+      {/* Always show who is being reviewed — single staff */}
+      {request.assignedStaff?.length === 1 && (
+        <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg px-3 py-2">
+          <span className="text-xs text-white/50">Reviewing:</span>
+          <span className="text-sm font-semibold text-white">{request.assignedStaff[0].name}</span>
+        </div>
+      )}
+
+      {/* Multi-staff picker */}
       {request.assignedStaff?.length > 1 && (
         <div>
           <p className="text-xs text-white/50 mb-2">Rate which staff member?</p>
@@ -132,6 +136,13 @@ function ReviewModal({ request, staffList, onSubmit, onClose }) {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Edge case: no staff assigned */}
+      {!request.assignedStaff?.length && (
+        <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2">
+          No staff assigned to this request yet.
+        </p>
       )}
 
       <div>
@@ -160,16 +171,27 @@ function ReviewModal({ request, staffList, onSubmit, onClose }) {
       </div>
 
       <div className="flex justify-end gap-3">
-        <button onClick={onClose} className="px-5 py-2 bg-white/10 text-white rounded-xl font-medium text-sm hover:bg-white/20 transition">Cancel</button>
-        <button onClick={handle} disabled={!rating || !staffId} className="px-5 py-2 bg-sky-400 text-black rounded-xl font-medium text-sm disabled:opacity-40">
-          Submit review
+        <button onClick={onClose} disabled={submitting}
+          className="px-5 py-2 bg-white/10 text-white rounded-xl font-medium text-sm hover:bg-white/20 transition disabled:opacity-40">
+          Cancel
+        </button>
+        <button onClick={handle} disabled={!rating || !staffId || submitting}
+          className="px-5 py-2 bg-sky-400 text-black rounded-xl font-medium text-sm disabled:opacity-40 flex items-center gap-2">
+          {submitting ? (
+            <>
+              <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeOpacity="0.3"/>
+                <path d="M21 12a9 9 0 00-9-9"/>
+              </svg>
+              Submitting…
+            </>
+          ) : "Submit review"}
         </button>
       </div>
     </div>
   );
 }
 
-// ── Photo localStorage helpers ─────────────────────────────────────────────────
 function loadPhoto() {
   try { return JSON.parse(localStorage.getItem("userProfile") || "{}")?.photoUrl || ""; }
   catch { return ""; }
@@ -184,11 +206,14 @@ export function Dashboard() {
   const { state: store, dispatch } = useStore();
   const { user }                   = useAuth();
 
-  const [mode,          setMode]          = useState("Private");
-  const [activeTab,     setActiveTab]     = useState("Pending");
-  const [modalType,     setModalType]     = useState(null);
-  const [reviewReq,     setReviewReq]     = useState(null);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [mode,           setMode]           = useState("Private");
+  const [activeTab,      setActiveTab]      = useState("Pending");
+  const [modalType,      setModalType]      = useState(null);
+  const [reviewReq,      setReviewReq]      = useState(null);
+  const [showCompleted,  setShowCompleted]  = useState(false);
+  const [syncing,        setSyncing]        = useState(false);
+  const [reviewError,    setReviewError]    = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const [photoUrl] = useState(() => loadPhoto());
 
@@ -200,7 +225,6 @@ export function Dashboard() {
   const initials = displayName
     .split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?";
 
-  // Find staff record for the logged-in user
   const staffRecord = store.staff.find(
     (s) => s.name === displayName || s.email === user?.email
   );
@@ -212,26 +236,33 @@ export function Dashboard() {
         ? "Organisation"
         : "Private Client";
 
-  // ── FIX: Re-sync from backend on mount, tab focus, and visibility change ────
-  // This ensures that when an admin approves/declines a request, the user sees
-  // the updated status the next time they view or return to the dashboard.
-  useEffect(() => {
-    const syncFromBackend = () => {
-      apiGetMasterMarketplace()
-        .then((raw) => {
-          const data = parseMasterMarketplace(raw);
-          dispatch({ type: "LOAD_MARKETPLACE", payload: data });
-        })
-        .catch(() => {
-          // Fail silently — persisted localStorage data still shows
+  // ── Backend sync ─────────────────────────────────────────────────────────────
+useEffect(() => {
+  const syncFromBackend = () => {
+    setSyncing(true);
+    apiGetMarketplace()
+      .then((raw) => {
+        console.log("=== DASHBOARD RAW RESPONSE ===");
+        console.log("Top keys:", Object.keys(raw));
+        const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
+        console.log("Root keys:", Object.keys(root));
+        Object.entries(root).forEach(([k, v]) => {
+          console.log(`  ${k}:`, Array.isArray(v) ? `Array(${v.length})` : v);
+          if (Array.isArray(v) && v[0]) console.log(`    sample:`, v[0]);
         });
-    };
+        const data = parseMasterMarketplace(raw);
+        console.log("Parsed requests:", data.requests);
+        dispatch({ type: "LOAD_MARKETPLACE", payload: data });
+      })
+      .catch((err) => {
+        console.warn("[Dashboard] sync failed:", err?.message);
+      })
+      .finally(() => setSyncing(false));
+  };
 
-    // Sync immediately on mount
     syncFromBackend();
 
-    // Re-sync whenever the user returns to this tab/window
-    const onFocus = () => syncFromBackend();
+    const onFocus      = () => syncFromBackend();
     const onVisibility = () => {
       if (document.visibilityState === "visible") syncFromBackend();
     };
@@ -244,7 +275,6 @@ export function Dashboard() {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [dispatch]);
-  // ── end FIX ─────────────────────────────────────────────────────────────────
 
   // Auto-open modal from navigation state
   useEffect(() => {
@@ -258,17 +288,20 @@ export function Dashboard() {
   }, [location.state]);
 
   const handlePrimaryAction = () => {
-    if (mode === "Staff")              setModalType("staff");
-    else if (mode === "Organization")  setModalType("organization");
-    else                               setModalType("private");
+    if (mode === "Staff")             setModalType("staff");
+    else if (mode === "Organization") setModalType("organization");
+    else                              setModalType("private");
   };
 
-  const closeModal = () => { setModalType(null); setReviewReq(null); };
+  const closeModal = () => {
+    setModalType(null);
+    setReviewReq(null);
+    setReviewError("");
+  };
 
   // ── Derived data ─────────────────────────────────────────────────────────────
   const myRequests = store.requests;
 
-  // Tab filtering — "Declined" replaces "Active"
   const filtered = myRequests.filter((r) => {
     if (activeTab === "Pending")   return r.status === "Pending";
     if (activeTab === "Approved")  return r.status === "Approved";
@@ -284,12 +317,30 @@ export function Dashboard() {
     completed: myRequests.filter((r) => r.status === "Completed").length,
   };
 
-  const handleReviewSubmit = ({ reqId, staffId, rating, comment }) => {
+  // ── Review submit ─────────────────────────────────────────────────────────────
+  const handleReviewSubmit = async ({ reqId, staffId, rating, comment }) => {
+    setSubmittingReview(true);
+    setReviewError("");
+
+    const req       = myRequests.find((r) => String(r.id) === String(reqId));
+    const backendId = req?.backendId ?? req?._id ?? req?.id ?? reqId;
+
     dispatch({ type: "SUBMIT_REVIEW", reqId, staffId, rating, comment });
-    closeModal();
+
+    try {
+      await apiSubmitReview(backendId, { staffId, rating, comment });
+      console.log("[Dashboard] apiSubmitReview success for reqId:", backendId);
+      closeModal();
+    } catch (err) {
+      console.error("[Dashboard] apiSubmitReview failed:", err.message);
+      setReviewError("Review saved locally but backend sync failed. It will retry on next refresh.");
+      setTimeout(() => closeModal(), 3000);
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
-  // ── Staff mode: jobs assigned to this user ───────────────────────────────────
+  // ── Staff mode jobs ───────────────────────────────────────────────────────────
   const staffActiveJobs = store.requests.filter(
     (r) =>
       ["Active", "Approved"].includes(r.status) &&
@@ -311,9 +362,17 @@ export function Dashboard() {
         <div className="absolute inset-0 bg-black/60" />
 
         <div className="relative z-10 px-4 pt-5 pb-6 sm:px-6 text-white">
-          {/* Top bar — no edit profile button */}
           <div className="flex items-center justify-between mb-6 pt-16">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">DASHBOARD</h1>
+            {syncing && (
+              <span className="text-xs text-white/50 animate-pulse flex items-center gap-1">
+                <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeOpacity="0.3"/>
+                  <path d="M21 12a9 9 0 00-9-9"/>
+                </svg>
+                Syncing…
+              </span>
+            )}
           </div>
 
           {/* Profile row */}
@@ -322,7 +381,6 @@ export function Dashboard() {
               <UserAvatar photoUrl={photoUrl} initials={initials} />
               <div>
                 <h2 className="font-bold text-base sm:text-lg">{displayName}</h2>
-                {/* Staff mode: skill + other skills */}
                 {mode === "Staff" && staffRecord ? (
                   <>
                     <p className="text-sm opacity-90 font-medium">{staffRecord.role}</p>
@@ -347,7 +405,6 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Switch Mode + action */}
             <div className="flex flex-col gap-2 sm:items-end">
               <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Switch Mode</p>
               <select value={mode} onChange={(e) => setMode(e.target.value)}
@@ -362,7 +419,6 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* Stats — hidden in Staff mode */}
           {mode !== "Staff" && (
             <div className="mt-5 flex gap-3 overflow-x-auto pb-1">
               <Stat label="Pending"   value={stats.pending} />
@@ -371,11 +427,10 @@ export function Dashboard() {
               <Stat label="Completed" value={stats.completed} />
             </div>
           )}
-          {/* Staff mode: compact stats */}
           {mode === "Staff" && (
             <div className="mt-5 flex gap-3 overflow-x-auto pb-1">
-              <Stat label="Active Jobs"     value={staffActiveJobs.length} />
-              <Stat label="Completed Jobs"  value={staffCompletedJobs.length} />
+              <Stat label="Active Jobs"    value={staffActiveJobs.length} />
+              <Stat label="Completed Jobs" value={staffCompletedJobs.length} />
             </div>
           )}
         </div>
@@ -384,10 +439,9 @@ export function Dashboard() {
       {/* ── BODY ── */}
       <div className="p-4">
 
-        {/* ═══ STAFF MODE VIEW ═══════════════════════════════════════════════ */}
+        {/* ═══ STAFF MODE ═════════════════════════════════════════════════════ */}
         {mode === "Staff" && (
           <>
-            {/* Active / Approved jobs */}
             <div className="mb-2">
               <h3 className="font-semibold text-gray-800 mb-3 text-base">My Active Jobs</h3>
               {staffActiveJobs.length === 0 ? (
@@ -423,7 +477,6 @@ export function Dashboard() {
               )}
             </div>
 
-            {/* Completed history toggle */}
             <div className="mt-4">
               <button
                 onClick={() => setShowCompleted((v) => !v)}
@@ -474,7 +527,6 @@ export function Dashboard() {
               )}
             </div>
 
-            {/* Staff own rating panel */}
             {staffRecord && (
               <div className="mt-6 p-4 bg-yellow-50 rounded-xl border border-yellow-100 flex items-center gap-4">
                 <div>
@@ -489,10 +541,9 @@ export function Dashboard() {
           </>
         )}
 
-        {/* ═══ CLIENT / ORG MODE VIEW ════════════════════════════════════════ */}
+        {/* ═══ CLIENT / ORG MODE ══════════════════════════════════════════════ */}
         {mode !== "Staff" && (
           <>
-            {/* Tab bar — Active replaced with Declined */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
               {["Pending","Approved","Declined","Completed"].map((tab) => (
                 <motion.button key={tab} whileHover={{ scale: 1.04 }} onClick={() => setActiveTab(tab)}
@@ -510,7 +561,6 @@ export function Dashboard() {
               ))}
             </div>
 
-            {/* Empty state */}
             {filtered.length === 0 && (
               <div className="bg-white p-6 rounded-xl shadow text-center">
                 <p className="text-gray-400 text-sm">
@@ -525,11 +575,10 @@ export function Dashboard() {
               </div>
             )}
 
-            {/* Request cards */}
+            {/* ── Request cards ── */}
             {filtered.map((r) => {
               const awaitingReview = r.status === "Completed" && !r.reviewed;
-              // Normalise Rejected → Declined for display
-              const displayStatus = r.status === "Rejected" ? "Declined" : r.status;
+              const displayStatus  = r.status === "Rejected" ? "Declined" : r.status;
               return (
                 <motion.div key={r.id} whileHover={{ scale: 1.005 }}
                   className="bg-white p-4 rounded-xl shadow mb-3 space-y-3">
@@ -541,9 +590,11 @@ export function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <StatusBadge status={displayStatus} awaitingReview={awaitingReview} />
-                      {/* Review button: only when Completed + not yet reviewed */}
+
+                      {/* Leave Review button */}
                       {r.status === "Completed" && !r.reviewed && (
-                        <button onClick={() => { setReviewReq(r); setModalType("review"); }}
+                        <button
+                          onClick={() => { setReviewReq(r); setModalType("review"); setReviewError(""); }}
                           className="px-3 py-1 text-xs bg-purple-50 text-sky-700 rounded-full border border-purple-200 hover:bg-purple-100 transition font-medium">
                           ⭐ Leave Review
                         </button>
@@ -608,12 +659,18 @@ export function Dashboard() {
         {modalType === "staff"        && <StaffForm    onSubmit={closeModal} />}
         {modalType === "staffProfile" && <StaffForm    onSubmit={closeModal} />}
         {modalType === "review" && (
-          <ReviewModal
-            request={reviewReq}
-            staffList={store.staff}
-            onSubmit={handleReviewSubmit}
-            onClose={closeModal}
-          />
+          <>
+            <ReviewModal
+              request={reviewReq}
+              staffList={store.staff}
+              onSubmit={handleReviewSubmit}
+              onClose={closeModal}
+              submitting={submittingReview}
+            />
+            {reviewError && (
+              <p className="mt-2 text-xs text-amber-300 text-center px-4">{reviewError}</p>
+            )}
+          </>
         )}
       </Modal>
     </div>

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import HireStaffButton from "../components/buttons/HireStaffButton";
 
 // ─── CSS SCOPE HELPER ─────────────────────────────────────────────────────────
@@ -1066,8 +1065,8 @@ const SCOPED_CSS = scopeCSS(RAW_CSS, ".svc");
 // ─── CAROUSEL IMAGES ──────────────────────────────────────────────────────────
 const CAROUSEL = [
   "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=1920&q=80",
-  "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1920&q=80",
-  "https://images.unsplash.com/photo-1556761175-b413da4baf72?w=1920&q=80",
+  "https://res.cloudinary.com/dotvnclej/image/upload/v1779329731/Randle_and_Hop_zjxjyc.png",
+  "https://res.cloudinary.com/dotvnclej/image/upload/v1779330167/Nanny_Image_hhfiwd.png",
   "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80",
 ];
 
@@ -1080,7 +1079,7 @@ const serviceData = [
     description:
       "We equip both domestic and corporate staff with the skills, discipline and professionalism required to excel in their roles — through structured, practical and results-driven training programmes.",
     categoryImage:
-      "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=500&q=80",
+      "https://res.cloudinary.com/dotvnclej/image/upload/v1779330590/Staff_Training_psn24e.png",
     subcategories: [
       {
         name: "Domestic Staff Training",
@@ -1109,9 +1108,9 @@ const serviceData = [
     title: "Domestic Outsourcing Services",
     shortTitle: "Domestic",
     description:
-      "We connect homes with thoroughly vetted household professionals, from housekeepers to private chefs — ensuring comfort, order and peace of mind every day.",
+      "We connect homes with thoroughly vetted household professionals, from housekeepers to private chefs, ensuring comfort, order and peace of mind every day.",
     categoryImage:
-      "https://images.unsplash.com/photo-1527515545081-5db817172677?w=500&q=80",
+      "https://res.cloudinary.com/dotvnclej/image/upload/v1779331458/Cheff_vi0xrt.png",
     subcategories: [
       {
         name: "Household & Personal Staff",
@@ -1476,9 +1475,6 @@ function ChevronDown({ className }) {
 
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 function Modal({ role, onClose, isTraining, user }) {
-  const navigate = useNavigate();
-  const [hireOpen, setHireOpen] = useState(false);
-
   useEffect(() => {
     const h = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", h);
@@ -1489,53 +1485,39 @@ function Modal({ role, onClose, isTraining, user }) {
     };
   }, [onClose]);
 
-  const handleHireClick = () => {
-    if (!user) {
-      onClose();
-      navigate("/login");
-      return;
-    }
-    setHireOpen(true);
-  };
-
   return (
-    <>
-      <div className="svc-modal-backdrop" onClick={onClose}>
-        <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-img-wrap">
-            <img src={role.image} alt={role.name} className="modal-img" />
-            <div className="modal-img-gradient" />
-            <button className="modal-close-btn" onClick={onClose}>×</button>
-          </div>
-          <div className="modal-body">
-            <div className="modal-accent-bar" />
-            <p className="modal-eyebrow">Role Details</p>
-            <h3 className="modal-title">{role.name}</h3>
-            <p className="modal-desc">{role.description}</p>
-            <div className="modal-actions">
-              {isTraining ? (
-                <a
-                  href="/contact"
-                  className="modal-cta-btn"
-                  style={{ textDecoration: "none", textAlign: "center" }}
-                  onClick={onClose}
-                >
-                  Contact Us
-                </a>
-              ) : (
-                <button className="modal-cta-btn" onClick={handleHireClick}>
-                  Hire Staff
-                </button>
-              )}
-              <button className="modal-dismiss-btn" onClick={onClose}>
-                Close
-              </button>
-            </div>
+    <div className="svc-modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-img-wrap">
+          <img src={role.image} alt={role.name} className="modal-img" />
+          <div className="modal-img-gradient" />
+          <button className="modal-close-btn" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="modal-accent-bar" />
+          <p className="modal-eyebrow">Role Details</p>
+          <h3 className="modal-title">{role.name}</h3>
+          <p className="modal-desc">{role.description}</p>
+          <div className="modal-actions">
+            {isTraining ? (
+              <a
+                href="/contact"
+                className="modal-cta-btn"
+                style={{ textDecoration: "none", textAlign: "center" }}
+                onClick={onClose}
+              >
+                Contact Us
+              </a>
+            ) : (
+              <HireStaffButton user={user} />
+            )}
+            <button className="modal-dismiss-btn" onClick={onClose}>
+              Close
+            </button>
           </div>
         </div>
       </div>
-      {hireOpen && <HireStaffModal onClose={() => setHireOpen(false)} />}
-    </>
+    </div>
   );
 }
 
@@ -1590,16 +1572,15 @@ function TrainingSummary({ subcategories }) {
 }
 
 // ─── ACCORDION SUBCATEGORY ────────────────────────────────────────────────────
-function AccordionSubcategory({ sub, onLearnMore, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
+function AccordionSubcategory({ sub, onLearnMore, isOpen, onToggle }) {
   const bodyRef = useRef(null);
 
   return (
-    <div className={`accordion-item${open ? " accordion-item--open" : ""}`}>
+    <div className={`accordion-item${isOpen ? " accordion-item--open" : ""}`}>
       <button
         className="accordion-trigger"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
+        onClick={onToggle}
+        aria-expanded={isOpen}
       >
         <div className="accordion-trigger-left">
           <div className="accordion-trigger-icon">
@@ -1662,7 +1643,10 @@ function CategoryHeader({ service, isTraining }) {
 // ─── SERVICE SECTION ──────────────────────────────────────────────────────────
 function ServiceSection({ service, user }) {
   const [activeRole, setActiveRole] = useState(null);
+  const [openIndex, setOpenIndex] = useState(null);
   const isTraining = service.id === "training";
+
+  const handleToggle = (i) => setOpenIndex((prev) => (prev === i ? null : i));
 
   return (
     <section id={service.id} className="service-section">
@@ -1677,7 +1661,8 @@ function ServiceSection({ service, user }) {
                 key={si}
                 sub={sub}
                 onLearnMore={setActiveRole}
-                defaultOpen={false}
+                isOpen={openIndex === si}
+                onToggle={() => handleToggle(si)}
               />
             ))}
           </div>
@@ -1766,7 +1751,7 @@ function StatsStrip() {
   const stats = [
     { label: "Service Categories", value: "4", sub: "Training · Domestic · Corporate · Artisans" },
     { label: "Roles Available", value: "50+", sub: "Across all service categories" },
-    { label: "Years of Excellence", value: "10+", sub: "Trusted by homes & businesses" },
+    { label: "Years of Excellence", value: "3+", sub: "Trusted by homes & businesses" },
   ];
   return (
     <div className="stats-strip">

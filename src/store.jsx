@@ -1,6 +1,5 @@
 import { createContext, useContext, useReducer } from "react";
 
-
 function defaultState() {
   return {
     requests:        [],
@@ -32,22 +31,20 @@ function loadState() {
       replies: m.replies ?? [],
     }));
 
-    // ── FIX: requests and registeredUsers are now persisted locally so they
-    //         survive a page refresh even before the backend sync completes.
     return {
       ...defaultState(),
       staff:           saved.staff           ?? [],
       blog:            saved.blog            ?? [],
       testimonials:    saved.testimonials    ?? [],
       messages:        savedMessages,
-      requests:        saved.requests        ?? [],   // ← restored (was always [])
-      registeredUsers: saved.registeredUsers ?? [],   // ← restored (was always [])
+      requests:        saved.requests        ?? [],
+      registeredUsers: saved.registeredUsers ?? [],
       nextReqId:       saved.nextReqId       ?? 1,
       nextStaffId:     saved.nextStaffId     ?? 1,
       nextBlogId:      saved.nextBlogId      ?? 1,
       nextTestiId:     saved.nextTestiId     ?? 1,
       nextMsgId:       saved.nextMsgId       ?? 1,
-      lastSyncedAt:    null,                          // always re-sync on mount
+      lastSyncedAt:    null,
     };
   } catch {
     return defaultState();
@@ -61,8 +58,8 @@ function persistState(state) {
       blog:            state.blog,
       testimonials:    state.testimonials,
       messages:        state.messages,
-      requests:        state.requests,        // ── FIX: persist requests
-      registeredUsers: state.registeredUsers, // ── FIX: persist registered users
+      requests:        state.requests,
+      registeredUsers: state.registeredUsers,
       nextReqId:       state.nextReqId,
       nextStaffId:     state.nextStaffId,
       nextBlogId:      state.nextBlogId,
@@ -84,8 +81,8 @@ export function normaliseRequest(raw) {
 
   const clientType =
     raw.clientType ??
-    (Object.keys(cd).length  ? "Organisation" :
-     Object.keys(pd).length  ? "Private"      : "Unknown");
+    (Object.keys(cd).length ? "Organisation" :
+     Object.keys(pd).length ? "Private"      : "Unknown");
 
   const isOrg = clientType === "Organisation";
 
@@ -121,9 +118,6 @@ export function normaliseRequest(raw) {
     };
   });
 
-  const rawStatus = raw.status ?? "Pending";
-  const status = rawStatus;
-
   const reviews = (raw.reviews ?? []).map((rv) => ({
     rating:        rv.rating  ?? rv.stars  ?? 0,
     comment:       rv.comment ?? rv.review ?? rv.text ?? "",
@@ -135,19 +129,22 @@ export function normaliseRequest(raw) {
   const assignedStaff = (raw.assignedStaff ?? raw.assignedTo ?? []).map((s) =>
     typeof s === "string"
       ? { id: s, name: s }
-      : { id: s._id ?? s.id, name: s.name ?? s.fullName ?? s.staffName ?? "" }
+      : { id: String(s._id ?? s.id), name: s.name ?? s.fullName ?? s.staffName ?? "" }
   );
 
+  // ── FIX: always use MongoDB _id as string for both id and backendId ──
+  const mongoId = String(raw._id ?? raw.id ?? "");
+
   return {
-    id:            raw._id ?? raw.id,
-    backendId:     raw._id ?? raw.id,
+    id:            mongoId,
+    backendId:     mongoId,
     clientType,
     clientName,
     email,
     phone,
     location,
     roles,
-    status,
+    status:        raw.status ?? "Pending",
     startDate:     raw.startDate  ?? raw.start        ?? raw.startingDate ?? "",
     endDate:       raw.endDate    ?? raw.end           ?? raw.endingDate   ?? "",
     assignedStaff,
@@ -157,8 +154,9 @@ export function normaliseRequest(raw) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // normaliseUser
-
+// ─────────────────────────────────────────────────────────────────────────────
 export function normaliseUser(u) {
   if (!u || typeof u !== "object") return null;
 
@@ -173,7 +171,7 @@ export function normaliseUser(u) {
   }
 
   return {
-    id:           u._id         ?? u.id,
+    id:           String(u._id ?? u.id ?? ""),
     surname,
     otherNames,
     email:        u.email       ?? "",
@@ -183,9 +181,9 @@ export function normaliseUser(u) {
   };
 }
 
-
+// ─────────────────────────────────────────────────────────────────────────────
 // normaliseStaffProfile
-
+// ─────────────────────────────────────────────────────────────────────────────
 export function normaliseStaffProfile(s) {
   if (!s || typeof s !== "object") return null;
 
@@ -203,8 +201,11 @@ export function normaliseStaffProfile(s) {
     submittedAt: r.submittedAt ?? r.createdAt ?? new Date().toISOString(),
   }));
 
+  // ── FIX: always use MongoDB _id as string ──
+  const mongoId = String(s._id ?? s.id ?? "");
+
   return {
-    id:            s._id          ?? s.id,
+    id:            mongoId,
     name,
     role:          s.primarySkills ?? s.role ?? s.primaryRole ?? s.title ?? "",
     phone:         user.phoneNumber ?? user.phone ?? s.phone ?? s.phoneNo ?? "",
@@ -227,9 +228,9 @@ export function normaliseStaffProfile(s) {
   };
 }
 
-
+// ─────────────────────────────────────────────────────────────────────────────
 // normaliseStaff
-
+// ─────────────────────────────────────────────────────────────────────────────
 export function normaliseStaff(s) {
   if (!s || typeof s !== "object") return null;
 
@@ -244,8 +245,11 @@ export function normaliseStaff(s) {
     submittedAt: r.submittedAt ?? r.createdAt ?? new Date().toISOString(),
   }));
 
+  // ── FIX: always use MongoDB _id as string ──
+  const mongoId = String(s._id ?? s.id ?? "");
+
   return {
-    id:            s._id          ?? s.id,
+    id:            mongoId,
     name,
     role:          s.role         ?? s.primaryRole ?? s.skillSet ?? s.title ?? s.position ?? "",
     phone:         s.phone        ?? s.phoneNumber  ?? s.phoneNo  ?? "",
@@ -263,9 +267,9 @@ export function normaliseStaff(s) {
   };
 }
 
-
+// ─────────────────────────────────────────────────────────────────────────────
 // normaliseMessage
-
+// ─────────────────────────────────────────────────────────────────────────────
 export function normaliseMessage(m, idx) {
   if (!m || typeof m !== "object") return null;
   return {
@@ -285,20 +289,35 @@ export function normaliseMessage(m, idx) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// normaliseTestimonial
+// ─────────────────────────────────────────────────────────────────────────────
+export function normaliseTestimonial(t, idx) {
+  if (!t || typeof t !== "object") return null;
+  return {
+    id:      t._id     ?? t.id      ?? `testi-${idx}`,
+    name:    t.name    ?? t.author  ?? t.clientName ?? "",
+    role:    t.role    ?? t.title   ?? t.position   ?? t.company ?? "",
+    text:    t.text    ?? t.testimonial ?? t.review ?? t.content ?? t.body ?? "",
+    image:   t.image   ?? t.photo   ?? t.avatar     ?? t.imageUrl
+             ?? t.photoUrl ?? t.picture ?? t.img    ?? "",
+    rating:  typeof t.rating === "number" ? t.rating : Number(t.rating ?? t.stars ?? 5),
+    visible: t.visible ?? t.isVisible ?? t.active   ?? true,
+  };
+}
 
+// ─────────────────────────────────────────────────────────────────────────────
 // parseMasterMarketplace
-
+// ─────────────────────────────────────────────────────────────────────────────
 export function parseMasterMarketplace(raw) {
   if (!raw || typeof raw !== "object") {
     return { registeredUsers: [], requests: [], messages: [], staff: [], testimonials: [], blog: [] };
   }
 
-  // Unwrap common envelope wrappers
   const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
 
-  // ── FIX: replaced process?.env?.NODE_ENV with import.meta.env?.MODE ────────
   if (typeof window !== "undefined" && import.meta.env?.MODE !== "production") {
-    console.group("🛰  [mastermarketplace] raw response");
+    console.group("🛰  [parseMasterMarketplace] raw response");
     console.log("Top-level keys:", Object.keys(root));
     Object.entries(root).forEach(([k, v]) => {
       console.log(
@@ -312,18 +331,18 @@ export function parseMasterMarketplace(raw) {
     console.groupEnd();
   }
 
-  // 1. Registered users  ← backend key "users"
+  // 1. Registered users
   const rawUsers = Array.isArray(root.users)
     ? root.users
     : Array.isArray(root.registeredUsers) ? root.registeredUsers : [];
 
-  // 2. Client requests  ← backend key "staff" (confusingly named on the backend)
+  // 2. Client requests — backend key "staff" (confusingly named)
   const rawRequests = Array.isArray(root.staff)
     ? root.staff
     : Array.isArray(root.requests)      ? root.requests
     : Array.isArray(root.staffRequests) ? root.staffRequests : [];
 
-  // 3. Staff / job-seeker profiles  ← backend key "profile"
+  // 3. Staff/job-seeker profiles — backend key "profile"
   const rawStaff = Array.isArray(root.profile)
     ? root.profile
     : Array.isArray(root.profiles)     ? root.profiles
@@ -335,17 +354,27 @@ export function parseMasterMarketplace(raw) {
     : Array.isArray(root.contacts)  ? root.contacts
     : Array.isArray(root.enquiries) ? root.enquiries : [];
 
+  // 5. Testimonials
+  const rawTestimonials = Array.isArray(root.testimonials) ? root.testimonials : [];
+
   const registeredUsers = rawUsers.map(normaliseUser).filter(Boolean);
   const requests        = rawRequests.map(normaliseRequest).filter(Boolean);
   const staff           = rawStaff.map(normaliseStaffProfile).filter(Boolean);
   const messages        = rawMessages.map((m, i) => normaliseMessage(m, i)).filter(Boolean);
+  const testimonials    = rawTestimonials.map((t, i) => normaliseTestimonial(t, i)).filter(Boolean);
 
-  // ── FIX: replaced process?.env?.NODE_ENV with import.meta.env?.MODE ────────
   if (typeof window !== "undefined" && import.meta.env?.MODE !== "production") {
     console.log(
       `✅ [store] Parsed → registeredUsers:${registeredUsers.length}` +
-      ` requests:${requests.length} staff:${staff.length} messages:${messages.length}`
+      ` requests:${requests.length} staff:${staff.length}` +
+      ` messages:${messages.length} testimonials:${testimonials.length}`
     );
+    if (requests.length > 0) {
+      console.log("Sample request id/backendId:", requests[0].id, requests[0].backendId);
+    }
+    if (staff.length > 0) {
+      console.log("Sample staff id:", staff[0].id, staff[0].name);
+    }
   }
 
   return {
@@ -353,8 +382,8 @@ export function parseMasterMarketplace(raw) {
     requests,
     staff,
     messages,
-    testimonials: Array.isArray(root.testimonials) ? root.testimonials : [],
-    blog:         Array.isArray(root.blog)         ? root.blog         : [],
+    testimonials,
+    blog: Array.isArray(root.blog) ? root.blog : [],
   };
 }
 
@@ -367,8 +396,8 @@ export function buildRequestPayload(apiPayload, apiResponse) {
   }
   const isOrg = apiPayload.clientType === "Organisation";
   return {
-    id:            apiResponse?.id  ?? Date.now(),
-    backendId:     apiResponse?._id ?? null,
+    id:            String(apiResponse?._id ?? apiResponse?.id ?? Date.now()),
+    backendId:     String(apiResponse?._id ?? ""),
     clientType:    apiPayload.clientType,
     clientName:    isOrg
                      ? apiPayload.companyDetails?.companyName
@@ -412,8 +441,8 @@ function reducer(state, action) {
         if (!local) return r;
         return {
           ...r,
-          reviews:  local.reviews?.length ? local.reviews  : r.reviews,
-          reviewed: local.reviewed        ? local.reviewed : r.reviewed,
+          reviews:  local.reviews?.length  ? local.reviews  : r.reviews,
+          reviewed: local.reviewed         ? local.reviewed : r.reviewed,
         };
       });
       const backendReqIds = new Set(requests.map((r) => String(r.id)));
@@ -452,13 +481,26 @@ function reducer(state, action) {
       const localStaffIds = new Set(state.staff.map((s) => String(s.id)));
       const brandNewStaff = staff.filter((s) => !localStaffIds.has(String(s.id)));
 
+      const incomingTestis = Array.isArray(testimonials) && testimonials.length
+        ? testimonials
+        : null;
+
+      let mergedTestis = state.testimonials;
+      if (incomingTestis) {
+        const backendTestiIds = new Set(incomingTestis.map((t) => String(t.id)));
+        const localOnlyTestis = state.testimonials.filter(
+          (t) => !backendTestiIds.has(String(t.id))
+        );
+        mergedTestis = [...incomingTestis, ...localOnlyTestis];
+      }
+
       next = {
         ...state,
         requests:        [...mergedRequests, ...localOnlyReqs],
         registeredUsers: [...registeredUsers, ...localOnlyUsers],
         messages:        [...mergedMessages, ...localOnlyMsgs],
         staff:           [...mergedStaff, ...brandNewStaff],
-        ...(Array.isArray(testimonials) && testimonials.length ? { testimonials } : {}),
+        testimonials:    mergedTestis,
         ...(Array.isArray(blog) && blog.length ? { blog } : {}),
         lastSyncedAt: new Date().toISOString(),
       };
@@ -615,18 +657,19 @@ function reducer(state, action) {
     case "ASSIGN_STAFF": {
       const { reqId, assignedStaff } = action;
       const req     = state.requests.find((r) => String(r.id) === String(reqId));
-      const prevIds = req?.assignedStaff?.map((s) => s.id) ?? [];
-      const newIds  = assignedStaff.map((s) => s.id);
+      const prevIds = req?.assignedStaff?.map((s) => String(s.id)) ?? [];
+      const newIds  = assignedStaff.map((s) => String(s.id));
       next = {
         ...state,
         requests: state.requests.map((r) =>
           String(r.id) === String(reqId) ? { ...r, assignedStaff } : r
         ),
         staff: state.staff.map((s) => {
-          if (prevIds.includes(s.id) && !newIds.includes(s.id))
+          const sid = String(s.id);
+          if (prevIds.includes(sid) && !newIds.includes(sid))
             return { ...s, status: "Available", currentJobId: null };
-          if (!prevIds.includes(s.id) && newIds.includes(s.id))
-            return { ...s, status: "Active", currentJobId: Number(reqId) };
+          if (!prevIds.includes(sid) && newIds.includes(sid))
+            return { ...s, status: "Active", currentJobId: String(reqId) };
           return s;
         }),
       };
@@ -637,10 +680,15 @@ function reducer(state, action) {
       const { reqId, staffId, rating, comment } = action;
       const review = { rating, comment, submittedAt: new Date().toISOString(), reviewedReqId: reqId };
       const updatedStaff = state.staff.map((s) => {
-        if (s.id !== staffId) return s;
+        if (String(s.id) !== String(staffId)) return s;
         const allReviews = [...(s.reviews || []), review];
         const avg = allReviews.reduce((sum, rv) => sum + rv.rating, 0) / allReviews.length;
-        return { ...s, reviews: allReviews, averageRating: Math.round(avg * 10) / 10, totalReviews: allReviews.length };
+        return {
+          ...s,
+          reviews:       allReviews,
+          averageRating: Math.round(avg * 10) / 10,
+          totalReviews:  allReviews.length,
+        };
       });
       next = {
         ...state,
@@ -674,6 +722,7 @@ function reducer(state, action) {
       };
       break;
     }
+
     case "UPDATE_STAFF": {
       next = {
         ...state,
@@ -683,6 +732,7 @@ function reducer(state, action) {
       };
       break;
     }
+
     case "REMOVE_STAFF": {
       next = { ...state, staff: state.staff.filter((s) => String(s.id) !== String(action.id)) };
       break;
@@ -696,6 +746,7 @@ function reducer(state, action) {
       };
       break;
     }
+
     case "UPDATE_BLOG": {
       next = {
         ...state,
@@ -705,6 +756,7 @@ function reducer(state, action) {
       };
       break;
     }
+
     case "DELETE_BLOG": {
       next = { ...state, blog: state.blog.filter((p) => p.id !== action.id) };
       break;
@@ -722,11 +774,20 @@ function reducer(state, action) {
       }
       next = {
         ...state,
-        testimonials: [...state.testimonials, { visible: true, ...action.payload, id }],
-        nextTestiId:  state.nextTestiId + 1,
+        testimonials: [
+          ...state.testimonials,
+          {
+            visible: true,
+            image:   "",
+            ...action.payload,
+            id,
+          },
+        ],
+        nextTestiId: state.nextTestiId + 1,
       };
       break;
     }
+
     case "UPDATE_TESTI": {
       next = {
         ...state,
@@ -736,6 +797,7 @@ function reducer(state, action) {
       };
       break;
     }
+
     case "DELETE_TESTI": {
       next = { ...state, testimonials: state.testimonials.filter((t) => t.id !== action.id) };
       break;
@@ -750,10 +812,11 @@ function reducer(state, action) {
       };
       break;
     }
+
     case "ADD_MSG": {
       next = {
         ...state,
-        messages:  [
+        messages: [
           ...state.messages,
           { ...action.payload, id: state.nextMsgId, read: false, time: "Just now", replies: [] },
         ],
@@ -761,6 +824,7 @@ function reducer(state, action) {
       };
       break;
     }
+
     case "REPLY_MSG": {
       next = {
         ...state,
@@ -805,7 +869,7 @@ export function useStore() {
   return ctx;
 }
 
-// ─── Profile helpers ── //
+// ─── Profile helpers ──────────────────────────────────────────────────────────
 const PROFILE_KEY = "rnh_profile_v1";
 export function loadProfile() {
   try {

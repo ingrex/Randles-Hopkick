@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiStaffRequest } from "../api/auth";
+import { apiStaffProfile } from "../api/auth";
 import { useAuth } from "../pages/AuthContext";
 
 /* ─── date option arrays ─────────────────────────────────────── */
@@ -69,9 +69,7 @@ const iRest = mkInput(); const iFocus = mkFocus(); const iErr = mkErr();
 const sRest = mkInput(SEL_EXTRA); const sFocus = mkFocus(SEL_EXTRA); const sErr = mkErr(SEL_EXTRA);
 const tRest = mkInput({ resize:"none" }); const tFocus = mkFocus({ resize:"none" }); const tErr = mkErr({ resize:"none" });
 
-const LBL_ST = { display:"block", fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:".14em", color:"rgba(195,222,255,.78)", marginBottom:6, fontFamily:FONT };
 const ERR_ST = { display:"block", fontSize:11, color:"rgba(252,165,165,.95)", marginTop:4, fontFamily:FONT, animation:"fadeUp .22s ease" };
-const LOCKED_LABEL_ST = { ...LBL_ST, color:"rgba(195,222,255,.38)" };
 
 /* ─── validation ─────────────────────────────────────────────── */
 const isReq = (v) => {
@@ -103,15 +101,19 @@ function validate(form, keys) {
 
 /* ═══════════════════════ FIELD COMPONENTS ══════════════════════ */
 
-function InputField({ label, value, onChange, placeholder, type="text", err, req:r }) {
+function InputField({ label, value, onChange, type="text", err, req: r }) {
   const [f, setF] = useState(false);
+  const placeholder = `${label}${r ? " *" : ""}`;
   return (
     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-      <label style={LBL_ST}>{label}{r && <span style={{color:SKY[300]}}> *</span>}</label>
       <input
         style={err ? iErr : f ? iFocus : iRest}
-        type={type} placeholder={placeholder} value={value} onChange={onChange}
-        onFocus={()=>setF(true)} onBlur={()=>setF(false)}
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        onFocus={()=>setF(true)}
+        onBlur={()=>setF(false)}
       />
       {err && <span style={ERR_ST}>{err}</span>}
     </div>
@@ -121,24 +123,31 @@ function InputField({ label, value, onChange, placeholder, type="text", err, req
 function LockedField({ label, value }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-      <label style={LOCKED_LABEL_ST}>{label}</label>
-      <input style={mkLocked()} value={value} readOnly tabIndex={-1} />
+      <input
+        style={mkLocked()}
+        placeholder={label}
+        value={value}
+        readOnly
+        tabIndex={-1}
+      />
     </div>
   );
 }
 
-function SelectField({ label, value, onChange, opts, placeholder, err, req:r }) {
+function SelectField({ label, value, onChange, opts, err, req: r }) {
   const [f, setF] = useState(false);
+  const placeholder = `${label}${r ? " *" : ""}`;
   return (
     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-      <label style={LBL_ST}>{label}{r && <span style={{color:SKY[300]}}> *</span>}</label>
       <div style={{ position:"relative", minWidth:0 }}>
         <select
           style={err ? sErr : f ? sFocus : sRest}
-          value={value} onChange={onChange}
-          onFocus={()=>setF(true)} onBlur={()=>setF(false)}
+          value={value}
+          onChange={onChange}
+          onFocus={()=>setF(true)}
+          onBlur={()=>setF(false)}
         >
-          <option value="">{placeholder || "Select…"}</option>
+          <option value="">{placeholder}</option>
           {opts.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
         <span style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
@@ -154,8 +163,10 @@ function DOBSelect({ value, onChange, placeholder, opts, hasErr }) {
     <div style={{ position:"relative", minWidth:0 }}>
       <select
         style={hasErr ? sErr : f ? sFocus : sRest}
-        value={value} onChange={onChange}
-        onFocus={()=>setF(true)} onBlur={()=>setF(false)}
+        value={value}
+        onChange={onChange}
+        onFocus={()=>setF(true)}
+        onBlur={()=>setF(false)}
       >
         <option value="">{placeholder}</option>
         {opts.map(o => <option key={o} value={o}>{o}</option>)}
@@ -165,15 +176,19 @@ function DOBSelect({ value, onChange, placeholder, opts, hasErr }) {
   );
 }
 
-function TextareaField({ label, value, onChange, placeholder, err, req:r, rows=4 }) {
+function TextareaField({ label, value, onChange, err, req: r, rows=4 }) {
   const [f, setF] = useState(false);
+  const placeholder = `${label}${r ? " *" : ""}`;
   return (
     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-      <label style={LBL_ST}>{label}{r && <span style={{color:SKY[300]}}> *</span>}</label>
       <textarea
         style={err ? tErr : f ? tFocus : tRest}
-        rows={rows} placeholder={placeholder} value={value} onChange={onChange}
-        onFocus={()=>setF(true)} onBlur={()=>setF(false)}
+        rows={rows}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        onFocus={()=>setF(true)}
+        onBlur={()=>setF(false)}
       />
       {err && <span style={ERR_ST}>{err}</span>}
     </div>
@@ -183,9 +198,11 @@ function TextareaField({ label, value, onChange, placeholder, err, req:r, rows=4
 function GenderToggle({ value, onChange, err }) {
   return (
     <div style={{ display:"flex", flexDirection:"column" }}>
-      <label style={LBL_ST}>Gender<span style={{color:SKY[300]}}> *</span></label>
       <div style={{ display:"flex", gap:10 }}>
-        {["Male","Female"].map(g => <GenderBtn key={g} label={g} active={value===g} onClick={()=>onChange(g)} />)}
+        {["Male *","Female *"].map(g => {
+          const bare = g.replace(" *","");
+          return <GenderBtn key={bare} label={g} active={value===bare} onClick={()=>onChange(bare)} />;
+        })}
       </div>
       {err && <span style={ERR_ST}>{err}</span>}
     </div>
@@ -211,7 +228,6 @@ function GenderBtn({ label, active, onClick }) {
   );
 }
 
-/* ─── Checkbox component ─────────────────────────────────────── */
 function StyledCheckbox({ checked, onToggle, label }) {
   return (
     <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer" }}>
@@ -276,11 +292,6 @@ function AdditionalSkillsPicker({ value, onChange, err }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-      <label style={LBL_ST}>
-        Additional Skills<span style={{color:SKY[300]}}> *</span>
-      </label>
-
-      {/* Tag chips */}
       {value.length > 0 && (
         <div style={{
           display:"flex", flexWrap:"wrap", gap:7, marginBottom:10,
@@ -315,7 +326,6 @@ function AdditionalSkillsPicker({ value, onChange, err }) {
         </div>
       )}
 
-      {/* Dropdown */}
       <div style={{ position:"relative", minWidth:0, marginBottom:8 }}>
         <select
           style={err && value.length===0 ? sErr : dropFocus ? sFocus : sRest}
@@ -324,7 +334,7 @@ function AdditionalSkillsPicker({ value, onChange, err }) {
           onFocus={()=>setDropFocus(true)}
           onBlur={()=>setDropFocus(false)}
         >
-          <option value="">Select a skill to add…</option>
+          <option value="">Additional Skills *</option>
           {ADDITIONAL_SKILL_OPTIONS.filter(o => !value.includes(o)).map(o => (
             <option key={o} value={o}>{o}</option>
           ))}
@@ -332,7 +342,6 @@ function AdditionalSkillsPicker({ value, onChange, err }) {
         <span style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
       </div>
 
-      {/* Custom text input */}
       <div style={{ display:"flex", gap:8, minWidth:0 }}>
         <input
           style={{ ...(customFocus ? iFocus : iRest), flex:1 }}
@@ -360,6 +369,7 @@ function AdditionalSkillsPicker({ value, onChange, err }) {
     </div>
   );
 }
+
 const STEP_LABELS = ["Personal Info", "More Details", "Professional"];
 
 function Progress({ step, pct }) {
@@ -608,7 +618,6 @@ export function StaffForm({ onSubmit }) {
 
     if (step < 3) { transition(step + 1, "fwd"); return; }
 
-    // ── Guard: prevent duplicate submissions ──────────────────────
     if (user?.staffProfileSubmitted) {
       alert("This form has already been submitted. Contact admin for updates.");
       return;
@@ -645,11 +654,13 @@ export function StaffForm({ onSubmit }) {
         agreedToPolicy:           form.agreed,
       };
 
-      await apiStaffRequest(payload);
+      // ── Uses /profile endpoint (staff job application) ──
+      await apiStaffProfile(payload);
+
       localStorage.removeItem("staffRequestDraft");
       setDone(true);
     } catch (err) {
-      console.error("Staff request error:", err.message);
+      console.error("Staff profile submission error:", err.message);
       alert(err.message || "Submission failed. Please try again.");
     } finally {
       setLoading(false);
@@ -714,6 +725,7 @@ export function StaffForm({ onSubmit }) {
 
         <div key={animKey} style={stepAnim}>
 
+          {/* ── Step 1: Personal Info ── */}
           {step===1 && (
             <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
               <LockedField label="Surname"       value={form.surname}   />
@@ -722,7 +734,6 @@ export function StaffForm({ onSubmit }) {
               <LockedField label="Phone Number"  value={form.phone}     />
 
               <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-                <label style={LBL_ST}>Country<span style={{color:SKY[300]}}> *</span></label>
                 <div style={{ position:"relative", minWidth:0 }}>
                   <select
                     style={errs.country ? sErr : sRest}
@@ -730,7 +741,7 @@ export function StaffForm({ onSubmit }) {
                     onChange={set("country")}
                     disabled={countriesLoad}
                   >
-                    <option value="">{countriesLoad ? "Loading countries…" : "Select country"}</option>
+                    <option value="">{countriesLoad ? "Loading countries…" : "Country *"}</option>
                     {countries.map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
@@ -742,22 +753,25 @@ export function StaffForm({ onSubmit }) {
                 {errs.country && <span style={ERR_ST}>{errs.country}</span>}
               </div>
 
-              <InputField label="Home Address" value={form.address} onChange={set("address")} placeholder="City, State, Country" err={errs.address} req/>
+              <InputField label="Home Address" value={form.address} onChange={set("address")} err={errs.address} req />
             </div>
           )}
 
+          {/* ── Step 2: More Details ── */}
           {step===2 && (
             <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-              <SelectField label="Marital Status" value={form.maritalStatus} onChange={set("maritalStatus")} placeholder="Select status" err={errs.maritalStatus} req
-                opts={["Single","Married","Divorced","Widowed","Separated"]}/>
-              <InputField label="Language Skill" value={form.language} onChange={set("language")} placeholder="e.g. English, Yoruba" err={errs.language} req/>
+              <SelectField
+                label="Marital Status" value={form.maritalStatus} onChange={set("maritalStatus")}
+                err={errs.maritalStatus} req
+                opts={["Single","Married","Divorced","Widowed","Separated"]}
+              />
+              <InputField label="Language Skill" value={form.language} onChange={set("language")} err={errs.language} req />
 
               <div className="ff" style={{ gridColumn:"1/-1" }}>
-                <label style={LBL_ST}>Date of Birth<span style={{color:SKY[300]}}> *</span></label>
                 <div className="dob-grid" style={{ display:"grid", gridTemplateColumns:"1fr 2fr 1fr", gap:10 }}>
-                  <DOBSelect value={form.dobDay}   onChange={set("dobDay")}   placeholder="Day"   opts={DAYS}   hasErr={!!errs.dobDay}/>
-                  <DOBSelect value={form.dobMonth} onChange={set("dobMonth")} placeholder="Month" opts={MONTHS} hasErr={!!errs.dobMonth}/>
-                  <DOBSelect value={form.dobYear}  onChange={set("dobYear")}  placeholder="Year"  opts={YEARS}  hasErr={!!errs.dobYear}/>
+                  <DOBSelect value={form.dobDay}   onChange={set("dobDay")}   placeholder="Day *"   opts={DAYS}   hasErr={!!errs.dobDay}/>
+                  <DOBSelect value={form.dobMonth} onChange={set("dobMonth")} placeholder="Month of Birth *" opts={MONTHS} hasErr={!!errs.dobMonth}/>
+                  <DOBSelect value={form.dobYear}  onChange={set("dobYear")}  placeholder="Year *"  opts={YEARS}  hasErr={!!errs.dobYear}/>
                 </div>
                 {(errs.dobDay||errs.dobMonth||errs.dobYear) && (
                   <span style={ERR_ST}>Please select your complete date of birth</span>
@@ -768,31 +782,34 @@ export function StaffForm({ onSubmit }) {
                 <GenderToggle value={form.gender} onChange={v => setForm(f => ({...f, gender:v}))} err={errs.gender}/>
               </div>
 
-              {/* ── Disabled / Internally Displaced ── */}
               <div className="ff" style={{ gridColumn:"1/-1" }}>
-                <label style={{ ...LBL_ST, marginBottom:10 }}>Status <span style={{ fontSize:9, color:"rgba(155,200,240,.4)", textTransform:"none", letterSpacing:0, fontWeight:300 }}>(optional — check all that apply)</span></label>
                 <div style={{ display:"flex", gap:24, flexWrap:"wrap" }}>
                   <StyledCheckbox
                     checked={form.disabled}
                     onToggle={() => setForm(f => ({ ...f, disabled: !f.disabled }))}
-                    label="Disabled"
+                    label="Disabled (optional)"
                   />
                   <StyledCheckbox
                     checked={form.internallyDisplaced}
                     onToggle={() => setForm(f => ({ ...f, internallyDisplaced: !f.internallyDisplaced }))}
-                    label="Internally Displaced"
+                    label="Internally Displaced (optional)"
                   />
                 </div>
               </div>
-
             </div>
           )}
 
+          {/* ── Step 3: Professional Details ── */}
           {step===3 && (
             <div className="fg" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-              <SelectField label="Primary Skill" value={form.primarySkill} onChange={set("primarySkill")} placeholder="Select skill" err={errs.primarySkill} req opts={PRIMARY_SKILL_OPTIONS}/>
-              <SelectField label="Years of Experience" value={form.yearsExp} onChange={set("yearsExp")} placeholder="Select years" err={errs.yearsExp} req
-                opts={YOE_OPTIONS}/>
+              <SelectField
+                label="Primary Skill" value={form.primarySkill} onChange={set("primarySkill")}
+                err={errs.primarySkill} req opts={PRIMARY_SKILL_OPTIONS}
+              />
+              <SelectField
+                label="Years of Experience" value={form.yearsExp} onChange={set("yearsExp")}
+                err={errs.yearsExp} req opts={YOE_OPTIONS}
+              />
 
               <div className="ff" style={{ gridColumn:"1/-1" }}>
                 <AdditionalSkillsPicker
@@ -801,17 +818,23 @@ export function StaffForm({ onSubmit }) {
                   err={errs.additionalSkills}
                 />
               </div>
+
               <div className="ff" style={{ gridColumn:"1/-1" }}>
-                <TextareaField label="Bio" value={form.bio} onChange={set("bio")} rows={3}
-                  placeholder="Brief description of your background and career goals…" err={errs.bio} req/>
+                <TextareaField
+                  label="Bio" value={form.bio} onChange={set("bio")} rows={3}
+                  err={errs.bio} req
+                />
               </div>
 
               <div className="ff" style={{ gridColumn:"1/-1" }}>
                 <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-                  <label style={LBL_ST}>Educational Qualification<span style={{color:SKY[300]}}> *</span></label>
                   <div style={{ position:"relative", minWidth:0 }}>
-                    <select style={errs.qualification ? sErr : sRest} value={form.qualification} onChange={set("qualification")}>
-                      <option value="">Select qualification</option>
+                    <select
+                      style={errs.qualification ? sErr : sRest}
+                      value={form.qualification}
+                      onChange={set("qualification")}
+                    >
+                      <option value="">Educational Qualification *</option>
                       {QUALIFICATION_OPTIONS.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
@@ -871,7 +894,6 @@ export function StaffForm({ onSubmit }) {
       </div>
 
       <div style={{ height:1, background:"linear-gradient(90deg,transparent,rgba(14,165,233,.1),transparent)" }}/>
-
     </div>
   );
 }
