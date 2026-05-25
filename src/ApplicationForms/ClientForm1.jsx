@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,7 +46,6 @@ const glassSelectStyles = {
 
 const STORAGE_KEY = "organizationFormDraft";
 
-
 const getAuthPrefill = (user) => ({
   surname:   user?.surname     || "",
   otherName: user?.otherNames  || "",
@@ -66,7 +64,7 @@ const getInitialForm = (user) => ({
 export function ClientForm1({ onSubmit }) {
   const navigate     = useNavigate();
   const { dispatch } = useStore();
-  const { user }     = useAuth(); 
+  const { user }     = useAuth();
 
   const [step,         setStep]         = useState(1);
   const [countries,    setCountries]    = useState([]);
@@ -80,8 +78,6 @@ export function ClientForm1({ onSubmit }) {
       const draft = s ? JSON.parse(s) : null;
       const base  = getInitialForm(user);
       if (draft) {
-
-      
         return {
           ...draft,
           surname:   base.surname,
@@ -95,7 +91,7 @@ export function ClientForm1({ onSubmit }) {
     }
   });
 
-  // User loads asynchronously from localStorage — sync locked fields whenever it arrives.
+  // Sync locked fields whenever user arrives from async storage
   useEffect(() => {
     if (!user) return;
     setFormData((prev) => ({
@@ -148,10 +144,12 @@ export function ClientForm1({ onSubmit }) {
     setFormData((p) => ({ ...p, employees: [...p.employees, { name: "", quantity: 1, search: "" }] }));
   };
 
+  // ── FIX: repDetails now sends surname as a separate field, not joined into name ──
   const buildPayload = () => ({
     clientType: "Organisation",
     repDetails: {
-      name:        [formData.surname.trim(), formData.otherName.trim()].filter(Boolean).join(" "),
+      surname:     formData.surname.trim(),
+      otherName:   formData.otherName.trim(),
       phoneNumber: formData.phone.trim(),
       jobRole:     formData.role.trim(),
     },
@@ -169,8 +167,9 @@ export function ClientForm1({ onSubmit }) {
     agreedToPolicy: formData.agreed,
   });
 
+  // ── FIX: guard all three steps before submitting ──
   const handleSubmit = async () => {
-    if (!isStep3Valid()) return;
+    if (!isStep1Valid() || !isStep2Valid() || !isStep3Valid()) return;
     setSubmitting(true);
     setSubmitStatus(null);
     setErrorMessage("");

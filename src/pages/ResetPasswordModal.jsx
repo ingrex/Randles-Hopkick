@@ -1,51 +1,83 @@
-// src/pages/ForgotPasswordModal.jsx
-
+// src/pages/ResetPasswordModal.jsx
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, X, Lock } from "lucide-react";
-import { apiForgotPassword } from "../api/auth";
+import { X, Lock } from "lucide-react";
+import { apiResetPassword } from "./auth";
 
-/* ───────── VALIDATION ───────── */
-function validate(email) {
-  if (!email.trim()) return "Email is required";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Invalid email address";
-  return null;
+function EyeIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
 }
 
-/* ───────── COMPONENT ───────── */
-export function ForgotPasswordModal({ isOpen, onClose }) {
-  const [email, setEmail] = useState("");
-  const [fieldError, setFieldError] = useState("");
+function EyeSlashIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="2" x2="22" y2="22" />
+      <path d="M6.71 6.71A10.94 10.94 0 0 0 1 12s4 8 11 8c2.35 0 4.47-.82 6.13-2.13" />
+      <path d="M17.47 17.47A10.94 10.94 0 0 0 23 12S19 4 12 4c-1.29 0-2.54.22-3.71.63" />
+      <path d="M9.53 9.53A3 3 0 0 0 12 15a3 3 0 0 0 2.47-1.47" />
+    </svg>
+  );
+}
+
+function validate({ password, confirmPassword }) {
+  const e = {};
+  if (!password.trim()) e.password = "Password is required";
+  else if (password.length < 6) e.password = "Min 6 characters";
+  if (!confirmPassword.trim()) e.confirmPassword = "Please confirm your password";
+  else if (password !== confirmPassword) e.confirmPassword = "Passwords do not match";
+  return e;
+}
+
+export function ResetPasswordModal({ isOpen, token, onClose, onSuccess }) {
+  const [fields, setFields] = useState({ password: "", confirmPassword: "" });
+  const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const set = (k, v) => {
+    setFields((f) => ({ ...f, [k]: v }));
+    setApiError("");
+    if (errors[k]) setErrors((e) => { const c = { ...e }; delete c[k]; return c; });
+  };
 
   const handleClose = () => {
     onClose();
     setTimeout(() => {
-      setEmail("");
-      setFieldError("");
+      setFields({ password: "", confirmPassword: "" });
+      setErrors({});
       setApiError("");
       setLoading(false);
       setDone(false);
     }, 300);
   };
 
-  const handleChange = (v) => {
-    setEmail(v);
-    setFieldError("");
-    setApiError("");
-  };
-
   const handleSubmit = async () => {
-    const err = validate(email);
-    if (err) return setFieldError(err);
+    if (!token) {
+      setApiError("Reset token is missing or invalid. Please request a new link.");
+      return;
+    }
+    const errs = validate(fields);
+    if (Object.keys(errs).length) return setErrors(errs);
 
     setLoading(true);
     setApiError("");
 
     try {
-      await apiForgotPassword({ email }); // ← uses auth.js
+      await apiResetPassword({
+        token,
+        password: fields.password,
+        confirmPassword: fields.confirmPassword,
+      });
       setDone(true);
     } catch (err) {
       setApiError(err.message || "Something went wrong. Please try again.");
@@ -54,7 +86,7 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
     }
   };
 
-  const pct = email.trim() ? 100 : 0;
+  const pct = ((!!fields.password + !!fields.confirmPassword) / 2) * 100;
 
   return (
     <AnimatePresence>
@@ -90,7 +122,7 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                 border: "1px solid rgba(255,255,255,0.18)",
               }}
             >
-              {/* CLOSE BUTTON */}
+              {/* CLOSE */}
               <button
                 onClick={handleClose}
                 className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center
@@ -121,7 +153,7 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                       className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
                       style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
                     >
-                      <span className="text-4xl">✉</span>
+                      <span className="text-4xl">✓</span>
                     </motion.div>
 
                     <motion.div
@@ -129,37 +161,17 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.25 }}
                     >
-                      <h2 className="text-2xl font-semibold mb-1 text-white">Check your inbox</h2>
-                      <p className="text-white/50 text-sm mb-3">We sent a reset link to:</p>
-                      <p
-                        className="text-sm font-medium mb-6 px-3 py-2 rounded-lg"
-                        style={{
-                          background: "rgba(35,133,205,0.15)",
-                          border: "1px solid rgba(35,133,205,0.3)",
-                          color: "#42aae8",
-                        }}
+                      <h2 className="text-2xl font-semibold mb-1 text-white">Password updated!</h2>
+                      <p className="text-white/50 text-sm mb-8">
+                        Your password has been reset successfully. You can now sign in.
+                      </p>
+                      <button
+                        onClick={() => { handleClose(); onSuccess?.(); }}
+                        className="w-full py-3 rounded-xl font-medium transition-opacity hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
                       >
-                        {email}
-                      </p>
-                      <p className="text-white/40 text-xs mb-6">
-                        Didn't receive it? Check your spam or try again below.
-                      </p>
-
-                      <div className="flex flex-col gap-3">
-                        <button
-                          onClick={() => { setDone(false); setEmail(""); }}
-                          className="w-full py-3 rounded-xl font-medium transition-opacity hover:opacity-90"
-                          style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
-                        >
-                          Try another email
-                        </button>
-                        <button
-                          onClick={handleClose}
-                          className="w-full py-3 rounded-xl font-medium bg-white/10 hover:bg-white/20 transition-colors text-white"
-                        >
-                          Back to Sign In
-                        </button>
-                      </div>
+                        Go to Sign In →
+                      </button>
                     </motion.div>
                   </motion.div>
 
@@ -172,7 +184,7 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 30 }}
                   >
-                    {/* PROGRESS BAR */}
+                    {/* PROGRESS */}
                     <div className="h-1 bg-white/10 rounded mb-6">
                       <div
                         className="h-full rounded transition-all duration-300"
@@ -182,15 +194,6 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                         }}
                       />
                     </div>
-
-                    {/* BACK LINK */}
-                    <button
-                      onClick={handleClose}
-                      className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/80 transition-colors mb-5"
-                    >
-                      <ArrowLeft size={13} />
-                      Back to Sign In
-                    </button>
 
                     {/* ICON */}
                     <div
@@ -203,9 +206,9 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                       <Lock size={22} color="#42aae8" />
                     </div>
 
-                    <h2 className="text-xl mb-1 text-white">Forgot password?</h2>
+                    <h2 className="text-xl mb-1 text-white">Reset your password</h2>
                     <p className="text-sm text-white/50 mb-6">
-                      Enter your email and we'll send you a reset link.
+                      Choose a new password for your account.
                     </p>
 
                     {apiError && (
@@ -214,18 +217,45 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                       </div>
                     )}
 
-                    {/* EMAIL */}
-                    <div className="mb-5">
+                    {/* NEW PASSWORD */}
+                    <div className="mb-4 relative">
                       <input
-                        type="email"
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => handleChange(e.target.value)}
+                        type={showPass ? "text" : "password"}
+                        placeholder="New password"
+                        value={fields.password}
+                        onChange={(e) => set("password", e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 outline-none focus:border-[#2385cd] text-white placeholder-white/30"
+                        className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 outline-none focus:border-[#2385cd] text-white placeholder-white/30 pr-11"
                       />
-                      {fieldError && (
-                        <p className="text-red-400 text-xs mt-1">{fieldError}</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowPass((s) => !s)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                      >
+                        {showPass ? <EyeSlashIcon /> : <EyeIcon />}
+                      </button>
+                      {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
+                    </div>
+
+                    {/* CONFIRM PASSWORD */}
+                    <div className="mb-6 relative">
+                      <input
+                        type={showConfirm ? "text" : "password"}
+                        placeholder="Confirm new password"
+                        value={fields.confirmPassword}
+                        onChange={(e) => set("confirmPassword", e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                        className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 outline-none focus:border-[#2385cd] text-white placeholder-white/30 pr-11"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm((s) => !s)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                      >
+                        {showConfirm ? <EyeSlashIcon /> : <EyeIcon />}
+                      </button>
+                      {errors.confirmPassword && (
+                        <p className="text-red-400 text-xs mt-1">{errors.confirmPassword}</p>
                       )}
                     </div>
 
@@ -233,22 +263,11 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
                     <button
                       onClick={handleSubmit}
                       disabled={loading}
-                      className="w-full py-3 rounded-xl disabled:opacity-60 transition-opacity hover:opacity-90 mb-4 font-medium"
+                      className="w-full py-3 rounded-xl disabled:opacity-60 transition-opacity hover:opacity-90 font-medium"
                       style={{ background: "linear-gradient(135deg, #1a6dbd, #2385cd, #42aae8)" }}
                     >
-                      {loading ? "Sending link…" : "Send Reset Link →"}
+                      {loading ? "Updating password…" : "Update Password →"}
                     </button>
-
-                    <p className="text-center text-sm text-white/50">
-                      Remember your password?{" "}
-                      <button
-                        onClick={handleClose}
-                        style={{ color: "#42aae8" }}
-                        className="hover:underline"
-                      >
-                        Sign in
-                      </button>
-                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -260,4 +279,4 @@ export function ForgotPasswordModal({ isOpen, onClose }) {
   );
 }
 
-export default ForgotPasswordModal;
+export default ResetPasswordModal;

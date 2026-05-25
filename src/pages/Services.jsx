@@ -1062,7 +1062,7 @@ const RAW_CSS = `
 // Build the final scoped CSS
 const SCOPED_CSS = scopeCSS(RAW_CSS, ".svc");
 
-// ─── CAROUSEL IMAGES ──────────────────────────────────────────────────────────
+// ─── CAROUSEL IMAGES ── //
 const CAROUSEL = [
   "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=1920&q=80",
   "https://res.cloudinary.com/dotvnclej/image/upload/v1779329731/Randle_and_Hop_zjxjyc.png",
@@ -1070,14 +1070,14 @@ const CAROUSEL = [
   "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80",
 ];
 
-// ─── SERVICE DATA ─────────────────────────────────────────────────────────────
+// ─── SERVICE DATA ── //
 const serviceData = [
   {
     id: "training",
     title: "Staff Training Services",
     shortTitle: "Training",
     description:
-      "We equip both domestic and corporate staff with the skills, discipline and professionalism required to excel in their roles — through structured, practical and results-driven training programmes.",
+      "We equip both domestic and corporate staff with the skills, discipline and professionalism required to excel in their roles; through structured, practical and results-driven training programmes.",
     categoryImage:
       "https://res.cloudinary.com/dotvnclej/image/upload/v1779330590/Staff_Training_psn24e.png",
     subcategories: [

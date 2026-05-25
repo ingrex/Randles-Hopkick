@@ -1,7 +1,13 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// auth.js  —  API layer for Randle & Hopkick
+// ─────────────────────────────────────────────────────────────────────────────
+
 const BASE_URL = "https://randnhop.onrender.com";
 const API      = `${BASE_URL}/api/v1`;
 
-// ── Internal request helper 
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal request helper
+// ─────────────────────────────────────────────────────────────────────────────
 async function request(path, options = {}) {
   const res = await fetch(`${API}${path}`, {
     headers: {
@@ -13,132 +19,171 @@ async function request(path, options = {}) {
 
   const text = await res.text();
 
-  // ── DEBUG ──────────────────────────────────────────────────────────────────
   console.log(`[auth.js] ${options.method ?? "GET"} ${path}`);
   console.log(`[auth.js] Status:`, res.status, res.statusText);
-  console.log(`[auth.js] Raw response text:`, text);
-  // ──────────────────────────────────────────────────────────────────────────
+  console.log(`[auth.js] Raw response:`, text?.slice(0, 400));
 
-  const data = text ? JSON.parse(text) : {};
-
-  console.log(`[auth.js] Parsed response object:`, data);
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { message: text };
+  }
 
   if (!res.ok) {
-    throw new Error(data?.message || data?.error || `Request failed (${res.status})`);
+    const msg = data?.message || data?.error || `Request failed (${res.status})`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.data   = data;
+    throw err;
   }
 
   return data;
 }
 
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth token helpers
+// ─────────────────────────────────────────────────────────────────────────────
 function authHeaders() {
   const token = localStorage.getItem("authToken");
-
-  // ── DEBUG ──────────────────────────────────────────────────────────────────
-  console.log("[auth.js] authHeaders() — token present?", !!token);
-  if (token) console.log("[auth.js] Token preview:", token.slice(0, 30) + "...");
-  else console.warn("[auth.js] ⚠️  No auth token found in localStorage!");
-  // ──────────────────────────────────────────────────────────────────────────
-
+  if (!token) console.warn("[auth.js] ⚠️  No auth token found in localStorage!");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/* ── Admin Gate Login ── */
+export function getAuthToken() {
+  return localStorage.getItem("authToken") ?? null;
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem("authToken");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Admin gate login — stores the returned JWT in localStorage */
 export async function apiAdminGateLogin({ password }) {
   const data = await request("/auth/admin-gate-login", {
     method: "POST",
     body: JSON.stringify({ adminPassword: password }),
   });
-
-  // ── DEBUG ──────────────────────────────────────────────────────────────────
-  console.log("[auth.js] apiAdminGateLogin response:", data);
-  console.log("[auth.js] Token in response?", !!data?.token);
-  // ──────────────────────────────────────────────────────────────────────────
-
   if (data?.token) localStorage.setItem("authToken", data.token);
   return data;
 }
 
-/* ── Login ── */
+/** Regular user login — stores the returned JWT in localStorage */
 export async function apiLogin({ email, password }) {
-  return request("/auth/login", {
+  const data = await request("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
-}
-
-/* ── Register ── */
-export async function apiRegister({ surname, otherNames, phoneNumber, email, password, confirmPassword }) {
-  return request("/auth/register", {
-    method: "POST",
-    body: JSON.stringify({ surname, otherNames, phoneNumber, email, password, confirmPassword }),
-  });
-}
-
-/* ── Get Profile (authenticated) ── */
-export async function apiGetProfile() {
-  return request("/auth/profile", {
-    method: "GET",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-  });
-}
-
-/* ── Staff / Client Request (authenticated) ── */
-export async function apiStaffRequest(payload) {
-  return request("/staff-request", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(payload),
-  });
-}
-
-/* ── Staff Profile Submission (authenticated) ── */
-export async function apiStaffProfile(payload) {
-  return request("/profile", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(payload),
-  });
-}
-
-
-// MARKETPLACE
-
-export async function apiGetMarketplace() {
-  const data = await request("/profile/marketplace", {
-    method: "GET",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-  });
-  console.log("=== apiGetMarketplace RAW ===", JSON.stringify(data).slice(0, 1000));
+  if (data?.token) localStorage.setItem("authToken", data.token);
   return data;
 }
 
-export async function apiGetMasterMarketplace() {
-  // ── DEBUG ──────────────────────────────────────────────────────────────────
-  console.log("[auth.js] apiGetMasterMarketplace() called");
-  const token = localStorage.getItem("authToken");
-  console.log("[auth.js] Token for mastermarketplace:", token ? token.slice(0, 30) + "..." : "❌ MISSING");
-  // ──────────────────────────────────────────────────────────────────────────
+/** New user registration */
+export async function apiRegister({
+  surname, otherNames, phoneNumber, email, password, confirmPassword,
+}) {
+  return request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      surname, otherNames, phoneNumber, email, password, confirmPassword,
+    }),
+  });
+}
 
-  return request("/admin/mastermarketplace", {
+/**
+ * Fetch the authenticated user's profile.
+ * GET /api/v1/auth/profile
+ */
+export async function apiGetProfile() {
+  return request("/auth/profile", {
     method: "GET",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
-    },
+    headers: authHeaders(),
+  });
+}
+
+/**
+ * Send a password-reset email.
+ * POST /api/v1/auth/forgotPassword
+ *
+ * @param {{ email: string }} payload
+ * @returns {Promise<Object>} Backend confirmation message
+ */
+export async function apiForgotPassword({ email }) {
+  return request("/auth/forgotPassword", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * Reset the user's password using the token from the email link.
+ * POST /api/v1/auth/resetPassword/:token
+ *
+ * @param {{ token: string, password: string, confirmPassword: string }} payload
+ * @returns {Promise<Object>} Backend confirmation + optionally a new JWT
+ */
+export async function apiResetPassword({ token, password, confirmPassword }) {
+  return request(`/auth/resetPassword/${token}`, {
+    method: "POST",
+    body: JSON.stringify({ password, confirmPassword }),
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADMIN — request management
-// All four action endpoints now use /admin/:id/... per the backend contract.
+// STAFF / CLIENT REQUESTS  (user-facing)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Submit a new staff/client request (authenticated) */
+export async function apiStaffRequest(payload) {
+  return request("/staff-request", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Submit / update the job-seeker's own profile (authenticated) */
+export async function apiStaffProfile(payload) {
+  return request("/profile", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARKETPLACE  (admin-facing)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Public marketplace — visible to authenticated users */
+export async function apiGetMarketplace() {
+  return request("/profile/marketplace", {
+    method: "GET",
+    headers: authHeaders(),
+  });
+}
+
 /**
- * Approve a staff request.
- * PATCH /api/v1/admin/:id/approve
+ * Master marketplace — admin only.
+ * Returns { users, staff (requests), profile (staff profiles), messages, testimonials }
  */
+export async function apiGetMasterMarketplace() {
+  return request("/admin/mastermarketplace", {
+    method: "GET",
+    cache: "no-store",
+    headers: authHeaders(),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN — request lifecycle
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Approve a staff request. PATCH /api/v1/admin/:id/approve */
 export async function apiApproveRequest(id) {
   return request(`/admin/${id}/approve`, {
     method: "PATCH",
@@ -146,10 +191,7 @@ export async function apiApproveRequest(id) {
   });
 }
 
-/**
- * Reject / decline a staff request.
- * PATCH /api/v1/admin/:id/reject
- */
+/** Reject a staff request. PATCH /api/v1/admin/:id/reject */
 export async function apiRejectRequest(id) {
   return request(`/admin/${id}/reject`, {
     method: "PATCH",
@@ -157,10 +199,7 @@ export async function apiRejectRequest(id) {
   });
 }
 
-/**
- * Mark a request as completed.
- * PATCH /api/v1/admin/:id/complete
- */
+/** Mark a request as completed. PATCH /api/v1/admin/:id/complete */
 export async function apiCompleteRequest(id) {
   return request(`/admin/${id}/complete`, {
     method: "PATCH",
@@ -171,29 +210,48 @@ export async function apiCompleteRequest(id) {
 /**
  * Assign staff members to a request.
  * PATCH /api/v1/admin/:id/assign
- *
- * @param {string|number} reqId        - The request's backend ID.
- * @param {Array<{id,name}>} assignedStaff - Staff objects to assign.
  */
 export async function apiAssignStaff(reqId, assignedStaff) {
   const staffIds = assignedStaff.map((s) => s.id);
-   console.log("POST body:", { reqId, staffIds });
+  console.log("[auth.js] apiAssignStaff →", { reqId, staffIds });
   return request(`/admin/${reqId}/assign`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: authHeaders(),
     body: JSON.stringify({ staffIds }),
   });
 }
 
+/**
+ * Set start / end dates for a request.
+ * PATCH /api/v1/admin/:id/date
+ */
 export async function apiSetDates(id, { startDate, endDate }) {
-  return request(`/admin/${id}/date`, {   // ← was /dates
+  return request(`/admin/${id}/date`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: authHeaders(),
     body: JSON.stringify({ startDate, endDate }),
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// REVIEWS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Submit a client review for a completed request.
+ * POST /api/v1/profile/:requestId/review
+ */
+export async function apiSubmitReview(requestId, { staffId, rating, comment }) {
+  return request(`/profile/${requestId}/review`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ staffId, rating, comment }),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TESTIMONIALS
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiFetchTestimonials() {
   return request("/testimonials", { method: "GET" });
@@ -202,7 +260,7 @@ export async function apiFetchTestimonials() {
 export async function apiCreateTestimonial(payload) {
   return request("/testimonials", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
@@ -210,7 +268,7 @@ export async function apiCreateTestimonial(payload) {
 export async function apiUpdateTestimonial(id, payload) {
   return request(`/testimonials/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
@@ -218,35 +276,40 @@ export async function apiUpdateTestimonial(id, payload) {
 export async function apiDeleteTestimonial(id) {
   return request(`/testimonials/${id}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: authHeaders(),
   });
 }
 
-// CONTACT FORM  (public submission)
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT FORM  (public)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiContactForm({ name, email, phone, subject, message }) {
   return request("/contact", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, email, phoneNumber: phone, subject, message }),
   });
 }
 
-// CONTACT MESSAGES (Admin)
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT MESSAGES  (admin)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiGetContactMessages() {
   return request("/contact/admin/all", {
     method: "GET",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: authHeaders(),
   });
 }
 
-// STAFF REGISTRY — admin CRUD
+// ─────────────────────────────────────────────────────────────────────────────
+// STAFF REGISTRY  (admin CRUD)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function apiAddStaff(payload) {
   return request("/staff", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
@@ -254,7 +317,7 @@ export async function apiAddStaff(payload) {
 export async function apiUpdateStaff(id, payload) {
   return request(`/staff/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
@@ -263,22 +326,5 @@ export async function apiRemoveStaff(id) {
   return request(`/staff/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
-  });
-}
-
-// REVIEWS
-
-/**
- * Submit a client review for a completed request.
- * POST /api/v1/profile/:requestId/review
- *
- * @param {string|number} requestId - The backend ID of the completed request.
- * @param {{ staffId: number, rating: number, comment?: string }} payload
- */
-export async function apiSubmitReview(requestId, { staffId, rating, comment }) {
-  return request(`/profile/${requestId}/review`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ staffId, rating, comment }),
   });
 }
