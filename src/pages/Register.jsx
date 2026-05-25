@@ -29,6 +29,29 @@ function EyeSlashIcon() {
   );
 }
 
+/* ───────── IMAGE COMPRESSOR ───────── */
+// Resizes the image to max 200×200 px and re-encodes as JPEG at 80% quality.
+// A 200px avatar thumbnail is ~8–15 KB — well within any server limit.
+function compressImage(dataUrl, maxSize = 200, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      const w = Math.round(img.width  * scale);
+      const h = Math.round(img.height * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => resolve(dataUrl); // fallback: pass original if anything fails
+    img.src = dataUrl;
+  });
+}
+
 /* ───────── STEPS ───────── */
 const STEPS = [
   {
@@ -69,15 +92,30 @@ function validateField(f, val, all) {
 /* ───────── AVATAR UPLOAD (step 0 extra UI) ───────── */
 function AvatarUpload({ photoUrl, surname, otherNames, onPhotoChange }) {
   const fileRef = useRef();
+  const [compressing, setCompressing] = useState(false);
+
   const initials = [surname?.[0], otherNames?.[0]]
     .filter(Boolean).join("").toUpperCase() || "?";
 
-  const handleFile = (e) => {
+  const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = () => onPhotoChange(reader.result);
+    reader.onload = async () => {
+      setCompressing(true);
+      try {
+        // Compress before storing — keeps payload small enough for the server
+        const compressed = await compressImage(reader.result);
+        onPhotoChange(compressed);
+      } finally {
+        setCompressing(false);
+      }
+    };
     reader.readAsDataURL(file);
+
+    // Reset input so the same file can be re-selected if needed
+    e.target.value = "";
   };
 
   return (
@@ -89,7 +127,7 @@ function AvatarUpload({ photoUrl, surname, otherNames, onPhotoChange }) {
             className="w-10 h-10 rounded-full object-cover border border-[#2385cd]/60" />
         ) : (
           <div className="w-10 h-10 rounded-full border border-dashed border-white/30 bg-white/10 flex items-center justify-center text-sm font-bold text-white/50 group-hover:border-[#2385cd]/60 transition-all duration-200">
-            {initials}
+            {compressing ? "…" : initials}
           </div>
         )}
         {/* Camera dot */}
@@ -107,11 +145,13 @@ function AvatarUpload({ photoUrl, surname, otherNames, onPhotoChange }) {
         <p className="text-xs text-white/50 leading-tight">
           Profile photo <span className="text-white/25">(optional)</span>
         </p>
-        {photoUrl && <p className="text-[10px] text-white/30 truncate mt-0.5">Photo selected</p>}
+        {compressing && <p className="text-[10px] text-[#2385cd]/70 truncate mt-0.5">Optimising…</p>}
+        {!compressing && photoUrl && <p className="text-[10px] text-white/30 truncate mt-0.5">Photo selected</p>}
       </div>
-      <button type="button" onClick={() => fileRef.current?.click()}
-        className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white/60 hover:text-white hover:border-[#2385cd]/60 transition-all duration-200">
-        {photoUrl ? "Change" : "Upload"}
+
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={compressing}
+        className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white/60 hover:text-white hover:border-[#2385cd]/60 transition-all duration-200 disabled:opacity-40">
+        {compressing ? "…" : photoUrl ? "Change" : "Upload"}
       </button>
 
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
@@ -158,7 +198,13 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
     try {
       setLoading(true);
       setApiError("");
-      const result = await register(data);
+
+      // Strip photoUrl from the API payload — send it separately or store locally only.
+      // Base64 images bloat the JSON body and cause 413 errors on most servers.
+      // The compressed thumbnail is already persisted to localStorage below.
+      const { photoUrl, ...apiPayload } = data;
+
+      const result = await register(apiPayload);
       if (!result.success) {
         setApiError(result.message || "Registration failed");
         return;
@@ -177,7 +223,7 @@ export function Register({ onNavigateToLogin, onGoHome, onGoDashboard }) {
         },
       });
 
-      // Persist photo for dashboard to pick up
+      // Persist compressed photo for dashboard to pick up
       if (data.photoUrl) {
         try {
           const existing = JSON.parse(localStorage.getItem("userProfile") || "{}");
