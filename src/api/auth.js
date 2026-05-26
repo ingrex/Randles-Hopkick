@@ -44,10 +44,23 @@ async function request(path, options = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Auth token helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns auth headers, or throws a typed error if no token is stored.
+ * Throwing here means callers get a clear "session expired" error rather
+ * than a confusing 403 from the server caused by a missing Authorization header.
+ */
 function authHeaders() {
   const token = localStorage.getItem("authToken");
-  if (!token) console.warn("[auth.js] ⚠️  No auth token found in localStorage!");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  if (!token) {
+    console.warn("[auth.js] ⚠️  No auth token found in localStorage!");
+    // Throw so the caller can redirect to login rather than sending an
+    // unauthenticated request that the server rejects with 403.
+    const err = new Error("No auth token — please log in again.");
+    err.status = 401;
+    throw err;
+  }
+  return { Authorization: `Bearer ${token}` };
 }
 
 export function getAuthToken() {
@@ -108,9 +121,6 @@ export async function apiGetProfile() {
 /**
  * Send a password-reset email.
  * POST /api/v1/auth/forgotPassword
- *
- * @param {{ email: string }} payload
- * @returns {Promise<Object>} Backend confirmation message
  */
 export async function apiForgotPassword({ email }) {
   return request("/auth/forgotPassword", {
@@ -122,9 +132,6 @@ export async function apiForgotPassword({ email }) {
 /**
  * Reset the user's password using the token from the email link.
  * POST /api/v1/auth/resetPassword/:token
- *
- * @param {{ token: string, password: string, confirmPassword: string }} payload
- * @returns {Promise<Object>} Backend confirmation + optionally a new JWT
  */
 export async function apiResetPassword({ token, password, confirmPassword }) {
   return request(`/auth/resetPassword/${token}`, {

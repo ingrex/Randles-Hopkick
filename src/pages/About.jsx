@@ -241,14 +241,7 @@ export function AboutPage() {
           }}
         />
 
-        {/*
-          ── FIX ──────────────────────────────────────────────────────────────
-          The outer wrapper has NO key prop, so it never remounts.
-          Only the inner motion.div (title + description) carries key={currentSlide}
-          and re-animates on each slide change.
-          The buttons live outside that keyed div so they are never unmounted,
-          keeping any open popup state in GetJobButton intact.
-          ─────────────────────────────────────────────────────────────────── */}
+
         <div className="relative z-30 px-6 flex flex-col items-center">
           {/* Re-animates on slide change */}
           <motion.div
@@ -353,7 +346,7 @@ export function AboutPage() {
           className="relative min-h-[320px] overflow-hidden group"
         >
           <img
-            src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=900&q=80"
+            src="https://res.cloudinary.com/dotvnclej/image/upload/v1779733903/who_we_are_wejxdr.png"
             alt="Professional team"
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
