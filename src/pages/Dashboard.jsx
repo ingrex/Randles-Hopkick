@@ -6,7 +6,7 @@ import StaffForm   from "../ApplicationForms/StaffForm";
 import PrivateForm from "../ApplicationForms/PrivateForm";
 import { useStore, parseMasterMarketplace } from "../store";
 import { useAuth }  from "./AuthContext";
-import { apiGetMarketplace, apiSubmitReview, apiGetProfile } from "../api/auth";
+import { apiGetMarketplace, apiSubmitReview } from "../api/auth";
 
 const MODES = ["Private", "Organization", "Staff"];
 
@@ -115,6 +115,7 @@ function ReviewModal({ request, staffList, onSubmit, onClose, submitting }) {
       <h2 className="text-xl font-semibold">Review completed job</h2>
       <p className="text-white/60 text-sm">Your rating helps us match the best staff with future clients.</p>
 
+      {/* Always show who is being reviewed — single staff */}
       {request.assignedStaff?.length === 1 && (
         <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg px-3 py-2">
           <span className="text-xs text-white/50">Reviewing:</span>
@@ -122,6 +123,7 @@ function ReviewModal({ request, staffList, onSubmit, onClose, submitting }) {
         </div>
       )}
 
+      {/* Multi-staff picker */}
       {request.assignedStaff?.length > 1 && (
         <div>
           <p className="text-xs text-white/50 mb-2">Rate which staff member?</p>
@@ -136,6 +138,7 @@ function ReviewModal({ request, staffList, onSubmit, onClose, submitting }) {
         </div>
       )}
 
+      {/* Edge case: no staff assigned */}
       {!request.assignedStaff?.length && (
         <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2">
           No staff assigned to this request yet.
@@ -233,15 +236,45 @@ export function Dashboard() {
         ? "Organisation"
         : "Private Client";
 
-  // ── DEBUG: Temporarily replacing fetch with profile logger ──────────────────
-  useEffect(() => {
-    apiGetProfile()
+  // ── Backend sync ─────────────────────────────────────────────────────────────
+useEffect(() => {
+  const syncFromBackend = () => {
+    setSyncing(true);
+    apiGetMarketplace()
       .then((raw) => {
-        console.log("=== PROFILE RAW ===", JSON.stringify(raw, null, 2));
+        console.log("=== DASHBOARD RAW RESPONSE ===");
+        console.log("Top keys:", Object.keys(raw));
+        const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
+        console.log("Root keys:", Object.keys(root));
+        Object.entries(root).forEach(([k, v]) => {
+          console.log(`  ${k}:`, Array.isArray(v) ? `Array(${v.length})` : v);
+          if (Array.isArray(v) && v[0]) console.log(`    sample:`, v[0]);
+        });
+        const data = parseMasterMarketplace(raw);
+        console.log("Parsed requests:", data.requests);
+        dispatch({ type: "LOAD_MARKETPLACE", payload: data });
       })
-      .catch((err) => console.error("Profile error:", err));
-  }, []);
-  // ── END DEBUG (restore syncFromBackend useEffect when done) ─────────────────
+      .catch((err) => {
+        console.warn("[Dashboard] sync failed:", err?.message);
+      })
+      .finally(() => setSyncing(false));
+  };
+
+    syncFromBackend();
+
+    const onFocus      = () => syncFromBackend();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") syncFromBackend();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [dispatch]);
 
   // Auto-open modal from navigation state
   useEffect(() => {
@@ -542,6 +575,7 @@ export function Dashboard() {
               </div>
             )}
 
+            {/* ── Request cards ── */}
             {filtered.map((r) => {
               const awaitingReview = r.status === "Completed" && !r.reviewed;
               const displayStatus  = r.status === "Rejected" ? "Declined" : r.status;
@@ -557,6 +591,7 @@ export function Dashboard() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <StatusBadge status={displayStatus} awaitingReview={awaitingReview} />
 
+                      {/* Leave Review button */}
                       {r.status === "Completed" && !r.reviewed && (
                         <button
                           onClick={() => { setReviewReq(r); setModalType("review"); setReviewError(""); }}

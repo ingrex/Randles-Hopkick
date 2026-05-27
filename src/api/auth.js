@@ -9,12 +9,14 @@ const API      = `${BASE_URL}/api/v1`;
 // Internal request helper
 // ─────────────────────────────────────────────────────────────────────────────
 async function request(path, options = {}) {
+  const { headers: optHeaders, ...restOptions } = options; // pull headers out before spreading
+
   const res = await fetch(`${API}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {}),
+      ...(optHeaders || {}), // auth + any other headers merged cleanly
     },
-    ...options,
+    ...restOptions, // no headers key here — won't overwrite the merged headers above
   });
 
   const text = await res.text();
@@ -149,7 +151,7 @@ export async function apiResetPassword({ token, password, confirmPassword }) {
 export async function apiStaffRequest(payload) {
   return request("/staff-request", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { ...authHeaders() },
     body: JSON.stringify(payload),
   });
 }
@@ -220,7 +222,7 @@ export async function apiCompleteRequest(id) {
  * PATCH /api/v1/admin/:id/assign
  */
 export async function apiAssignStaff(reqId, assignedStaff) {
-  const staffIds = assignedStaff.map((s) => s.backendId ?? s._id ?? s.id)
+  const staffIds = assignedStaff.map((s) => s.backendId ?? s._id ?? s.id);
   console.log("[auth.js] apiAssignStaff →", { reqId, staffIds });
   return request(`/admin/${reqId}/assign`, {
     method: "PATCH",
@@ -245,14 +247,33 @@ export async function apiSubmitReview(requestId, { staffId, rating, comment }) {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TESTIMONIALS
+//
+// Public (used by Testimonials.jsx on the front-end):
+//   GET  /testimonials          — no auth required
+//
+// Admin (used by AdminPanel → TestimonialsSection):
+//   GET    /testimonials/admin       — fetch all for management
+//   POST   /testimonials/admin       — create new
+//   PATCH  /testimonials/admin/:id   — update existing
+//   DELETE /testimonials/admin/:id   — delete
+//
+// Backend field names:
+//   name, role, company, content, rating, avatar, isApproved
+// ─────────────────────────────────────────────────────────────────────────────
 
-
+/**
+ * Public testimonials — used by the front-end Testimonials.jsx component.
+ * No auth required; returns only approved testimonials.
+ * GET /api/v1/testimonials
+ */
 export async function apiFetchTestimonials() {
   return request("/testimonials", { method: "GET" });
 }
 
 /**
- * Admin: fetch all testimonials (visible and hidden) for management.
+ * Admin: fetch all testimonials (approved and unapproved) for management.
  * GET /api/v1/testimonials/admin
  */
 export async function apiFetchAdminTestimonials() {
@@ -265,24 +286,42 @@ export async function apiFetchAdminTestimonials() {
 /**
  * Admin: create a new testimonial.
  * POST /api/v1/testimonials/admin
+ * Maps frontend shape  →  backend field names before sending.
  */
 export async function apiCreateTestimonial(payload) {
   return request("/testimonials/admin", {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      name:       payload.name       ?? "",
+      role:       payload.role       ?? "",
+      company:    payload.company    ?? "",
+      content:    payload.content    ?? payload.text    ?? "",  // text → content
+      rating:     payload.rating     ?? 5,
+      avatar:     payload.avatar     ?? payload.image   ?? "",  // image → avatar
+      isApproved: payload.isApproved ?? payload.visible ?? true, // visible → isApproved
+    }),
   });
 }
 
 /**
  * Admin: update an existing testimonial.
  * PATCH /api/v1/testimonials/admin/:id
+ * Maps frontend shape  →  backend field names before sending.
  */
 export async function apiUpdateTestimonial(id, payload) {
   return request(`/testimonials/admin/${id}`, {
     method: "PATCH",
     headers: authHeaders(),
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      name:       payload.name       ?? "",
+      role:       payload.role       ?? "",
+      company:    payload.company    ?? "",
+      content:    payload.content    ?? payload.text    ?? "",  // text → content
+      rating:     payload.rating     ?? 5,
+      avatar:     payload.avatar     ?? payload.image   ?? "",  // image → avatar
+      isApproved: payload.isApproved ?? payload.visible ?? true, // visible → isApproved
+    }),
   });
 }
 

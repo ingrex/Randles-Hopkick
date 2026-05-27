@@ -1,14 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// store.js  —  Global state for Randle & Hopkick
-//
-// Key additions vs. previous version:
-//  • SYNC_USER_REQUESTS   — replaces the user's request list from a fresh
-//                           /auth/profile poll so admin changes propagate
-//  • SUBMIT_REVIEW        — attaches a review to a request + updates staff
-//                           ratings; used by both UserDashboard and AdminPanel
-//  • All normalise* helpers now robustly handle every backend shape seen in
-//    the wild (snake_case, camelCase, nested objects, etc.)
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 import { createContext, useContext, useReducer } from "react";
 
@@ -143,7 +133,6 @@ export function normaliseRequest(raw) {
 
   const mongoId = String(raw._id ?? raw.id ?? "");
 
-  // Derive reviewed flag — true if backend says so OR if reviews array is non-empty
   const reviewed = raw.reviewed ?? (reviews.length > 0);
 
   return {
@@ -155,7 +144,6 @@ export function normaliseRequest(raw) {
     phone,
     location,
     roles,
-    // Canonical status values: Pending | Approved | Rejected | Completed
     status:        raw.status ?? "Pending",
     startDate:     raw.startDate  ?? raw.start        ?? raw.startingDate ?? "",
     endDate:       raw.endDate    ?? raw.end           ?? raw.endingDate   ?? "",
@@ -173,7 +161,7 @@ export function normaliseUser(u) {
   if (!u || typeof u !== "object") return null;
 
   let surname    = u.surname    ?? u.lastName  ?? "";
-  let otherNames = u.otherNames ?? u.firstName ?? u.otherName ?? "";
+  let otherNames = u.otherNames ?? u.firstName ?? u.otterName ?? "";
 
   if (!surname && !otherNames) {
     const full  = (u.fullName ?? u.name ?? "").trim();
@@ -301,18 +289,25 @@ export function normaliseMessage(m, idx) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseTestimonial
+//
+// Backend field names:  name, role, company, content, rating, avatar, isApproved
+// Internal/display names: name, role, company, text, rating, image, visible
 // ─────────────────────────────────────────────────────────────────────────────
 export function normaliseTestimonial(t, idx) {
   if (!t || typeof t !== "object") return null;
   return {
-    id:      t._id     ?? t.id      ?? `testi-${idx}`,
-    name:    t.name    ?? t.author  ?? t.clientName ?? "",
-    role:    t.role    ?? t.title   ?? t.position   ?? t.company ?? "",
-    text:    t.text    ?? t.testimonial ?? t.review ?? t.content ?? t.body ?? "",
-    image:   t.image   ?? t.photo   ?? t.avatar     ?? t.imageUrl
-             ?? t.photoUrl ?? t.picture ?? t.img    ?? "",
+    id:      t._id        ?? t.id         ?? `testi-${idx}`,
+    name:    t.name       ?? t.author     ?? t.clientName  ?? "",
+    role:    t.role       ?? t.title      ?? t.position    ?? "",
+    company: t.company    ?? "",
+    // content (backend) → text (internal)
+    text:    t.text       ?? t.content    ?? t.testimonial ?? t.review ?? t.body ?? "",
+    // avatar (backend) → image (internal)
+    image:   t.image      ?? t.avatar     ?? t.photo       ?? t.photoUrl
+             ?? t.imageUrl ?? t.picture   ?? t.img         ?? "",
     rating:  typeof t.rating === "number" ? t.rating : Number(t.rating ?? t.stars ?? 5),
-    visible: t.visible ?? t.isVisible ?? t.active   ?? true,
+    // isApproved (backend) → visible (internal)
+    visible: t.visible    ?? t.isApproved ?? t.isVisible   ?? t.active ?? true,
   };
 }
 
@@ -343,20 +338,20 @@ export function parseMasterMarketplace(raw) {
   }
 
   // Backend naming: "staff" = client requests, "profile" = job-seeker profiles
-  const rawUsers    = Array.isArray(root.users)        ? root.users
-                    : Array.isArray(root.registeredUsers) ? root.registeredUsers : [];
+  const rawUsers    = Array.isArray(root.users)           ? root.users
+                    : Array.isArray(root.registeredUsers)  ? root.registeredUsers : [];
 
-  const rawRequests = Array.isArray(root.staff)        ? root.staff
-                    : Array.isArray(root.requests)      ? root.requests
-                    : Array.isArray(root.staffRequests) ? root.staffRequests : [];
+  const rawRequests = Array.isArray(root.staff)           ? root.staff
+                    : Array.isArray(root.requests)         ? root.requests
+                    : Array.isArray(root.staffRequests)    ? root.staffRequests : [];
 
-  const rawStaff    = Array.isArray(root.profile)      ? root.profile
-                    : Array.isArray(root.profiles)      ? root.profiles
-                    : Array.isArray(root.staffMembers)  ? root.staffMembers : [];
+  const rawStaff    = Array.isArray(root.profile)         ? root.profile
+                    : Array.isArray(root.profiles)         ? root.profiles
+                    : Array.isArray(root.staffMembers)     ? root.staffMembers : [];
 
-  const rawMessages = Array.isArray(root.messages)     ? root.messages
-                    : Array.isArray(root.contacts)      ? root.contacts
-                    : Array.isArray(root.enquiries)     ? root.enquiries : [];
+  const rawMessages = Array.isArray(root.messages)        ? root.messages
+                    : Array.isArray(root.contacts)         ? root.contacts
+                    : Array.isArray(root.enquiries)        ? root.enquiries : [];
 
   const rawTestimonials = Array.isArray(root.testimonials) ? root.testimonials : [];
 
@@ -433,15 +428,12 @@ function reducer(state, action) {
         blog,
       } = action.payload;
 
-      // Merge requests — preserve any locally-added reviews
       const localReqMap    = new Map(state.requests.map((r) => [String(r.id), r]));
       const mergedRequests = requests.map((r) => {
         const local = localReqMap.get(String(r.id));
         if (!local) return r;
         return {
           ...r,
-          // Backend is authoritative for status/dates/assignedStaff/reviews
-          // but we fall back to local if backend hasn't populated them yet
           reviews:  r.reviews?.length  ? r.reviews  : (local.reviews  ?? []),
           reviewed: r.reviewed         ? r.reviewed  : (local.reviewed ?? false),
         };
@@ -467,7 +459,6 @@ function reducer(state, action) {
       const serverMsgIds  = new Set(messages.map((m) => String(m.id)));
       const localOnlyMsgs = state.messages.filter((m) => !serverMsgIds.has(String(m.id)));
 
-      // Merge staff — backend ratings are authoritative
       const backendStaffMap = new Map(staff.map((s) => [String(s.id), s]));
       const mergedStaff     = state.staff.map((s) => {
         const b = backendStaffMap.get(String(s.id));
@@ -505,17 +496,10 @@ function reducer(state, action) {
     }
 
     // ── User dashboard: replace only that user's requests after a profile poll ─
-    // This is the primary mechanism by which admin actions (approve / reject /
-    // complete / assign / dates) propagate to the UserDashboard without a full
-    // admin sync.
-    //
-    // dispatch({ type: "SYNC_USER_REQUESTS", requests: normalisedArray })
     case "SYNC_USER_REQUESTS": {
       const incoming  = (action.requests ?? []).map(normaliseRequest).filter(Boolean);
       if (!incoming.length) break;
 
-      // Replace all requests that share an id with the incoming set;
-      // preserve any requests that belong to a different user (no overlap).
       const incomingMap = new Map(incoming.map((r) => [String(r.id), r]));
       const preserved   = state.requests.filter((r) => !incomingMap.has(String(r.id)));
 
@@ -617,7 +601,7 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Status transitions (optimistic — confirmed by backend response) ──────
+    // ── Status transitions ────────────────────────────────────────────────────
     case "APPROVE_REQUEST": {
       next = {
         ...state,
@@ -664,7 +648,7 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Dates ────────────────────────────────────────────────────────────────
+    // ── Dates ─────────────────────────────────────────────────────────────────
     case "SET_DATES":
     case "UPDATE_DATES": {
       const { id, startDate, endDate } = action;
@@ -679,7 +663,7 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Assign staff ─────────────────────────────────────────────────────────
+    // ── Assign staff ──────────────────────────────────────────────────────────
     case "ASSIGN_STAFF": {
       const { reqId, assignedStaff } = action;
       const req     = state.requests.find((r) => String(r.id) === String(reqId));
@@ -703,16 +687,6 @@ function reducer(state, action) {
     }
 
     // ── Review submission ─────────────────────────────────────────────────────
-    // Used by BOTH the UserDashboard (client reviews a completed job) and
-    // the AdminPanel (admin can see the updated review after next sync).
-    //
-    // dispatch({
-    //   type:    "SUBMIT_REVIEW",
-    //   reqId:   string,          ← backendId of the request
-    //   staffId: string,          ← backendId of the staff member reviewed
-    //   rating:  number (1–5),
-    //   comment: string,
-    // })
     case "SUBMIT_REVIEW": {
       const { reqId, staffId, rating, comment } = action;
       const review = {
@@ -723,7 +697,6 @@ function reducer(state, action) {
         staffId,
       };
 
-      // Update staff member's running average
       const updatedStaff = state.staff.map((s) => {
         if (String(s.id) !== String(staffId)) return s;
         const allReviews  = [...(s.reviews ?? []), review];
@@ -736,7 +709,6 @@ function reducer(state, action) {
         };
       });
 
-      // Attach review to request + mark as reviewed
       const updatedRequests = state.requests.map((r) =>
         String(r.id) === String(reqId)
           ? { ...r, reviews: [...(r.reviews ?? []), review], reviewed: true }
@@ -747,8 +719,7 @@ function reducer(state, action) {
       break;
     }
 
-    // ── Merge a single updated request returned by any admin PATCH ───────────
-    // dispatch({ type: "MERGE_REQUEST", payload: normalisedRequestObj })
+    // ── Merge a single updated request ────────────────────────────────────────
     case "MERGE_REQUEST": {
       const incoming = normaliseRequest(action.payload);
       if (!incoming) break;
@@ -841,7 +812,7 @@ function reducer(state, action) {
         ...state,
         testimonials: [
           ...state.testimonials,
-          { visible: true, image: "", ...action.payload, id },
+          { visible: true, image: "", company: "", ...action.payload, id },
         ],
         nextTestiId: state.nextTestiId + 1,
       };
