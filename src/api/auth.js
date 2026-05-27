@@ -47,15 +47,11 @@ async function request(path, options = {}) {
 
 /**
  * Returns auth headers, or throws a typed error if no token is stored.
- * Throwing here means callers get a clear "session expired" error rather
- * than a confusing 403 from the server caused by a missing Authorization header.
  */
 function authHeaders() {
   const token = localStorage.getItem("authToken");
   if (!token) {
     console.warn("[auth.js] ⚠️  No auth token found in localStorage!");
-    // Throw so the caller can redirect to login rather than sending an
-    // unauthenticated request that the server rejects with 403.
     const err = new Error("No auth token — please log in again.");
     err.status = 401;
     throw err;
@@ -65,6 +61,11 @@ function authHeaders() {
 
 export function getAuthToken() {
   return localStorage.getItem("authToken") ?? null;
+}
+
+/** Returns true if an auth token is currently stored, false otherwise. */
+export function hasAuthToken() {
+  return !!localStorage.getItem("authToken");
 }
 
 export function clearAuthToken() {
@@ -148,7 +149,7 @@ export async function apiResetPassword({ token, password, confirmPassword }) {
 export async function apiStaffRequest(payload) {
   return request("/staff-request", {
     method: "POST",
-    headers: authHeaders(),
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
   });
 }
@@ -228,10 +229,6 @@ export async function apiAssignStaff(reqId, assignedStaff) {
   });
 }
 
-/**
- * Set start / end dates for a request.
- * PATCH /api/v1/admin/:id/date
- */
 export async function apiSetDates(id, { startDate, endDate }) {
   return request(`/admin/${id}/date`, {
     method: "PATCH",
@@ -240,14 +237,6 @@ export async function apiSetDates(id, { startDate, endDate }) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REVIEWS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Submit a client review for a completed request.
- * POST /api/v1/profile/:requestId/review
- */
 export async function apiSubmitReview(requestId, { staffId, rating, comment }) {
   return request(`/profile/${requestId}/review`, {
     method: "POST",
@@ -258,30 +247,67 @@ export async function apiSubmitReview(requestId, { staffId, rating, comment }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TESTIMONIALS
+//
+// Public (used by Testimonials.jsx on the front-end):
+//   GET  /testimonials          — no auth required
+//
+// Admin (used by AdminPanel → TestimonialsSection):
+//   GET    /testimonials/admin       — fetch all for management
+//   POST   /testimonials/admin       — create new
+//   PATCH  /testimonials/admin/:id   — update existing
+//   DELETE /testimonials/admin/:id   — delete
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Public testimonials — used by the front-end Testimonials.jsx component.
+ * No auth required; returns only visible/approved testimonials.
+ * GET /api/v1/testimonials
+ */
 export async function apiFetchTestimonials() {
   return request("/testimonials", { method: "GET" });
 }
 
+/**
+ * Admin: fetch all testimonials (visible and hidden) for management.
+ * GET /api/v1/testimonials/admin
+ */
+export async function apiFetchAdminTestimonials() {
+  return request("/testimonials/admin", {
+    method: "GET",
+    headers: authHeaders(),
+  });
+}
+
+/**
+ * Admin: create a new testimonial.
+ * POST /api/v1/testimonials/admin
+ */
 export async function apiCreateTestimonial(payload) {
-  return request("/testimonials", {
+  return request("/testimonials/admin", {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
 
+/**
+ * Admin: update an existing testimonial.
+ * PATCH /api/v1/testimonials/admin/:id
+ */
 export async function apiUpdateTestimonial(id, payload) {
-  return request(`/testimonials/${id}`, {
-    method: "PUT",
+  return request(`/testimonials/admin/${id}`, {
+    method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
 
+/**
+ * Admin: delete a testimonial.
+ * DELETE /api/v1/testimonials/admin/:id
+ */
 export async function apiDeleteTestimonial(id) {
-  return request(`/testimonials/${id}`, {
+  return request(`/testimonials/admin/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });

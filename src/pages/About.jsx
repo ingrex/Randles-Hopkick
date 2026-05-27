@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import GetJobButton from "../components/buttons/GetJobButton";
+import FAQSection from "../components/Faqsection";
 import HireStaffButton from "../components/buttons/HireStaffButton";
 import HireStaffModal from "../components/modals/HireStaffModal";
+
 
 /* ─── animation variants ─*/
 const fadeUp = {
@@ -40,36 +42,6 @@ const fadeInOnly = {
     transition: { duration: 0.65, delay: d, ease: "easeOut" },
   }),
 };
-
-
-/* ─── FAQ DATA ─── */
-const faqs = [
-  {
-    question: "What services does Randle & Hopkick provide?",
-    answer:
-      "We provide domestic outsourcing and staffing solutions including cleaners, drivers, domestic staff, facility support personnel, janitorial services, and other professional workforce solutions for homes and businesses.",
-  },
-  {
-    question: "How do I hire staff through the platform?",
-    answer:
-      "Simply click the Hire Staff button, complete the hiring request process, and our team will connect you with qualified and verified professionals that match your needs.",
-  },
-  {
-    question: "Are your workers verified and trained?",
-    answer:
-      "Yes. Our workforce undergoes screening, verification, and professional orientation to ensure competence, integrity, professionalism, and reliability.",
-  },
-  {
-    question: "Can job seekers apply through the website?",
-    answer:
-      "Yes. Job seekers can use the Get Job option to register, complete their profile, and apply for available opportunities through the platform.",
-  },
-  {
-    question: "Do you provide services for corporate organizations?",
-    answer:
-      "Absolutely. We provide staffing and outsourcing services for homes, SMEs, and large corporate organizations across multiple industries.",
-  },
-];
 
 /* ─── data ── */
 const coreValues = [
@@ -114,10 +86,8 @@ const technicalTeamContent = {
 
 /* COMPONENT */
 export function AboutPage() {
-  const [openIndex, setOpenIndex] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [hireModalOpen, setHireModalOpen] = useState(false);
-  const [hoveredCard, setHoveredCard] = useState(null);
 
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
@@ -167,14 +137,6 @@ export function AboutPage() {
 
     return () => clearInterval(id);
   }, []);
-
-  const nextSlide = () =>
-    setCurrentSlide((p) => (p + 1) % slides.length);
-
-  const prevSlide = () =>
-    setCurrentSlide((p) =>
-      p === 0 ? slides.length - 1 : p - 1
-    );
 
   return (
     <div className="bg-gray-200 min-h-screen overflow-x-hidden">
@@ -241,9 +203,7 @@ export function AboutPage() {
           }}
         />
 
-
         <div className="relative z-30 px-6 flex flex-col items-center">
-          {/* Re-animates on slide change */}
           <motion.div
             key={currentSlide}
             initial={{ opacity: 0, y: 45 }}
@@ -267,7 +227,6 @@ export function AboutPage() {
             </p>
           </motion.div>
 
-          {/* Buttons are OUTSIDE the keyed div — they never remount on slide change */}
           <motion.div
             variants={fadeInOnly}
             initial="hidden"
@@ -404,7 +363,6 @@ export function AboutPage() {
             className="p-8 md:p-12 flex flex-col group relative overflow-hidden"
             style={card.style}
           >
-            {/* premium glow */}
             <div
               className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
               style={{
@@ -413,20 +371,15 @@ export function AboutPage() {
               }}
             />
 
-            {/* top line */}
             <motion.div
               className="h-1 rounded mb-5 relative z-10"
-              style={{
-                background: "#2385cd",
-                originX: 0,
-              }}
+              style={{ background: "#2385cd", originX: 0 }}
               initial={{ width: 0 }}
               whileInView={{ width: "3rem" }}
               transition={{ duration: 0.5, delay: 0.2 }}
               viewport={{ once: true }}
             />
 
-            {/* title */}
             <h3
               className="font-bold text-2xl mb-4 tracking-[0.2em] relative z-10"
               style={{ color: "#2385cd" }}
@@ -434,12 +387,10 @@ export function AboutPage() {
               {card.label}
             </h3>
 
-            {/* text */}
             <p className="text-sm md:text-[15px] opacity-90 leading-[2] text-justify mb-8 relative z-10">
               {card.text}
             </p>
 
-            {/* image */}
             <div
               className="rounded-2xl overflow-hidden mt-auto relative"
               style={{
@@ -453,7 +404,6 @@ export function AboutPage() {
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
 
-              {/* overlay */}
               <div
                 className="absolute inset-0"
                 style={{
@@ -462,7 +412,6 @@ export function AboutPage() {
                 }}
               />
 
-              {/* floating label */}
               <div
                 className="absolute bottom-4 left-4 px-4 py-2 rounded-full text-xs tracking-widest font-semibold"
                 style={{
@@ -489,15 +438,11 @@ export function AboutPage() {
             "linear-gradient(180deg, #07131f 0%, #0d2236 50%, #133b5e 100%)",
         }}
       >
-        {/* glow background */}
         <div
           className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full blur-3xl opacity-40"
-          style={{
-            background: "#2385cd",
-          }}
+          style={{ background: "#2385cd" }}
         />
 
-        {/* section heading */}
         <motion.div
           variants={fadeUp}
           initial="hidden"
@@ -515,13 +460,11 @@ export function AboutPage() {
           </h2>
 
           <p className="mt-5 max-w-2xl mx-auto text-sm md:text-base opacity-70 leading-relaxed">
-            Built on experience, professionalism and global
-            service standards; our people are the strength
-            behind every successful delivery.
+            Built on experience, professionalism and global service standards;
+            our people are the strength behind every successful delivery.
           </p>
         </motion.div>
 
-        {/* cards */}
         <div className="relative z-10 grid lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
           {/* founder card */}
           <motion.div
@@ -560,10 +503,7 @@ export function AboutPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-bold">
-                    {founderBio.name}
-                  </h3>
-
+                  <h3 className="text-xl font-bold">{founderBio.name}</h3>
                   <p className="text-sm text-[#2385cd] mt-1 tracking-wide uppercase">
                     {founderBio.role}
                   </p>
@@ -662,9 +602,7 @@ export function AboutPage() {
         >
           <div className="w-12 h-1 rounded bg-white/60 mx-auto mb-4" />
 
-          <h2 className="text-2xl font-bold tracking-widest">
-            CORE VALUES
-          </h2>
+          <h2 className="text-2xl font-bold tracking-widest">CORE VALUES</h2>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -698,100 +636,7 @@ export function AboutPage() {
       {/* ══════════════════════════════════════════════
           FAQ SECTION
       ══════════════════════════════════════════════ */}
-      <section
-        className="relative py-20 px-6 md:px-14 text-white overflow-hidden"
-        style={{
-          background:
-            "linear-gradient(180deg, #07131f 0%, #0d2236 55%, #133b5e 100%)",
-        }}
-      >
-        {/* background glow */}
-        <div
-          className="absolute top-0 right-0 w-100 h-100 rounded-full blur-3xl opacity-20"
-          style={{
-            background: "#2385cd",
-          }}
-        />
-
-        <motion.div
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          className="relative z-10 text-center mb-14"
-        >
-          <div
-            className="w-16 h-1 rounded-full mx-auto mb-5"
-            style={{ background: "#2385cd" }}
-          />
-
-          <h2 className="text-3xl md:text-5xl font-bold tracking-wide">
-            FREQUENTLY ASKED QUESTIONS
-          </h2>
-
-          <p className="mt-5 max-w-2xl mx-auto text-sm md:text-base opacity-75 leading-relaxed">
-            Everything you need to know about our staffing,
-            outsourcing and recruitment services.
-          </p>
-        </motion.div>
-
-        <div className="relative z-10 max-w-4xl mx-auto space-y-5">
-          {faqs.map((faq, index) => (
-            <motion.div
-              key={index}
-              variants={fadeUp}
-              custom={index * 0.1}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="rounded-2xl overflow-hidden"
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <button
-                onClick={() =>
-                  setOpenIndex(openIndex === index ? null : index)
-                }
-                className="w-full flex items-center justify-between text-left px-6 py-5"
-              >
-                <span className="font-semibold text-sm md:text-base pr-5">
-                  {faq.question}
-                </span>
-
-                <motion.span
-                  animate={{
-                    rotate: openIndex === index ? 45 : 0,
-                  }}
-                  transition={{ duration: 0.25 }}
-                  className="text-3xl font-light"
-                  style={{ color: "#2385cd" }}
-                >
-                  +
-                </motion.span>
-              </button>
-
-              <AnimatePresence>
-                {openIndex === index && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-6 pb-6 text-sm md:text-[15px] leading-[1.9] opacity-80 text-justify">
-                      {faq.answer}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ))}
-        </div>
-      </section>
+      <FAQSection />
     </div>
   );
 }

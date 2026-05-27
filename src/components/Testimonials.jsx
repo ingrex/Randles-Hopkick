@@ -13,7 +13,6 @@ const testimonials = [
     name: "David Mensah",
     role: "Operations Manager",
     text: "We outsourced our admin and logistics staffing entirely. The staff quality was exceptional and our productivity doubled within the first quarter.",
-    // ✅ Replace with your actual client photo (recommended: 150x150px square)
     image: "https://i.pravatar.cc/150?img=12",
   },
   {

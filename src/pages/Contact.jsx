@@ -7,6 +7,7 @@ import {
 } from "react-icons/fa";
 import GetJobButton from "../components/buttons/GetJobButton";
 import HireStaffButton from "../components/buttons/HireStaffButton";
+import FAQSection from "../components/Faqsection";
 import { useAuth } from "./AuthContext";
 import { apiContactForm } from "../api/auth";
 
@@ -51,7 +52,7 @@ const Contact = () => {
   };
 
   return (
-    <div className="bg-[#3f5357] min-h-screen text-white pb-24">
+    <div className="bg-[#3f5357] min-h-screen text-white">
       {/* HERO SECTION */}
       <motion.section
         initial={{ opacity: 0, y: 40 }}
@@ -287,6 +288,9 @@ const Contact = () => {
           </div>
         </motion.div>
       </section>
+
+      {/* FAQ SECTION */}
+      <FAQSection />
     </div>
   );
 };

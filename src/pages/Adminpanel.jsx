@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiGetMasterMarketplace } from "../api/auth";
+import { apiGetMasterMarketplace, hasAuthToken, apiAdminGateLogin, clearAuthToken } from "../api/auth";
 import { useStore, parseMasterMarketplace, normaliseMessage } from "../store";
 import {
+  apiFetchAdminTestimonials,
   apiCreateTestimonial,
   apiUpdateTestimonial,
   apiDeleteTestimonial,
@@ -17,7 +18,7 @@ import {
   ClipboardList, Users, UserCheck, Newspaper, MessageSquare, Mail, BadgeCheck,
   Check, X, CheckCheck, Plus, Pencil, Trash2, Eye, CalendarDays, Save,
   UserPlus, Send, ArrowRightCircle, StopCircle, Star, AlertTriangle,
-  ShieldAlert, Menu, ChevronLeft, MoreHorizontal, RefreshCw,
+  ShieldAlert, Menu, ChevronLeft, MoreHorizontal, RefreshCw, LogIn, Lock,
 } from "lucide-react";
 
 // ── Brand tokens: Primary #2385cd | Navy #0f1e2e | Light #eaf4fc | Mid #b8d9f0
@@ -70,6 +71,11 @@ function resolveBackendId(r) {
   const id = r.backendId ?? r._id ?? r.id;
   console.log(`[AdminPanel] resolveBackendId — local id: ${r.id}  backendId: ${r.backendId}  resolved: ${id}`);
   return id;
+}
+
+// ── Safe unique key for list renders (avoids null-key warnings) ──────────────
+function safeKey(r, idx) {
+  return r?.backendId ?? r?._id ?? r?.id ?? `__row_${idx}`;
 }
 
 function Avatar({ src, name, size = "sm" }) {
@@ -146,7 +152,7 @@ function StarRating({ rating, max = 5 }) {
   return (
     <span className="inline-flex items-center gap-0.5">
       {Array.from({ length: max }, (_, i) => (
-        <Star key={i} size={12} className={i < Math.round(rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
+        <Star key={`star-${i}`} size={12} className={i < Math.round(rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
       ))}
     </span>
   );
@@ -194,6 +200,76 @@ function EmptyState({ icon: Icon, title, subtitle }) {
       </div>
       <p className="text-sm font-medium text-gray-700">{title}</p>
       {subtitle && <p className="text-xs text-gray-400 mt-1 max-w-xs">{subtitle}</p>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN LOGIN GATE
+// Shown when no token is in localStorage — prevents 403 on mount
+// ─────────────────────────────────────────────────────────────────────────────
+function AdminLoginGate({ onSuccess }) {
+  const [password, setPassword] = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!password.trim()) return;
+    setLoading(true);
+    setError("");
+    try {
+      await apiAdminGateLogin({ password });
+      onSuccess();
+    } catch (err) {
+      setError(err.message ?? "Login failed. Check your password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0f1e2e] p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="bg-[#0f1e2e] px-8 py-8 flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-[#2385cd]/20 flex items-center justify-center">
+            <Lock size={22} className="text-[#2385cd]" />
+          </div>
+          <div className="text-center">
+            <p className="font-bold text-white text-lg leading-tight">Randle &amp; Hopkick</p>
+            <p className="text-xs font-medium mt-1" style={{ color: "#2385cd" }}>Admin Panel</p>
+          </div>
+        </div>
+        <form onSubmit={handleLogin} className="px-8 py-7 space-y-4">
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Admin password</label>
+            <input
+              type="password"
+              className={inputCls}
+              placeholder="Enter admin password…"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoFocus
+              autoComplete="current-password"
+            />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <AlertTriangle size={13} className="shrink-0" />
+              {error}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={loading || !password.trim()}
+            className="w-full bg-[#2385cd] hover:bg-[#1a6fa8] text-white font-semibold py-2.5 rounded-lg text-sm transition disabled:opacity-50 flex items-center justify-center gap-2">
+            <LogIn size={15} />
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+      </motion.div>
     </div>
   );
 }
@@ -257,23 +333,19 @@ function RequestsSection({ state, dispatch }) {
     close();
   };
 
-const saveAssign = async () => {
-  const staffList = Object.entries(selected).map(([id, name]) => ({ id, name }));
-
-  console.log("=== SAVE ASSIGN DEBUG ===");
-  console.log("selected object:", selected);
-  console.log("staffList:", staffList);
-  console.log("state.staff sample:", state.staff.slice(0, 3).map(s => ({ id: s.id, name: s.name })));
-  console.log("resolveBackendId:", resolveBackendId(activeReq));
-
-  dispatch({ type: "ASSIGN_STAFF", reqId: activeReq.id, assignedStaff: staffList });
-  try {
-    await apiAssignStaff(resolveBackendId(activeReq), staffList);
-  } catch (err) {
-    console.error("[AdminPanel] apiAssignStaff failed:", err.message);
-  }
-  close();
-};
+  const saveAssign = async () => {
+    const staffList = Object.entries(selected).map(([id, name]) => ({ id, name }));
+    console.log("=== SAVE ASSIGN DEBUG ===");
+    console.log("selected object:", selected);
+    console.log("staffList:", staffList);
+    dispatch({ type: "ASSIGN_STAFF", reqId: activeReq.id, assignedStaff: staffList });
+    try {
+      await apiAssignStaff(resolveBackendId(activeReq), staffList);
+    } catch (err) {
+      console.error("[AdminPanel] apiAssignStaff failed:", err.message);
+    }
+    close();
+  };
 
   const toggleStaff = (s) =>
     setSelected((prev) => {
@@ -298,7 +370,6 @@ const saveAssign = async () => {
     try { await apiCompleteRequest(resolveBackendId(r)); } catch (err) { console.error(err.message); }
   };
 
-  // ── Stats: replaced "Active" with "Awaiting Review" ─────────────────────────
   const stats = {
     total:          state.requests.length,
     pending:        state.requests.filter((r) => r.status === "Pending").length,
@@ -313,7 +384,6 @@ const saveAssign = async () => {
   });
   const staffToShow = filteredStaff.length > 0 ? filteredStaff : state.staff;
 
-  // ── ActionButtons: review-aware for completed jobs ───────────────────────────
   const ActionButtons = ({ r }) => {
     const ready = isReadyToApprove(r);
     return (
@@ -371,7 +441,7 @@ const saveAssign = async () => {
 
   return (
     <div>
-      {/* ── Stat cards: Total / Pending / Approved / Awaiting Review ── */}
+      {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
           { label: "Total",           value: stats.total,          color: "text-gray-900",   bg: "bg-white"      },
@@ -386,7 +456,7 @@ const saveAssign = async () => {
         ))}
       </div>
 
-      {/* ── Filter tabs: removed "Active", added "Awaiting Review" ── */}
+      {/* ── Filter tabs ── */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
         {["All", "Pending", "Approved", "Completed", "Awaiting Review", "Declined"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
@@ -405,10 +475,11 @@ const saveAssign = async () => {
 
       {/* ── Mobile Cards ── */}
       <div className="block md:hidden space-y-3">
-        {shown.map((r) => {
-          const ds = displayStatus(r);
+        {shown.map((r, idx) => {
+          const ds  = displayStatus(r);
+          const key = safeKey(r, idx);
           return (
-            <div key={r.id} className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+            <div key={key} className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-gray-900 text-sm">{r.clientName}</p>
@@ -424,8 +495,8 @@ const saveAssign = async () => {
                 </div>
               )}
               <div className="flex flex-wrap gap-1">
-                {r.roles.map((x, i) => (
-                  <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
+                {(r.roles || []).map((x, i) => (
+                  <span key={`role-${key}-${i}`} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
                 ))}
               </div>
               {r.startDate && (
@@ -436,26 +507,24 @@ const saveAssign = async () => {
               )}
               {r.assignedStaff?.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {r.assignedStaff.map((s) => (
-                    <span key={s.id} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
+                  {r.assignedStaff.map((s, si) => (
+                    <span key={s.id ?? `staff-${si}`} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
                   ))}
                 </div>
               )}
-              {/* ── Review status badge (mobile) ── */}
               {r.status === "Completed" && (
                 <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${r.reviewed ? "bg-green-50 border-green-100 text-green-700" : "bg-orange-50 border-orange-100 text-orange-700"}`}>
                   {r.reviewed ? <CheckCheck size={11} className="shrink-0" /> : <Star size={11} className="shrink-0" />}
                   {r.reviewed ? "Client reviewed" : "Awaiting client review"}
                 </div>
               )}
-              {/* ── Inline review preview (mobile) ── */}
               {r.reviews?.length > 0 && (
                 <div className="bg-[#eaf4fc]/60 rounded-lg px-2.5 py-2 space-y-1">
                   {r.reviews.map((rv, i) => (
-                    <div key={i} className="flex items-start gap-2">
+                    <div key={`rv-${key}-${i}`} className="flex items-start gap-2">
                       <span className="inline-flex gap-0.5 shrink-0 mt-0.5">
                         {Array.from({ length: 5 }, (_, si) => (
-                          <Star key={si} size={10} className={si < Math.round(rv.rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
+                          <Star key={`rvstar-${i}-${si}`} size={10} className={si < Math.round(rv.rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
                         ))}
                       </span>
                       {rv.comment && <p className="text-xs text-gray-500 italic truncate">"{rv.comment}"</p>}
@@ -483,10 +552,11 @@ const saveAssign = async () => {
                 </tr>
               </thead>
               <tbody>
-                {shown.map((r) => {
-                  const ds = displayStatus(r);
+                {shown.map((r, idx) => {
+                  const ds  = displayStatus(r);
+                  const key = safeKey(r, idx);
                   return (
-                    <tr key={r.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                    <tr key={key} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{r.clientName}</p>
                         <p className="text-xs text-gray-400">{r.clientType} · {r.phone}</p>
@@ -494,8 +564,8 @@ const saveAssign = async () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {r.roles.map((x, i) => (
-                            <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
+                          {(r.roles || []).map((x, i) => (
+                            <span key={`role-${key}-${i}`} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
                           ))}
                         </div>
                       </td>
@@ -518,12 +588,11 @@ const saveAssign = async () => {
                       </td>
                       <td className="px-4 py-3">
                         {r.assignedStaff?.length
-                          ? <div className="flex flex-wrap gap-1">{r.assignedStaff.map((s) => (
-                              <span key={s.id} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
+                          ? <div className="flex flex-wrap gap-1">{r.assignedStaff.map((s, si) => (
+                              <span key={s.id ?? `astaff-${si}`} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 border border-green-100">{s.name}</span>
                             ))}</div>
                           : <span className="text-xs text-gray-300">Unassigned</span>}
                       </td>
-                      {/* ── Review column (desktop) ── */}
                       <td className="px-4 py-3">
                         {r.status === "Completed" ? (
                           <div className="space-y-1.5">
@@ -532,10 +601,10 @@ const saveAssign = async () => {
                               {r.reviewed ? "Reviewed" : "Awaiting"}
                             </span>
                             {r.reviews?.length > 0 && r.reviews.map((rv, i) => (
-                              <div key={i} className="flex items-center gap-1">
+                              <div key={`dtblrv-${key}-${i}`} className="flex items-center gap-1">
                                 <span className="inline-flex gap-0.5">
                                   {Array.from({ length: 5 }, (_, si) => (
-                                    <Star key={si} size={9} className={si < Math.round(rv.rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
+                                    <Star key={`dtblstar-${key}-${i}-${si}`} size={9} className={si < Math.round(rv.rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
                                   ))}
                                 </span>
                                 {rv.comment && (
@@ -570,8 +639,8 @@ const saveAssign = async () => {
             <div>
               <p className="text-xs text-gray-400 mb-1">Roles requested</p>
               <div className="flex flex-wrap gap-1">
-                {liveReq.roles.map((x, i) => (
-                  <span key={i} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
+                {(liveReq.roles || []).map((x, i) => (
+                  <span key={`modal-role-${i}`} className="text-xs bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] rounded-full px-2 py-0.5">{x.role} ×{x.quantity}</span>
                 ))}
               </div>
             </div>
@@ -579,8 +648,8 @@ const saveAssign = async () => {
               <div>
                 <p className="text-xs text-gray-400 mb-1">Assigned staff</p>
                 <div className="flex flex-wrap gap-1">
-                  {liveReq.assignedStaff.map((s) => (
-                    <span key={s.id} className="text-xs bg-green-50 text-green-700 border border-green-100 rounded-full px-2 py-0.5">{s.name}</span>
+                  {liveReq.assignedStaff.map((s, si) => (
+                    <span key={s.id ?? `modal-staff-${si}`} className="text-xs bg-green-50 text-green-700 border border-green-100 rounded-full px-2 py-0.5">{s.name}</span>
                   ))}
                 </div>
               </div>
@@ -590,10 +659,10 @@ const saveAssign = async () => {
                 <p className="text-xs text-gray-400 mb-1">Client reviews</p>
                 <div className="space-y-2">
                   {liveReq.reviews.map((rv, i) => (
-                    <div key={i} className="bg-[#eaf4fc]/50 rounded-lg p-2 text-xs">
+                    <div key={`modal-rv-${i}`} className="bg-[#eaf4fc]/50 rounded-lg p-2 text-xs">
                       <div className="flex items-center gap-1 mb-0.5">
                         {Array.from({ length: 5 }).map((_, si) => (
-                          <Star key={si} size={10} className={si < rv.rating ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
+                          <Star key={`modal-rvstar-${i}-${si}`} size={10} className={si < rv.rating ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"} />
                         ))}
                         <span className="text-gray-500 ml-1">{rv.rating}/5</span>
                       </div>
@@ -615,7 +684,7 @@ const saveAssign = async () => {
       <Modal open={modal === "dates"} title={`Set dates — ${liveReq?.clientName}`} onClose={close}
         footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={saveDates}><Save size={12} /> Save dates</Btn></>}>
         <p className="text-xs text-gray-400">
-          {liveReq?.status === "Pending" ? "Once staff is also assigned, the Approve button will become active." : "Setting both dates will mark the request as Active."}
+          {liveReq?.status === "Pending" ? "Once staff is also assigned, the Approve button will become active." : "Update the start and end dates for this assignment."}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
           <FormField label="Start date">
@@ -632,7 +701,7 @@ const saveAssign = async () => {
         footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={saveAssign}><Save size={12} /> Save assignment</Btn></>}>
         {liveReq && (
           <>
-            <p className="text-xs text-gray-500 mb-1">Roles needed: {liveReq.roles.map((x) => `${x.role} ×${x.quantity}`).join(", ")}</p>
+            <p className="text-xs text-gray-500 mb-1">Roles needed: {(liveReq.roles || []).map((x) => `${x.role} ×${x.quantity}`).join(", ")}</p>
             {liveReq.status === "Pending" && (
               <div className="flex items-center gap-1.5 text-xs text-[#1a6fa8] bg-[#eaf4fc] border border-[#b8d9f0] rounded-lg px-3 py-2 mb-2">
                 <AlertTriangle size={11} className="text-[#2385cd] shrink-0" />
@@ -657,10 +726,10 @@ const saveAssign = async () => {
                   <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">No exact skill match — showing all staff.</p>
                 )}
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {staffToShow.map((s) => {
+                  {staffToShow.map((s, si) => {
                     const isSel = !!selected[s.id];
                     return (
-                      <div key={s.id} onClick={() => toggleStaff(s)}
+                      <div key={s.id ?? `assign-staff-${si}`} onClick={() => toggleStaff(s)}
                         className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
                           isSel ? "border-[#2385cd] bg-[#eaf4fc]" : "border-gray-100 hover:border-[#b8d9f0] hover:bg-gray-50"
                         }`}>
@@ -670,8 +739,8 @@ const saveAssign = async () => {
                           <p className="text-xs text-gray-400">{s.role}</p>
                           {s.otherSkills?.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {s.otherSkills.map((sk) => (
-                                <span key={sk} className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5">{sk}</span>
+                              {s.otherSkills.map((sk, ski) => (
+                                <span key={`sk-${s.id ?? si}-${ski}`} className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5">{sk}</span>
                               ))}
                             </div>
                           )}
@@ -737,8 +806,8 @@ function StaffSection({ state, dispatch }) {
       )}
 
       <div className="block md:hidden space-y-3">
-        {shown.map((s) => (
-          <div key={s.id} className="bg-white rounded-xl border border-gray-100 p-4">
+        {shown.map((s, idx) => (
+          <div key={s.id ?? `staff-mob-${idx}`} className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-3 mb-3">
               <Avatar name={s.name} size="md" />
               <div className="flex-1 min-w-0">
@@ -749,8 +818,8 @@ function StaffSection({ state, dispatch }) {
             </div>
             {s.otherSkills?.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">
-                {s.otherSkills.map((sk) => (
-                  <span key={sk} className="text-[10px] bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-1.5 py-0.5">{sk}</span>
+                {s.otherSkills.map((sk, ski) => (
+                  <span key={`sk-mob-${s.id ?? idx}-${ski}`} className="text-[10px] bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-1.5 py-0.5">{sk}</span>
                 ))}
               </div>
             )}
@@ -785,14 +854,14 @@ function StaffSection({ state, dispatch }) {
                 </tr>
               </thead>
               <tbody>
-                {shown.map((s) => (
-                  <tr key={s.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                {shown.map((s, idx) => (
+                  <tr key={s.id ?? `staff-desk-${idx}`} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
                     <td className="px-4 py-3"><div className="flex items-center gap-2"><Avatar name={s.name} /><span className="font-medium text-gray-900">{s.name}</span></div></td>
                     <td className="px-4 py-3 text-gray-600">{s.role}</td>
                     <td className="px-4 py-3">
                       {s.otherSkills?.length > 0
-                        ? <div className="flex flex-wrap gap-1">{s.otherSkills.map((sk) => (
-                            <span key={sk} className="text-[10px] bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-1.5 py-0.5">{sk}</span>
+                        ? <div className="flex flex-wrap gap-1">{s.otherSkills.map((sk, ski) => (
+                            <span key={`sk-desk-${s.id ?? idx}-${ski}`} className="text-[10px] bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-1.5 py-0.5">{sk}</span>
                           ))}</div>
                         : <span className="text-xs text-gray-300">—</span>}
                     </td>
@@ -876,10 +945,10 @@ function RegisteredSection({ state }) {
       )}
 
       <div className="block md:hidden space-y-3">
-        {shown.map((u) => {
+        {shown.map((u, idx) => {
           const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
           return (
-            <div key={u.id} className="bg-white rounded-xl border border-gray-100 p-4">
+            <div key={u.id ?? u._id ?? `reguser-mob-${idx}`} className="bg-white rounded-xl border border-gray-100 p-4">
               <div className="flex items-center gap-3 mb-2">
                 <Avatar src={u.photoUrl} name={fullName} size="md" />
                 <div className="flex-1 min-w-0">
@@ -912,10 +981,10 @@ function RegisteredSection({ state }) {
                 </tr>
               </thead>
               <tbody>
-                {shown.map((u) => {
+                {shown.map((u, idx) => {
                   const fullName = `${u.surname} ${u.otherNames || ""}`.trim();
                   return (
-                    <tr key={u.id} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                    <tr key={u.id ?? u._id ?? `reguser-desk-${idx}`} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
                       <td className="px-4 py-3"><div className="flex items-center gap-2"><Avatar src={u.photoUrl} name={fullName} /><span className="font-medium text-gray-900">{fullName}</span></div></td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{u.email}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{u.phoneNumber || "—"}</td>
@@ -955,12 +1024,12 @@ function RegisteredSection({ state }) {
                 <div>
                   <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Submitted requests</p>
                   <div className="space-y-2">
-                    {userReqs.map((r) => {
+                    {userReqs.map((r, ri) => {
                       const ds = r.status === "Rejected" ? "Declined" : r.status;
                       return (
-                        <div key={r.id} className="flex items-center justify-between p-2 bg-[#eaf4fc]/50 rounded-lg text-xs">
+                        <div key={safeKey(r, ri)} className="flex items-center justify-between p-2 bg-[#eaf4fc]/50 rounded-lg text-xs">
                           <div>
-                            <p className="font-medium text-gray-800">{r.roles.map((x) => `${x.role} ×${x.quantity}`).join(", ")}</p>
+                            <p className="font-medium text-gray-800">{(r.roles || []).map((x) => `${x.role} ×${x.quantity}`).join(", ")}</p>
                             <p className="text-gray-400">{new Date(r.submittedAt).toLocaleDateString("en-GB")}</p>
                           </div>
                           <Pill label={ds} color={statusColor(ds)} />
@@ -1009,8 +1078,8 @@ function BlogSection({ state, dispatch }) {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {state.blog.map((p) => (
-          <div key={p.id} className="bg-white rounded-xl border border-gray-100 p-4 space-y-2 hover:border-[#b8d9f0] transition">
+        {state.blog.map((p, idx) => (
+          <div key={p.id ?? p._id ?? `blog-${idx}`} className="bg-white rounded-xl border border-gray-100 p-4 space-y-2 hover:border-[#b8d9f0] transition">
             <div className="flex items-start justify-between gap-2">
               <p className="font-medium text-gray-900 text-sm leading-snug">{p.title}</p>
               <Pill label={p.status} color={p.status === "Published" ? "green" : "yellow"} />
@@ -1045,6 +1114,20 @@ function BlogSection({ state, dispatch }) {
   );
 }
 
+// ── Helper: normalise a raw testimonial from the backend ─────────────────────
+function normaliseTestimonial(t, idx) {
+  if (!t || typeof t !== "object") return null;
+  return {
+    id:      t._id ?? t.id ?? `testi_${idx}`,
+    name:    t.name    ?? "",
+    role:    t.role    ?? "",
+    text:    t.text    ?? t.content ?? t.testimonial ?? "",
+    image:   t.image   ?? t.photo   ?? t.photoUrl    ?? "",
+    rating:  Number(t.rating ?? 5),
+    visible: t.visible ?? t.show ?? true,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Testimonials
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1056,6 +1139,23 @@ function TestimonialsSection({ state, dispatch }) {
   const [form,    setForm]    = useState(blankForm);
   const [saving,  setSaving]  = useState(false);
   const [apiNote, setApiNote] = useState("");
+
+  // ── Load testimonials independently on mount ────────────────────────────────
+  useEffect(() => {
+    apiFetchAdminTestimonials()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.testimonials ?? []);
+        // Merge: only add entries not already in state (avoid duplicates from master sync)
+        const existingIds = new Set(state.testimonials.map((t) => String(t.id)));
+        list.forEach((t, i) => {
+          const normalised = normaliseTestimonial(t, i);
+          if (normalised && !existingIds.has(String(normalised.id))) {
+            dispatch({ type: "ADD_TESTI", payload: normalised });
+          }
+        });
+      })
+      .catch((err) => console.warn("[Testimonials] admin fetch failed:", err.message));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openEdit = (t) => { setEditing(t); setForm({ ...blankForm, ...t }); setModal(true); setApiNote(""); };
   const openNew  = ()  => { setEditing(null); setForm(blankForm); setModal(true); setApiNote(""); };
@@ -1131,8 +1231,8 @@ function TestimonialsSection({ state, dispatch }) {
       )}
 
       <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
-        {state.testimonials.map((t) => (
-          <div key={t.id} className="flex gap-3 p-4 hover:bg-[#eaf4fc]/20 transition">
+        {state.testimonials.map((t, idx) => (
+          <div key={t.id ?? t._id ?? `testi-${idx}`} className="flex gap-3 p-4 hover:bg-[#eaf4fc]/20 transition">
             <TestiAvatar src={t.image} name={t.name} size={44} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-0.5">
@@ -1204,7 +1304,7 @@ function TestimonialsSection({ state, dispatch }) {
               <input name="rating" type="number" min="1" max="5" step="0.5" className={inputCls} value={form.rating} onChange={handle} />
               <div className="flex gap-0.5 shrink-0">
                 {[1,2,3,4,5].map((s) => (
-                  <span key={s} style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "#e5e7eb", fontSize: 16 }}>★</span>
+                  <span key={`preview-star-${s}`} style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "#e5e7eb", fontSize: 16 }}>★</span>
                 ))}
               </div>
             </div>
@@ -1229,7 +1329,7 @@ function TestimonialsSection({ state, dispatch }) {
                   <p style={{ color: "#2385cd", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 5px" }}>{form.role || "Role, Company"}</p>
                   <div style={{ display: "flex", gap: 2 }}>
                     {[1,2,3,4,5].map((s) => (
-                      <span key={s} style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "rgba(35,133,205,0.2)", fontSize: 11 }}>★</span>
+                      <span key={`preview-card-star-${s}`} style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "rgba(35,133,205,0.2)", fontSize: 11 }}>★</span>
                     ))}
                   </div>
                 </div>
@@ -1293,8 +1393,8 @@ function MessagesSection({ state, dispatch }) {
       )}
 
       <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
-        {shown.map((m) => (
-          <div key={m.id} onClick={() => openMsg(m)}
+        {shown.map((m, idx) => (
+          <div key={m.id ?? `msg-${idx}`} onClick={() => openMsg(m)}
             className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-[#eaf4fc]/40 transition ${liveActive?.id === m.id ? "bg-[#eaf4fc]/60 border-l-2 border-[#2385cd]" : ""}`}>
             <Avatar name={m.from} />
             <div className="flex-1 min-w-0">
@@ -1346,7 +1446,7 @@ function MessagesSection({ state, dispatch }) {
           <div className="bg-gray-50 rounded-xl rounded-tl-none px-3 py-2 text-sm text-gray-600 leading-relaxed max-w-[85%]">{liveActive.body}</div>
         </div>
         {liveActive.replies?.map((r, i) => (
-          <div key={i} className="flex gap-2 justify-end">
+          <div key={`reply-${i}`} className="flex gap-2 justify-end">
             <div className="bg-[#2385cd] rounded-xl rounded-tr-none px-3 py-2 text-sm text-white leading-relaxed max-w-[85%]">
               <p>{r.text}</p>
               <p className="text-[10px] text-white/60 mt-1 text-right">
@@ -1409,7 +1509,7 @@ function ProfilesSection({ state }) {
 
       <div className="block md:hidden space-y-3">
         {clients.map((c, i) => (
-          <div key={i} className="bg-white rounded-xl border border-gray-100 p-4">
+          <div key={`profile-mob-${i}`} className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-3 mb-2">
               <Avatar src={c.regUser?.photoUrl} name={c.name} size="md" />
               <div className="flex-1 min-w-0">
@@ -1440,7 +1540,7 @@ function ProfilesSection({ state }) {
               </thead>
               <tbody>
                 {clients.map((c, i) => (
-                  <tr key={i} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                  <tr key={`profile-desk-${i}`} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
                     <td className="px-4 py-3"><div className="flex items-center gap-2"><Avatar src={c.regUser?.photoUrl} name={c.name} /><span className="font-medium text-gray-900">{c.name}</span></div></td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{c.email}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{c.phone}</td>
@@ -1504,10 +1604,16 @@ function normaliseContactMessage(m, idx) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function AdminPanel() {
   const { state, dispatch } = useStore();
+
+  // ── All hooks must be declared unconditionally before any early return ───────
+
+  const [authed,      setAuthed]      = useState(() => hasAuthToken());
   const [section,     setSection]     = useState("requests");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [syncing,     setSyncing]     = useState(false);
   const [syncError,   setSyncError]   = useState("");
+
+  // ── Helpers defined after hooks (plain functions, not hooks themselves) ──────
 
   const debugSync = async (raw) => {
     console.group("🔍 [AdminPanel] syncData DEBUG");
@@ -1564,11 +1670,18 @@ export function AdminPanel() {
       dispatch({ type: "LOAD_MARKETPLACE", payload: data });
     } catch (err) {
       console.error("[AdminPanel] ❌ syncData FAILED:", err);
+      if (err.status === 401 || err.status === 403) {
+        clearAuthToken();
+        setAuthed(false);
+        return;
+      }
       setSyncError(err.message ?? "Sync failed");
     } finally { setSyncing(false); }
   };
 
   useEffect(() => {
+    if (!authed || !hasAuthToken()) return;
+
     let cancelled = false;
     (async () => {
       setSyncing(true); setSyncError("");
@@ -1582,12 +1695,22 @@ export function AdminPanel() {
       } catch (err) {
         if (!cancelled) {
           console.error("[AdminPanel] ❌ useEffect sync FAILED:", err);
+          if (err.status === 401 || err.status === 403) {
+            clearAuthToken();
+            setAuthed(false);
+            return;
+          }
           setSyncError(err.message ?? "Sync failed");
         }
       } finally { if (!cancelled) setSyncing(false); }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [authed]);
+
+  // ── NOW it is safe to conditionally return — all hooks are above this line ──
+  if (!authed) {
+    return <AdminLoginGate onSuccess={() => setAuthed(true)} />;
+  }
 
   const pendingCount  = state.requests.filter((r) => r.status === "Pending").length;
   const unreadCount   = state.messages.filter((m) => !m.read).length;
@@ -1616,6 +1739,11 @@ export function AdminPanel() {
 
   const navigate = (key) => { setSection(key); setSidebarOpen(false); };
 
+  const handleLogout = () => {
+    clearAuthToken();
+    setAuthed(false);
+  };
+
   const SidebarNav = (
     <nav className="flex-1 py-2 overflow-y-auto">
       {NAV.map(({ key, label, Icon }) => {
@@ -1641,6 +1769,22 @@ export function AdminPanel() {
     </nav>
   );
 
+  const SidebarFooter = (
+    <div className="px-3 py-4 border-t border-white/10">
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-white truncate">Super Admin</p>
+          <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>randle&hopkick@gmail.com</p>
+        </div>
+        <button onClick={handleLogout} title="Sign out"
+          className="p-1 text-white/30 hover:text-red-400 transition shrink-0">
+          <X size={14} />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
 
@@ -1663,15 +1807,7 @@ export function AdminPanel() {
                 <button onClick={() => setSidebarOpen(false)} className="text-white/50 hover:text-white p-1"><X size={16} /></button>
               </div>
               {SidebarNav}
-              <div className="px-3 py-4 border-t border-white/10">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-white truncate">Super Admin</p>
-                    <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>randle&hopkick@gmail.com</p>
-                  </div>
-                </div>
-              </div>
+              {SidebarFooter}
             </motion.aside>
           </>
         )}
@@ -1684,15 +1820,7 @@ export function AdminPanel() {
           <p className="text-xs font-medium mt-0.5" style={{ color: "#2385cd" }}>Admin Panel</p>
         </div>
         {SidebarNav}
-        <div className="px-3 py-4 border-t border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: "#2385cd" }}>SA</div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-white truncate">Super Admin</p>
-              <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>randle&hopkick@gmail.com</p>
-            </div>
-          </div>
-        </div>
+        {SidebarFooter}
       </aside>
 
       {/* Main */}
