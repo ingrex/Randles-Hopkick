@@ -67,10 +67,32 @@ function isReadyToApprove(r) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 1: resolveBackendId
+// backendId is set to the Mongo _id string by normaliseRequest in store.js.
+// We prefer it over the plain id, and we guard against sending a request if
+// the id looks like a local timestamp (numeric, > 10 digits) with no backendId.
+// ─────────────────────────────────────────────────────────────────────────────
 function resolveBackendId(r) {
   const id = r.backendId ?? r._id ?? r.id;
-  console.log(`[AdminPanel] resolveBackendId — local id: ${r.id}  backendId: ${r.backendId}  resolved: ${id}`);
+  console.log(
+    `[AdminPanel] resolveBackendId — local id: ${r.id}  backendId: ${r.backendId}  resolved: ${id}`
+  );
   return id;
+}
+
+/**
+ * Returns true when the resolved id looks like a real MongoDB ObjectId or a
+ * server-assigned string — NOT a local Date.now() timestamp fallback.
+ * A Mongo ObjectId is a 24-char hex string.  Local timestamps are pure
+ * numbers >= 13 digits.
+ */
+function isValidBackendId(id) {
+  if (!id) return false;
+  const str = String(id);
+  // Pure numeric string longer than 12 chars → local timestamp, not a real id
+  if (/^\d{13,}$/.test(str)) return false;
+  return true;
 }
 
 // ── Safe unique key for list renders (avoids null-key warnings) ──────────────
@@ -206,7 +228,6 @@ function EmptyState({ icon: Icon, title, subtitle }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN LOGIN GATE
-// Shown when no token is in localStorage — prevents 403 on mount
 // ─────────────────────────────────────────────────────────────────────────────
 function AdminLoginGate({ onSuccess }) {
   const [password, setPassword] = useState("");
@@ -323,24 +344,74 @@ function RequestsSection({ state, dispatch }) {
   };
   const close = () => { setModal(null); setActiveReq(null); };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX 3: saveDates — guard empty dates, warn if no valid backend id
+  // ─────────────────────────────────────────────────────────────────────────
   const saveDates = async () => {
     dispatch({ type: "SET_DATES", id: activeReq.id, ...dates });
+
+    const hasStart = dates.startDate?.trim();
+    const hasEnd   = dates.endDate?.trim();
+
+    if (!hasStart && !hasEnd) {
+      console.warn("[AdminPanel] saveDates: both dates are empty — skipping API call");
+      close();
+      return;
+    }
+
+    const backendId = resolveBackendId(activeReq);
+    if (!isValidBackendId(backendId)) {
+      console.warn(
+        "[AdminPanel] saveDates: id looks like a local timestamp, not a Mongo id — skipping API call.",
+        "Request must be synced from backend before dates can be set remotely.",
+        { backendId, req: activeReq }
+      );
+      close();
+      return;
+    }
+
     try {
-      await apiSetDates(resolveBackendId(activeReq), dates);
+      await apiSetDates(backendId, { startDate: hasStart || undefined, endDate: hasEnd || undefined });
     } catch (err) {
       console.error("[AdminPanel] apiSetDates failed:", err.message);
     }
     close();
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX 2: saveAssign — use backendId for staff; guard invalid request id
+  // The staff objects come from normaliseStaffProfile which sets id = Mongo _id.
+  // We still add the backendId ?? _id ?? id fallback chain for safety.
+  // ─────────────────────────────────────────────────────────────────────────
   const saveAssign = async () => {
     const staffList = Object.entries(selected).map(([id, name]) => ({ id, name }));
     console.log("=== SAVE ASSIGN DEBUG ===");
     console.log("selected object:", selected);
     console.log("staffList:", staffList);
     dispatch({ type: "ASSIGN_STAFF", reqId: activeReq.id, assignedStaff: staffList });
+
+    const backendId = resolveBackendId(activeReq);
+    if (!isValidBackendId(backendId)) {
+      console.warn(
+        "[AdminPanel] saveAssign: request id looks like a local timestamp — skipping API call.",
+        { backendId }
+      );
+      close();
+      return;
+    }
+
+    // Build staffIds using the most authoritative id available on each staff object
+    // state.staff records have id = Mongo _id (set by normaliseStaffProfile)
+    const enrichedStaffList = staffList.map((s) => {
+      const storeRecord = state.staff.find((st) => String(st.id) === String(s.id) || st.name === s.name);
+      return {
+        ...s,
+        resolvedId: storeRecord?.backendId ?? storeRecord?.id ?? s.id,
+      };
+    });
+
     try {
-      await apiAssignStaff(resolveBackendId(activeReq), staffList);
+      await apiAssignStaff(backendId, enrichedStaffList.map((s) => ({ id: s.resolvedId, name: s.name })));
     } catch (err) {
       console.error("[AdminPanel] apiAssignStaff failed:", err.message);
     }
@@ -357,17 +428,32 @@ function RequestsSection({ state, dispatch }) {
   const handleApprove = async (r) => {
     if (!isReadyToApprove(r)) return;
     dispatch({ type: "APPROVE_REQUEST", id: r.id });
-    try { await apiApproveRequest(resolveBackendId(r)); } catch (err) { console.error(err.message); }
+    const backendId = resolveBackendId(r);
+    if (!isValidBackendId(backendId)) {
+      console.warn("[AdminPanel] handleApprove: no valid backend id", { backendId });
+      return;
+    }
+    try { await apiApproveRequest(backendId); } catch (err) { console.error(err.message); }
   };
 
   const handleDecline = async (r) => {
     dispatch({ type: "DECLINE_REQUEST", id: r.id });
-    try { await apiRejectRequest(resolveBackendId(r)); } catch (err) { console.error(err.message); }
+    const backendId = resolveBackendId(r);
+    if (!isValidBackendId(backendId)) {
+      console.warn("[AdminPanel] handleDecline: no valid backend id", { backendId });
+      return;
+    }
+    try { await apiRejectRequest(backendId); } catch (err) { console.error(err.message); }
   };
 
   const handleComplete = async (r) => {
     dispatch({ type: "COMPLETE_REQUEST", id: r.id });
-    try { await apiCompleteRequest(resolveBackendId(r)); } catch (err) { console.error(err.message); }
+    const backendId = resolveBackendId(r);
+    if (!isValidBackendId(backendId)) {
+      console.warn("[AdminPanel] handleComplete: no valid backend id", { backendId });
+      return;
+    }
+    try { await apiCompleteRequest(backendId); } catch (err) { console.error(err.message); }
   };
 
   const stats = {
@@ -386,8 +472,18 @@ function RequestsSection({ state, dispatch }) {
 
   const ActionButtons = ({ r }) => {
     const ready = isReadyToApprove(r);
+    const backendId = resolveBackendId(r);
+    const hasValidId = isValidBackendId(backendId);
+
     return (
       <div className="flex flex-wrap gap-1.5">
+        {/* Warn visually when the request hasn't been synced from backend yet */}
+        {!hasValidId && r.status === "Pending" && (
+          <span title="This request was created locally and hasn't synced to the backend yet. Refresh to load it."
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-amber-50 text-amber-600 border border-amber-200 select-none">
+            <AlertTriangle size={10} /> Not synced
+          </span>
+        )}
         {r.status === "Pending" && (
           <>
             <Btn variant="primary" onClick={() => open("assign", r)}><UserPlus size={12} /> Assign Staff</Btn>
@@ -630,9 +726,16 @@ function RequestsSection({ state, dispatch }) {
         {liveReq && (
           <div className="space-y-3 text-sm">
             <div className="grid grid-cols-2 gap-3">
-              {[["Name", liveReq.clientName], ["Type", liveReq.clientType], ["Email", liveReq.email],
-                ["Phone", liveReq.phone], ["Location", liveReq.location], ["Status", displayStatus(liveReq)],
-                ["Backend ID", resolveBackendId(liveReq)]].map(([l, v]) => (
+              {[
+                ["Name",       liveReq.clientName],
+                ["Type",       liveReq.clientType],
+                ["Email",      liveReq.email],
+                ["Phone",      liveReq.phone],
+                ["Location",   liveReq.location],
+                ["Status",     displayStatus(liveReq)],
+                ["Backend ID", resolveBackendId(liveReq)],
+                ["Synced ID?", isValidBackendId(resolveBackendId(liveReq)) ? "✅ Yes" : "⚠️ Not synced"],
+              ].map(([l, v]) => (
                 <div key={l}><p className="text-xs text-gray-400">{l}</p><p className="font-medium break-all">{v}</p></div>
               ))}
             </div>
@@ -683,6 +786,12 @@ function RequestsSection({ state, dispatch }) {
       {/* ── Dates Modal ── */}
       <Modal open={modal === "dates"} title={`Set dates — ${liveReq?.clientName}`} onClose={close}
         footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={saveDates}><Save size={12} /> Save dates</Btn></>}>
+        {liveReq && !isValidBackendId(resolveBackendId(liveReq)) && (
+          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <AlertTriangle size={13} className="shrink-0" />
+            This request hasn't synced from the backend yet. Dates will be saved locally only. Refresh the page after the sync to update them on the server.
+          </div>
+        )}
         <p className="text-xs text-gray-400">
           {liveReq?.status === "Pending" ? "Once staff is also assigned, the Approve button will become active." : "Update the start and end dates for this assignment."}
         </p>
@@ -701,6 +810,12 @@ function RequestsSection({ state, dispatch }) {
         footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={saveAssign}><Save size={12} /> Save assignment</Btn></>}>
         {liveReq && (
           <>
+            {!isValidBackendId(resolveBackendId(liveReq)) && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <AlertTriangle size={13} className="shrink-0" />
+                This request hasn't synced yet. Assignment will be saved locally. Refresh to sync with server.
+              </div>
+            )}
             <p className="text-xs text-gray-500 mb-1">Roles needed: {(liveReq.roles || []).map((x) => `${x.role} ×${x.quantity}`).join(", ")}</p>
             {liveReq.status === "Pending" && (
               <div className="flex items-center gap-1.5 text-xs text-[#1a6fa8] bg-[#eaf4fc] border border-[#b8d9f0] rounded-lg px-3 py-2 mb-2">
@@ -748,6 +863,8 @@ function RequestsSection({ state, dispatch }) {
                             <StarRating rating={s.averageRating} />
                             <span className="text-xs text-gray-400">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
                           </div>
+                          {/* Show the actual Mongo id that will be sent — helpful for debugging */}
+                          <p className="text-[9px] text-gray-300 mt-0.5 font-mono truncate" title={s.id}>id: {s.id}</p>
                         </div>
                         <Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} />
                       </div>
@@ -1140,12 +1257,10 @@ function TestimonialsSection({ state, dispatch }) {
   const [saving,  setSaving]  = useState(false);
   const [apiNote, setApiNote] = useState("");
 
-  // ── Load testimonials independently on mount ────────────────────────────────
   useEffect(() => {
     apiFetchAdminTestimonials()
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.testimonials ?? []);
-        // Merge: only add entries not already in state (avoid duplicates from master sync)
         const existingIds = new Set(state.testimonials.map((t) => String(t.id)));
         list.forEach((t, i) => {
           const normalised = normaliseTestimonial(t, i);
@@ -1605,15 +1720,11 @@ function normaliseContactMessage(m, idx) {
 export function AdminPanel() {
   const { state, dispatch } = useStore();
 
-  // ── All hooks must be declared unconditionally before any early return ───────
-
   const [authed,      setAuthed]      = useState(() => hasAuthToken());
   const [section,     setSection]     = useState("requests");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [syncing,     setSyncing]     = useState(false);
   const [syncError,   setSyncError]   = useState("");
-
-  // ── Helpers defined after hooks (plain functions, not hooks themselves) ──────
 
   const debugSync = async (raw) => {
     console.group("🔍 [AdminPanel] syncData DEBUG");
@@ -1707,7 +1818,6 @@ export function AdminPanel() {
     return () => { cancelled = true; };
   }, [authed]);
 
-  // ── NOW it is safe to conditionally return — all hooks are above this line ──
   if (!authed) {
     return <AdminLoginGate onSuccess={() => setAuthed(true)} />;
   }

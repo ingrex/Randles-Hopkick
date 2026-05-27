@@ -220,7 +220,7 @@ export async function apiCompleteRequest(id) {
  * PATCH /api/v1/admin/:id/assign
  */
 export async function apiAssignStaff(reqId, assignedStaff) {
-  const staffIds = assignedStaff.map((s) => s.id);
+  const staffIds = assignedStaff.map((s) => s.backendId ?? s._id ?? s.id)
   console.log("[auth.js] apiAssignStaff →", { reqId, staffIds });
   return request(`/admin/${reqId}/assign`, {
     method: "PATCH",
@@ -245,24 +245,8 @@ export async function apiSubmitReview(requestId, { staffId, rating, comment }) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TESTIMONIALS
-//
-// Public (used by Testimonials.jsx on the front-end):
-//   GET  /testimonials          — no auth required
-//
-// Admin (used by AdminPanel → TestimonialsSection):
-//   GET    /testimonials/admin       — fetch all for management
-//   POST   /testimonials/admin       — create new
-//   PATCH  /testimonials/admin/:id   — update existing
-//   DELETE /testimonials/admin/:id   — delete
-// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Public testimonials — used by the front-end Testimonials.jsx component.
- * No auth required; returns only visible/approved testimonials.
- * GET /api/v1/testimonials
- */
+
 export async function apiFetchTestimonials() {
   return request("/testimonials", { method: "GET" });
 }
