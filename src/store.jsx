@@ -290,9 +290,7 @@ export function normaliseMessage(m, idx) {
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseTestimonial
 //
-// Backend field names:  name, role, company, content, rating, avatar, isApproved
-// Internal/display names: name, role, company, text, rating, image, visible
-// ─────────────────────────────────────────────────────────────────────────────
+
 export function normaliseTestimonial(t, idx) {
   if (!t || typeof t !== "object") return null;
   return {
@@ -687,15 +685,17 @@ function reducer(state, action) {
     }
 
     // ── Review submission ─────────────────────────────────────────────────────
-    case "SUBMIT_REVIEW": {
-      const { reqId, staffId, rating, comment } = action;
-      const review = {
-        rating,
-        comment:       comment ?? "",
-        submittedAt:   new Date().toISOString(),
-        reviewedReqId: reqId,
-        staffId,
-      };
+case "SUBMIT_REVIEW": {
+  const { reqId, staffId, rating, comment } = action;
+  const staffMember = state.staff.find((s) => String(s.id) === String(staffId));
+  const review = {
+    rating,
+    comment:       comment ?? "",
+    submittedAt:   new Date().toISOString(),
+    reviewedReqId: reqId,
+    staffId,
+    staffName:     staffMember?.name ?? "",   // ← resolved at submission time
+  };
 
       const updatedStaff = state.staff.map((s) => {
         if (String(s.id) !== String(staffId)) return s;

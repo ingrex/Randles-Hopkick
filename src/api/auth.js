@@ -5,18 +5,15 @@
 const BASE_URL = "https://randnhop.onrender.com";
 const API      = `${BASE_URL}/api/v1`;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal request helper
-// ─────────────────────────────────────────────────────────────────────────────
 async function request(path, options = {}) {
-  const { headers: optHeaders, ...restOptions } = options; // pull headers out before spreading
+  const { headers: optHeaders, ...restOptions } = options;
 
   const res = await fetch(`${API}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      ...(optHeaders || {}), // auth + any other headers merged cleanly
+      ...(optHeaders || {}),
     },
-    ...restOptions, // no headers key here — won't overwrite the merged headers above
+    ...restOptions,
   });
 
   const text = await res.text();
@@ -43,13 +40,6 @@ async function request(path, options = {}) {
   return data;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Auth token helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Returns auth headers, or throws a typed error if no token is stored.
- */
 function authHeaders() {
   const token = localStorage.getItem("authToken");
   if (!token) {
@@ -61,24 +51,12 @@ function authHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
-export function getAuthToken() {
-  return localStorage.getItem("authToken") ?? null;
-}
+export function getAuthToken()  { return localStorage.getItem("authToken") ?? null; }
+export function hasAuthToken()  { return !!localStorage.getItem("authToken"); }
+export function clearAuthToken() { localStorage.removeItem("authToken"); }
 
-/** Returns true if an auth token is currently stored, false otherwise. */
-export function hasAuthToken() {
-  return !!localStorage.getItem("authToken");
-}
+// ─── AUTH ────────────────────────────────────────────────────────────────────
 
-export function clearAuthToken() {
-  localStorage.removeItem("authToken");
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AUTH
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Admin gate login — stores the returned JWT in localStorage */
 export async function apiAdminGateLogin({ password }) {
   const data = await request("/auth/admin-gate-login", {
     method: "POST",
@@ -88,7 +66,6 @@ export async function apiAdminGateLogin({ password }) {
   return data;
 }
 
-/** Regular user login — stores the returned JWT in localStorage */
 export async function apiLogin({ email, password }) {
   const data = await request("/auth/login", {
     method: "POST",
@@ -98,22 +75,15 @@ export async function apiLogin({ email, password }) {
   return data;
 }
 
-/** New user registration */
 export async function apiRegister({
   surname, otherNames, phoneNumber, email, password, confirmPassword,
 }) {
   return request("/auth/register", {
     method: "POST",
-    body: JSON.stringify({
-      surname, otherNames, phoneNumber, email, password, confirmPassword,
-    }),
+    body: JSON.stringify({ surname, otherNames, phoneNumber, email, password, confirmPassword }),
   });
 }
 
-/**
- * Fetch the authenticated user's profile.
- * GET /api/v1/auth/profile
- */
 export async function apiGetProfile() {
   return request("/auth/profile", {
     method: "GET",
@@ -121,10 +91,6 @@ export async function apiGetProfile() {
   });
 }
 
-/**
- * Send a password-reset email.
- * POST /api/v1/auth/forgotPassword
- */
 export async function apiForgotPassword({ email }) {
   return request("/auth/forgotPassword", {
     method: "POST",
@@ -132,10 +98,6 @@ export async function apiForgotPassword({ email }) {
   });
 }
 
-/**
- * Reset the user's password using the token from the email link.
- * POST /api/v1/auth/resetPassword/:token
- */
 export async function apiResetPassword({ token, password, confirmPassword }) {
   return request(`/auth/resetPassword/${token}`, {
     method: "POST",
@@ -143,11 +105,8 @@ export async function apiResetPassword({ token, password, confirmPassword }) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STAFF / CLIENT REQUESTS  (user-facing)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── STAFF / CLIENT REQUESTS (user-facing) ───────────────────────────────────
 
-/** Submit a new staff/client request (authenticated) */
 export async function apiStaffRequest(payload) {
   return request("/staff-request", {
     method: "POST",
@@ -156,7 +115,6 @@ export async function apiStaffRequest(payload) {
   });
 }
 
-/** Submit / update the job-seeker's own profile (authenticated) */
 export async function apiStaffProfile(payload) {
   return request("/profile", {
     method: "POST",
@@ -166,10 +124,30 @@ export async function apiStaffProfile(payload) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARKETPLACE  (admin-facing)
+// NEW: Fetch the logged-in user's own staff requests.
+// The backend returns the requests that belong to the authenticated user.
+// GET /api/v1/staff-request/my  (adjust path if your backend uses a different one)
 // ─────────────────────────────────────────────────────────────────────────────
+export async function apiGetUserRequests() {
+  return request("/staff-request/my", {
+    method: "GET",
+    headers: authHeaders(),
+  });
+}
 
-/** Public marketplace — visible to authenticated users */
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW: Fetch the logged-in job-seeker's own profile + assigned jobs.
+// GET /api/v1/profile/my
+// ─────────────────────────────────────────────────────────────────────────────
+export async function apiGetMyStaffProfile() {
+  return request("/profile/my", {
+    method: "GET",
+    headers: authHeaders(),
+  });
+}
+
+// ─── MARKETPLACE (admin-facing) ───────────────────────────────────────────────
+
 export async function apiGetMarketplace() {
   return request("/profile/marketplace", {
     method: "GET",
@@ -177,10 +155,6 @@ export async function apiGetMarketplace() {
   });
 }
 
-/**
- * Master marketplace — admin only.
- * Returns { users, staff (requests), profile (staff profiles), messages, testimonials }
- */
 export async function apiGetMasterMarketplace() {
   return request("/admin/mastermarketplace", {
     method: "GET",
@@ -189,11 +163,8 @@ export async function apiGetMasterMarketplace() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN — request lifecycle
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── ADMIN — request lifecycle ────────────────────────────────────────────────
 
-/** Approve a staff request. PATCH /api/v1/admin/:id/approve */
 export async function apiApproveRequest(id) {
   return request(`/admin/${id}/approve`, {
     method: "PATCH",
@@ -201,7 +172,6 @@ export async function apiApproveRequest(id) {
   });
 }
 
-/** Reject a staff request. PATCH /api/v1/admin/:id/reject */
 export async function apiRejectRequest(id) {
   return request(`/admin/${id}/reject`, {
     method: "PATCH",
@@ -209,7 +179,6 @@ export async function apiRejectRequest(id) {
   });
 }
 
-/** Mark a request as completed. PATCH /api/v1/admin/:id/complete */
 export async function apiCompleteRequest(id) {
   return request(`/admin/${id}/complete`, {
     method: "PATCH",
@@ -217,10 +186,6 @@ export async function apiCompleteRequest(id) {
   });
 }
 
-/**
- * Assign staff members to a request.
- * PATCH /api/v1/admin/:id/assign
- */
 export async function apiAssignStaff(reqId, assignedStaff) {
   const staffIds = assignedStaff.map((s) => s.backendId ?? s._id ?? s.id);
   console.log("[auth.js] apiAssignStaff →", { reqId, staffIds });
@@ -247,35 +212,12 @@ export async function apiSubmitReview(requestId, { staffId, rating, comment }) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TESTIMONIALS
-//
-// Public (used by Testimonials.jsx on the front-end):
-//   GET  /testimonials          — no auth required
-//
-// Admin (used by AdminPanel → TestimonialsSection):
-//   GET    /testimonials/admin       — fetch all for management
-//   POST   /testimonials/admin       — create new
-//   PATCH  /testimonials/admin/:id   — update existing
-//   DELETE /testimonials/admin/:id   — delete
-//
-// Backend field names:
-//   name, role, company, content, rating, avatar, isApproved
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── TESTIMONIALS ─────────────────────────────────────────────────────────────
 
-/**
- * Public testimonials — used by the front-end Testimonials.jsx component.
- * No auth required; returns only approved testimonials.
- * GET /api/v1/testimonials
- */
 export async function apiFetchTestimonials() {
   return request("/testimonials", { method: "GET" });
 }
 
-/**
- * Admin: fetch all testimonials (approved and unapproved) for management.
- * GET /api/v1/testimonials/admin
- */
 export async function apiFetchAdminTestimonials() {
   return request("/testimonials/admin", {
     method: "GET",
@@ -283,11 +225,6 @@ export async function apiFetchAdminTestimonials() {
   });
 }
 
-/**
- * Admin: create a new testimonial.
- * POST /api/v1/testimonials/admin
- * Maps frontend shape  →  backend field names before sending.
- */
 export async function apiCreateTestimonial(payload) {
   return request("/testimonials/admin", {
     method: "POST",
@@ -296,19 +233,14 @@ export async function apiCreateTestimonial(payload) {
       name:       payload.name       ?? "",
       role:       payload.role       ?? "",
       company:    payload.company    ?? "",
-      content:    payload.content    ?? payload.text    ?? "",  // text → content
+      content:    payload.content    ?? payload.text    ?? "",
       rating:     payload.rating     ?? 5,
-      avatar:     payload.avatar     ?? payload.image   ?? "",  // image → avatar
-      isApproved: payload.isApproved ?? payload.visible ?? true, // visible → isApproved
+      avatar:     payload.avatar     ?? payload.image   ?? "",
+      isApproved: payload.isApproved ?? payload.visible ?? true,
     }),
   });
 }
 
-/**
- * Admin: update an existing testimonial.
- * PATCH /api/v1/testimonials/admin/:id
- * Maps frontend shape  →  backend field names before sending.
- */
 export async function apiUpdateTestimonial(id, payload) {
   return request(`/testimonials/admin/${id}`, {
     method: "PATCH",
@@ -317,18 +249,14 @@ export async function apiUpdateTestimonial(id, payload) {
       name:       payload.name       ?? "",
       role:       payload.role       ?? "",
       company:    payload.company    ?? "",
-      content:    payload.content    ?? payload.text    ?? "",  // text → content
+      content:    payload.content    ?? payload.text    ?? "",
       rating:     payload.rating     ?? 5,
-      avatar:     payload.avatar     ?? payload.image   ?? "",  // image → avatar
-      isApproved: payload.isApproved ?? payload.visible ?? true, // visible → isApproved
+      avatar:     payload.avatar     ?? payload.image   ?? "",
+      isApproved: payload.isApproved ?? payload.visible ?? true,
     }),
   });
 }
 
-/**
- * Admin: delete a testimonial.
- * DELETE /api/v1/testimonials/admin/:id
- */
 export async function apiDeleteTestimonial(id) {
   return request(`/testimonials/admin/${id}`, {
     method: "DELETE",
@@ -336,9 +264,7 @@ export async function apiDeleteTestimonial(id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONTACT FORM  (public)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── CONTACT FORM ─────────────────────────────────────────────────────────────
 
 export async function apiContactForm({ name, email, phone, subject, message }) {
   return request("/contact", {
@@ -347,10 +273,6 @@ export async function apiContactForm({ name, email, phone, subject, message }) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONTACT MESSAGES  (admin)
-// ─────────────────────────────────────────────────────────────────────────────
-
 export async function apiGetContactMessages() {
   return request("/contact/admin/all", {
     method: "GET",
@@ -358,9 +280,7 @@ export async function apiGetContactMessages() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STAFF REGISTRY  (admin CRUD)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── STAFF REGISTRY (admin CRUD) ─────────────────────────────────────────────
 
 export async function apiAddStaff(payload) {
   return request("/staff", {

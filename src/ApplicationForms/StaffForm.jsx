@@ -489,8 +489,7 @@ function AlreadySubmittedScreen({ onDashboard, onHome }) {
     <div style={{
       width:"100%", minHeight:"85vh",
       display:"flex", alignItems:"center", justifyContent:"center",
-      padding:20,
-      borderRadius:20,
+      padding:20, borderRadius:20,
       background:"rgba(255,255,255,0.08)",
       backdropFilter:"blur(28px) saturate(130%)",
       WebkitBackdropFilter:"blur(28px) saturate(130%)",
@@ -506,7 +505,6 @@ function AlreadySubmittedScreen({ onDashboard, onHome }) {
         boxShadow:"0 40px 100px rgba(0,0,0,.3), inset 0 1px 0 rgba(14,165,233,.14)",
         animation:"popIn .5s cubic-bezier(.34,1.56,.64,1)",
       }}>
-        {/* Icon */}
         <div style={{
           width:82, height:82, borderRadius:"50%", margin:"0 auto 22px",
           background:`linear-gradient(135deg,${SKY[800]},${SKY[600]})`,
@@ -518,15 +516,14 @@ function AlreadySubmittedScreen({ onDashboard, onHome }) {
             <path d="M19 8v14M19 26v2" stroke="#fff" strokeWidth="3" strokeLinecap="round"/>
           </svg>
         </div>
-
         <h2 style={{ fontFamily:SERIF, fontSize:28, fontWeight:700, color:"#e8f0fe", letterSpacing:"-.02em", marginBottom:10 }}>
           Already Submitted
         </h2>
         <p style={{ fontSize:13, color:"rgba(175,210,245,.58)", lineHeight:1.75, fontFamily:FONT, fontWeight:300, marginBottom:10 }}>
-          You have already submitted your staff application. Each account may only submit the form once.
+          You have already submitted your staff application.
         </p>
         <p style={{ fontSize:12, color:"rgba(140,190,240,.38)", lineHeight:1.7, fontFamily:FONT, fontWeight:300, marginBottom:30 }}>
-          If you need to make changes to your profile, please contact the Randle &amp; Hopkins admin team directly.
+          If you need to make changes, please contact the Randle &amp; Hopkins admin team directly.
         </p>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <PrimaryBtn onClick={onDashboard}>Go to Dashboard →</PrimaryBtn>
@@ -543,8 +540,7 @@ function SuccessModal({ onDashboard, onHome }) {
     <div style={{
       width:"100%", minHeight:"85vh",
       display:"flex", alignItems:"center", justifyContent:"center",
-      padding:20,
-      borderRadius:20,
+      padding:20, borderRadius:20,
       background:"rgba(255,255,255,0.08)",
       backdropFilter:"blur(28px) saturate(130%)",
       WebkitBackdropFilter:"blur(28px) saturate(130%)",
@@ -613,7 +609,7 @@ const QUALIFICATION_OPTIONS = [
 /* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
 export function StaffForm({ onSubmit }) {
   const navigate              = useNavigate();
-  const { user, updateUser }  = useAuth();   // ← pull in updateUser
+  const { user, updateUser }  = useAuth();
 
   const [step,    setStep]    = useState(1);
   const [form,    setForm]    = useState(INIT);
@@ -652,9 +648,6 @@ export function StaffForm({ onSubmit }) {
   }, [user?.surname, user?.otherNames, user?.email, user?.phoneNumber]);
 
   /* ── Guard: already submitted ── */
-  // Show the locked screen immediately (before any step renders) if the
-  // user has already submitted the form. We check both the context flag
-  // and a localStorage fallback so it survives a hard refresh.
   const alreadySubmitted =
     user?.staffProfileSubmitted === true ||
     (() => {
@@ -717,25 +710,47 @@ export function StaffForm({ onSubmit }) {
 
       await apiStaffProfile(payload);
 
-      /* ── Sync to AuthContext + localStorage ── */
+      /*
+       * ── Sync to AuthContext + localStorage ──
+       *
+       * We push ALL profile fields into the user context so that:
+       *   1. Profile.jsx re-renders immediately with the new data (via its
+       *      useEffect that depends on `user`).
+       *   2. The avatar/initials in Profile.jsx (which reads user.surname /
+       *      user.otherNames) stays in sync — those fields are already in
+       *      the context from registration, but we reaffirm them here.
+       *   3. staffProfileSubmitted = true locks both this form and the
+       *      GetJobButton warning gate.
+       */
       updateUser({
+        // identity (reaffirm so Profile avatar stays correct)
+        surname:                  form.surname,
+        otherNames:               form.otherName,
+        email:                    form.email,
+        phoneNumber:              form.phone,
+        // new profile fields
         nationality:              form.country,
         homeAddress:              payload.homeAddress,
         maritalStatus:            payload.maritalStatus,
         languageSkill:            payload.languageSkill,
         dateOfBirth:              payload.dateOfBirth,
         gender:                   payload.gender,
+        disabled:                 payload.disabled,
+        internallyDisplaced:      payload.internallyDisplaced,
         primarySkills:            payload.primarySkills,
         yearsOfExperience:        payload.yearsOfExperience,
         additionalSkills:         payload.additionalSkills,
         bio:                      payload.bio,
         educationalQualification: payload.educationalQualification,
         agreedToPolicy:           payload.agreedToPolicy,
-        staffProfileSubmitted:    true,   // ← locks the form for this user
+        staffProfileSubmitted:    true,
       });
 
       localStorage.removeItem("staffRequestDraft");
       setDone(true);
+
+      // Notify parent (e.g. GetJobButton) so it can close the modal overlay
+      onSubmit?.(payload);
     } catch (err) {
       console.error("Staff profile submission error:", err.message);
       alert(err.message || "Submission failed. Please try again.");
@@ -775,8 +790,8 @@ export function StaffForm({ onSubmit }) {
       <>
         <style>{KEYFRAMES}</style>
         <SuccessModal
-          onDashboard={() => { onSubmit?.(); navigate("/dashboard"); }}
-          onHome={() => { onSubmit?.(); navigate("/"); }}
+          onDashboard={() => { navigate("/dashboard"); }}
+          onHome={() => { navigate("/"); }}
         />
       </>
     );

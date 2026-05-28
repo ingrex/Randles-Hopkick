@@ -1,15 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import ClientForm1 from "../ApplicationForms/ClientForm1";
 import StaffForm   from "../ApplicationForms/StaffForm";
 import PrivateForm from "../ApplicationForms/PrivateForm";
-import { useStore, parseMasterMarketplace } from "../store";
+import { useStore, normaliseStaffProfile } from "../store";
 import { useAuth }  from "./AuthContext";
-import { apiGetMarketplace, apiSubmitReview } from "../api/auth";
+import {
+  apiSubmitReview,
+  apiGetMyStaffProfile,
+} from "../api/auth";
 
 const MODES = ["Private", "Organization", "Staff"];
 
+// ── small helpers ────────────────────────────────────────────────────────────
 function Stat({ label, value }) {
   return (
     <motion.div whileHover={{ scale: 1.05 }} className="bg-white/20 backdrop-blur px-4 py-2 rounded-lg shrink-0">
@@ -96,8 +100,7 @@ function Modal({ open, onClose, children }) {
   );
 }
 
-// ── Review Modal ──────────────────────────────────────────────────────────────
-function ReviewModal({ request, staffList, onSubmit, onClose, submitting }) {
+function ReviewModal({ request, onSubmit, onClose, submitting }) {
   const [rating,  setRating]  = useState(0);
   const [hover,   setHover]   = useState(0);
   const [comment, setComment] = useState("");
@@ -115,7 +118,6 @@ function ReviewModal({ request, staffList, onSubmit, onClose, submitting }) {
       <h2 className="text-xl font-semibold">Review completed job</h2>
       <p className="text-white/60 text-sm">Your rating helps us match the best staff with future clients.</p>
 
-      {/* Always show who is being reviewed — single staff */}
       {request.assignedStaff?.length === 1 && (
         <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg px-3 py-2">
           <span className="text-xs text-white/50">Reviewing:</span>
@@ -123,7 +125,6 @@ function ReviewModal({ request, staffList, onSubmit, onClose, submitting }) {
         </div>
       )}
 
-      {/* Multi-staff picker */}
       {request.assignedStaff?.length > 1 && (
         <div>
           <p className="text-xs text-white/50 mb-2">Rate which staff member?</p>
@@ -138,7 +139,6 @@ function ReviewModal({ request, staffList, onSubmit, onClose, submitting }) {
         </div>
       )}
 
-      {/* Edge case: no staff assigned */}
       {!request.assignedStaff?.length && (
         <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2">
           No staff assigned to this request yet.
@@ -206,13 +206,12 @@ export function Dashboard() {
   const { state: store, dispatch } = useStore();
   const { user }                   = useAuth();
 
-  const [mode,           setMode]           = useState("Private");
-  const [activeTab,      setActiveTab]      = useState("Pending");
-  const [modalType,      setModalType]      = useState(null);
-  const [reviewReq,      setReviewReq]      = useState(null);
-  const [showCompleted,  setShowCompleted]  = useState(false);
-  const [syncing,        setSyncing]        = useState(false);
-  const [reviewError,    setReviewError]    = useState("");
+  const [mode,             setMode]             = useState("Private");
+  const [activeTab,        setActiveTab]        = useState("Pending");
+  const [modalType,        setModalType]        = useState(null);
+  const [reviewReq,        setReviewReq]        = useState(null);
+  const [showCompleted,    setShowCompleted]    = useState(false);
+  const [reviewError,      setReviewError]      = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
 
   const [photoUrl] = useState(() => loadPhoto());
@@ -236,35 +235,33 @@ export function Dashboard() {
         ? "Organisation"
         : "Private Client";
 
-  // ── Backend sync ─────────────────────────────────────────────────────────────
-useEffect(() => {
-  const syncFromBackend = () => {
-    setSyncing(true);
-    apiGetMarketplace()
-      .then((raw) => {
-        console.log("=== DASHBOARD RAW RESPONSE ===");
-        console.log("Top keys:", Object.keys(raw));
-        const root = raw.data ?? raw.result ?? raw.payload ?? raw.response ?? raw;
-        console.log("Root keys:", Object.keys(root));
-        Object.entries(root).forEach(([k, v]) => {
-          console.log(`  ${k}:`, Array.isArray(v) ? `Array(${v.length})` : v);
-          if (Array.isArray(v) && v[0]) console.log(`    sample:`, v[0]);
-        });
-        const data = parseMasterMarketplace(raw);
-        console.log("Parsed requests:", data.requests);
-        dispatch({ type: "LOAD_MARKETPLACE", payload: data });
-      })
-      .catch((err) => {
-        console.warn("[Dashboard] sync failed:", err?.message);
-      })
-      .finally(() => setSyncing(false));
-  };
+  // ── syncUserRequests ────────────────────────────────────────────────────────
+  // /staff-request/my → 404   /auth/profile → 404
+  // The store is kept live via MERGE_REQUEST dispatched by AdminPanel actions.
+  // This is a no-op placeholder so modal callbacks compile without errors.
+  const syncUserRequests = useCallback(() => {}, []);
 
-    syncFromBackend();
+  // ── syncStaffProfile ────────────────────────────────────────────────────────
+  const syncStaffProfile = useCallback(async () => {
+    if (!user || mode !== "Staff") return;
+    try {
+      const raw     = await apiGetMyStaffProfile();
+      const profile = raw?.data ?? raw?.profile ?? raw;
+      if (!profile || typeof profile !== "object") return;
+      const normalised = normaliseStaffProfile(profile);
+      if (normalised) dispatch({ type: "UPDATE_STAFF", payload: normalised });
+    } catch (err) {
+      console.warn("[Dashboard] syncStaffProfile failed:", err?.message);
+    }
+  }, [user, mode, dispatch]);
 
-    const onFocus      = () => syncFromBackend();
+  // ── On mount + focus + visibility — staff profile only ──────────────────────
+  useEffect(() => {
+    syncStaffProfile();
+
+    const onFocus      = () => syncStaffProfile();
     const onVisibility = () => {
-      if (document.visibilityState === "visible") syncFromBackend();
+      if (document.visibilityState === "visible") syncStaffProfile();
     };
 
     window.addEventListener("focus", onFocus);
@@ -274,7 +271,12 @@ useEffect(() => {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [dispatch]);
+  }, [syncStaffProfile]);
+
+  // Re-sync staff profile when user switches to Staff mode
+  useEffect(() => {
+    if (mode === "Staff") syncStaffProfile();
+  }, [mode, syncStaffProfile]);
 
   // Auto-open modal from navigation state
   useEffect(() => {
@@ -300,7 +302,9 @@ useEffect(() => {
   };
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const myRequests = store.requests;
+   const myRequests = user?.email
+    ? store.requests.filter((r) => r.email === user.email)
+    : store.requests;
 
   const filtered = myRequests.filter((r) => {
     if (activeTab === "Pending")   return r.status === "Pending";
@@ -325,6 +329,7 @@ useEffect(() => {
     const req       = myRequests.find((r) => String(r.id) === String(reqId));
     const backendId = req?.backendId ?? req?._id ?? req?.id ?? reqId;
 
+    // Optimistic update
     dispatch({ type: "SUBMIT_REVIEW", reqId, staffId, rating, comment });
 
     try {
@@ -364,15 +369,6 @@ useEffect(() => {
         <div className="relative z-10 px-4 pt-5 pb-6 sm:px-6 text-white">
           <div className="flex items-center justify-between mb-6 pt-16">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">DASHBOARD</h1>
-            {syncing && (
-              <span className="text-xs text-white/50 animate-pulse flex items-center gap-1">
-                <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeOpacity="0.3"/>
-                  <path d="M21 12a9 9 0 00-9-9"/>
-                </svg>
-                Syncing…
-              </span>
-            )}
           </div>
 
           {/* Profile row */}
@@ -395,7 +391,9 @@ useEffect(() => {
                     )}
                     <div className="mt-1 flex items-center gap-1.5">
                       <StarRating value={staffRecord.averageRating} size="sm" />
-                      <span className="text-xs text-white/50">({staffRecord.totalReviews} review{staffRecord.totalReviews !== 1 ? "s" : ""})</span>
+                      <span className="text-xs text-white/50">
+                        ({staffRecord.totalReviews} review{staffRecord.totalReviews !== 1 ? "s" : ""})
+                      </span>
                     </div>
                   </>
                 ) : (
@@ -442,6 +440,13 @@ useEffect(() => {
         {/* ═══ STAFF MODE ═════════════════════════════════════════════════════ */}
         {mode === "Staff" && (
           <>
+            {staffActiveJobs.length > 0 && (
+              <div className="mb-3 px-4 py-3 bg-sky-50 border border-sky-200 rounded-xl text-sky-700 text-sm font-medium flex items-center gap-2">
+                <span>🔔</span>
+                You have {staffActiveJobs.length} active job{staffActiveJobs.length > 1 ? "s" : ""} assigned to you.
+              </div>
+            )}
+
             <div className="mb-2">
               <h3 className="font-semibold text-gray-800 mb-3 text-base">My Active Jobs</h3>
               {staffActiveJobs.length === 0 ? (
@@ -575,7 +580,6 @@ useEffect(() => {
               </div>
             )}
 
-            {/* ── Request cards ── */}
             {filtered.map((r) => {
               const awaitingReview = r.status === "Completed" && !r.reviewed;
               const displayStatus  = r.status === "Rejected" ? "Declined" : r.status;
@@ -591,7 +595,6 @@ useEffect(() => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <StatusBadge status={displayStatus} awaitingReview={awaitingReview} />
 
-                      {/* Leave Review button */}
                       {r.status === "Completed" && !r.reviewed && (
                         <button
                           onClick={() => { setReviewReq(r); setModalType("review"); setReviewError(""); }}
@@ -600,9 +603,32 @@ useEffect(() => {
                         </button>
                       )}
                       {r.status === "Completed" && r.reviewed && (
-                        <span className="px-3 py-1 text-xs bg-green-50 text-green-600 rounded-full border border-green-200 font-medium">
-                          ✓ Reviewed
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="px-3 py-1 text-xs bg-green-50 text-green-600 rounded-full border border-green-200 font-medium self-start">
+                            ✓ Reviewed
+                          </span>
+                          {/* Show each submitted review with staff name + star rating */}
+                          {(r.reviews ?? []).map((rv, i) => (
+                            <div key={`dash-rv-${i}`} className="flex items-center gap-1.5 text-xs text-gray-500">
+                              {rv.staffName && (
+                                <span className="font-medium text-gray-700">{rv.staffName}</span>
+                              )}
+                              <span className="flex items-center gap-0.5">
+                                {Array.from({ length: 5 }, (_, si) => (
+                                  <span
+                                    key={si}
+                                    className={si < Math.round(rv.rating) ? "text-yellow-400" : "text-gray-300"}
+                                  >
+                                    ★
+                                  </span>
+                                ))}
+                              </span>
+                              {rv.comment && (
+                                <span className="italic text-gray-400 truncate max-w-[160px]">"{rv.comment}"</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -654,15 +680,22 @@ useEffect(() => {
 
       {/* ── MODALS ── */}
       <Modal open={!!modalType} onClose={closeModal}>
-        {modalType === "organization" && <ClientForm1 onSubmit={closeModal} />}
-        {modalType === "private"      && <PrivateForm  onSubmit={closeModal} />}
-        {modalType === "staff"        && <StaffForm    onSubmit={closeModal} />}
-        {modalType === "staffProfile" && <StaffForm    onSubmit={closeModal} />}
+        {modalType === "organization" && (
+          <ClientForm1 onSubmit={() => { closeModal(); }} />
+        )}
+        {modalType === "private" && (
+          <PrivateForm onSubmit={() => { closeModal(); }} />
+        )}
+        {modalType === "staff" && (
+          <StaffForm onSubmit={() => { closeModal(); syncStaffProfile(); }} />
+        )}
+        {modalType === "staffProfile" && (
+          <StaffForm onSubmit={() => { closeModal(); syncStaffProfile(); }} />
+        )}
         {modalType === "review" && (
           <>
             <ReviewModal
               request={reviewReq}
-              staffList={store.staff}
               onSubmit={handleReviewSubmit}
               onClose={closeModal}
               submitting={submittingReview}
