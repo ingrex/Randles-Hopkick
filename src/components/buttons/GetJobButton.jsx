@@ -255,7 +255,7 @@ function WarningModal({ onProceed, onClose }) {
           </svg>
           <p style={{ fontSize: 11, color: "rgba(155,200,245,.42)", margin: 0, fontWeight: 300 }}>
             For changes after submission, contact{" "}
-            <span style={{ color: "rgba(125,211,252,.7)", fontWeight: 500 }}>admin@randleandhopkins.com</span>
+            <span style={{ color: "rgba(125,211,252,.7)", fontWeight: 500 }}>info@randleandhopkick.com</span>
           </p>
         </div>
 
@@ -289,7 +289,7 @@ function WarningModal({ onProceed, onClose }) {
             onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 12px 40px rgba(14,165,233,.52)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 8px 28px rgba(14,165,233,.32)"; e.currentTarget.style.transform = "none"; }}
           >
-            I Understand — Continue →
+            I Understand → Continue
           </button>
         </div>
       </motion.div>
