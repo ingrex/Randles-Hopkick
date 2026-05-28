@@ -1077,30 +1077,11 @@ const serviceData = [
     title: "Staff Training Services",
     shortTitle: "Training",
     description:
-      "We equip both domestic and corporate staff with the skills, discipline and professionalism required to excel in their roles; through structured, practical and results-driven training programmes.",
+      "Our comprehensive training services are targeted at job seekers, as well as existing staff of businesses like hospitality, facilities management, and other corporate organization that may require inhouse training for their back-office staff.We are passionate about the continuous improvement of our staff, as this in turn improves performance and induce customer excitement.",
     categoryImage:
       "https://res.cloudinary.com/dotvnclej/image/upload/v1779330590/Staff_Training_psn24e.png",
     subcategories: [
-      {
-        name: "Domestic Staff Training",
-        roles: [
-          { name: "Housekeeping & Cleaning Standards", brief: "Professional techniques for impeccable home maintenance." },
-          { name: "Childcare & Nanny Training", brief: "Child development and safety essentials for caregivers." },
-          { name: "Cooking & Culinary Skills", brief: "Kitchen mastery from preparation to plating." },
-          { name: "Elderly Care & Support", brief: "Compassionate care techniques for senior support staff." },
-          { name: "Etiquette & Household Protocols", brief: "Professionalism and discretion in a household setting." },
-        ],
-      },
-      {
-        name: "Corporate Staff Training",
-        roles: [
-          { name: "Customer Service Excellence", brief: "Delivering outstanding client experiences every time." },
-          { name: "Office Administration & Productivity", brief: "Structured workflows and administrative best practices." },
-          { name: "Sales & Business Development", brief: "Proven techniques to drive revenue and client growth." },
-          { name: "Leadership & Team Management", brief: "Building capable, confident and inspiring leaders." },
-          { name: "Health, Safety & Workplace Compliance", brief: "Creating safer, compliant and legally sound workplaces." },
-        ],
-      },
+
     ],
   },
   {

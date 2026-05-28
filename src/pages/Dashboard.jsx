@@ -322,28 +322,30 @@ export function Dashboard() {
   };
 
   // ── Review submit ─────────────────────────────────────────────────────────────
-  const handleReviewSubmit = async ({ reqId, staffId, rating, comment }) => {
-    setSubmittingReview(true);
-    setReviewError("");
+ const handleReviewSubmit = async ({ reqId, staffId, rating, comment }) => {
+  setSubmittingReview(true);
+  setReviewError("");
 
-    const req       = myRequests.find((r) => String(r.id) === String(reqId));
-    const backendId = req?.backendId ?? req?._id ?? req?.id ?? reqId;
+  const req = myRequests.find((r) => String(r.id) === String(reqId));
+  const backendId = req?.backendId ?? req?.id ?? reqId;
 
-    // Optimistic update
-    dispatch({ type: "SUBMIT_REVIEW", reqId, staffId, rating, comment });
+  // Optimistic update — staff badge updates immediately in UI
+  dispatch({ type: "SUBMIT_REVIEW", reqId, staffId, rating, comment });
 
-    try {
-      await apiSubmitReview(backendId, { staffId, rating, comment });
-      console.log("[Dashboard] apiSubmitReview success for reqId:", backendId);
-      closeModal();
-    } catch (err) {
-      console.error("[Dashboard] apiSubmitReview failed:", err.message);
-      setReviewError("Review saved locally but backend sync failed. It will retry on next refresh.");
-      setTimeout(() => closeModal(), 3000);
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
+  try {
+    await apiSubmitReview(backendId, { staffId, rating, comment });
+    closeModal();
+    // Pull fresh staff data so the badge shows server's computed average,
+    // not just the locally-calculated one
+    await syncStaffProfile();
+  } catch (err) {
+    console.error("[Dashboard] apiSubmitReview failed:", err.message);
+    setReviewError("Review saved locally but backend sync failed.");
+    setTimeout(() => closeModal(), 3000);
+  } finally {
+    setSubmittingReview(false);
+  }
+};
 
   // ── Staff mode jobs ───────────────────────────────────────────────────────────
   const staffActiveJobs = store.requests.filter(
