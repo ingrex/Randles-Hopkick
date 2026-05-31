@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import HireStaffModal from "../modals/HireStaffModal";
 
@@ -31,7 +32,13 @@ export function HireStaffButton({ user }) {
         <span className="absolute inset-[1px] rounded-full bg-black/30 backdrop-blur-md border border-white/20" />
       </button>
 
-      {open && <HireStaffModal onClose={() => setOpen(false)} />}
+      {/* Portal renders modal outside the fixed header's stacking context,
+          so "fixed inset-0" on the modal is relative to the viewport, not the header */}
+      {open &&
+        createPortal(
+          <HireStaffModal onClose={() => setOpen(false)} />,
+          document.body
+        )}
     </>
   );
 }

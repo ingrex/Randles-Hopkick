@@ -8,10 +8,10 @@ import { useStore, buildRequestPayload } from "../store";
 import { useAuth } from "../pages/AuthContext";
 
 const glass =
-  "bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-sky-300/40 transition text-white placeholder-white/50";
+  "bg-white/5 backdrop-blur-md border border-white/10 rounded-xl w-full focus:outline-none focus:ring-1 focus:ring-sky-300/40 transition text-white placeholder-white/50";
 
 const glassLocked =
-  "w-full rounded-xl px-3 pt-6 pb-2 bg-white/5 border border-white/10 text-white/50 cursor-not-allowed select-none outline-none";
+  "w-full rounded-xl bg-white/5 border border-white/10 text-white/50 cursor-not-allowed select-none outline-none";
 
 const glassSelectStyles = {
   control: (base, state) => ({
@@ -24,6 +24,7 @@ const glassSelectStyles = {
       : "none",
     borderRadius: "12px",
     color: "white",
+    minHeight: "clamp(36px, 8vw, 44px)",
   }),
   menu: (base) => ({
     ...base,
@@ -36,10 +37,11 @@ const glassSelectStyles = {
     ...base,
     backgroundColor: state.isFocused ? "rgba(56,189,248,0.2)" : "transparent",
     color: "white",
+    fontSize: "clamp(12px, 3vw, 14px)",
   }),
-  singleValue: (base) => ({ ...base, color: "white" }),
-  input:       (base) => ({ ...base, color: "white" }),
-  placeholder: (base) => ({ ...base, color: "rgba(255,255,255,0.5)" }),
+  singleValue: (base) => ({ ...base, color: "white", fontSize: "clamp(12px, 3vw, 14px)" }),
+  input:       (base) => ({ ...base, color: "white", fontSize: "clamp(12px, 3vw, 14px)" }),
+  placeholder: (base) => ({ ...base, color: "rgba(255,255,255,0.5)", fontSize: "clamp(12px, 3vw, 14px)" }),
 };
 
 const STAFF_ROLES = [
@@ -72,21 +74,65 @@ const getInitialForm = (user) => ({
   agreed: false,
 });
 
+/* ── Inline style constants matching StaffForm alignment ── */
+const INPUT_STYLE = {
+  width: "100%",
+  minWidth: 0,
+  padding: "clamp(8px,2vw,10px) clamp(12px,3vw,16px)",
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.07)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "white",
+  fontSize: "clamp(12px,3vw,13px)",
+  outline: "none",
+  transition: "all .25s ease",
+  fontFamily: "inherit",
+  boxSizing: "border-box",
+};
+
+const INPUT_LOCKED_STYLE = {
+  ...INPUT_STYLE,
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  color: "rgba(221,238,255,0.45)",
+  cursor: "not-allowed",
+};
+
 const FloatingInput = memo(({ name, value, onChange, placeholder, type = "text" }) => {
   const [focused, setFocused] = useState(false);
   return (
-    <div className="relative">
+    <div style={{ position: "relative", width: "100%", minWidth: 0 }}>
       <input
-        type={type} name={name} value={value} onChange={onChange}
-        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-        className="w-full rounded-xl px-3 pt-6 pb-2 bg-white/10 border border-white/20 text-white outline-none focus:border-sky-400/60 transition"
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          ...INPUT_STYLE,
+          paddingTop: 22,
+          paddingBottom: 8,
+          border: focused
+            ? "1px solid rgba(56,189,248,0.6)"
+            : "1px solid rgba(255,255,255,0.12)",
+          background: focused
+            ? "rgba(14,165,233,0.12)"
+            : "rgba(255,255,255,0.07)",
+          boxShadow: focused ? "0 0 0 3px rgba(14,165,233,0.15)" : "none",
+        }}
       />
       <label
-        className="absolute left-3 pointer-events-none transition-all duration-150"
         style={{
-          top:      value || focused ? "4px"     : "14px",
-          fontSize: value || focused ? "0.65rem" : "0.875rem",
-          color:    focused ? "#7dd3fc" : "#94a3b8",
+          position: "absolute",
+          left: 14,
+          pointerEvents: "none",
+          transition: "top 0.15s ease, font-size 0.15s ease, color 0.15s ease",
+          top: value || focused ? 5 : "50%",
+          transform: value || focused ? "none" : "translateY(-50%)",
+          fontSize: value || focused ? 10 : 13,
+          lineHeight: 1,
+          color: focused ? "#7dd3fc" : "rgba(148,163,184,0.8)",
         }}
       >
         {placeholder}
@@ -96,16 +142,27 @@ const FloatingInput = memo(({ name, value, onChange, placeholder, type = "text" 
 });
 
 const LockedInput = ({ value, placeholder }) => (
-  <div className="relative">
+  <div style={{ position: "relative", width: "100%", minWidth: 0 }}>
     <input
       value={value}
       readOnly
       tabIndex={-1}
-      className={glassLocked}
+      style={{
+        ...INPUT_LOCKED_STYLE,
+        paddingTop: 22,
+        paddingBottom: 8,
+      }}
     />
     <label
-      className="absolute left-3 pointer-events-none"
-      style={{ top: "4px", fontSize: "0.65rem", color: "#94a3b8" }}
+      style={{
+        position: "absolute",
+        left: 14,
+        top: 5,
+        pointerEvents: "none",
+        fontSize: 10,
+        lineHeight: 1,
+        color: "rgba(148,163,184,0.6)",
+      }}
     >
       {placeholder}
     </label>
@@ -143,7 +200,6 @@ export function PrivateForm({ onSubmit }) {
     }
   });
 
-  // Sync locked fields when user loads asynchronously
   useEffect(() => {
     if (!user) return;
     setFormData((prev) => ({
@@ -295,36 +351,107 @@ export function PrivateForm({ onSubmit }) {
   }
 
   return (
-    <div className="w-full max-h-[85vh] overflow-y-auto p-6 text-white rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg">
-      <h2 className="text-2xl font-semibold mb-2">Request Staff</h2>
+    <div
+      className="w-full text-white rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-lg"
+      style={{
+        maxHeight: "85vh",
+        overflowY: "auto",
+        padding: "clamp(16px,4vw,24px) clamp(16px,5vw,32px)",
+      }}
+    >
+      <h2
+        style={{
+          fontSize: "clamp(18px,5vw,24px)",
+          fontWeight: 600,
+          marginBottom: "clamp(6px,2vw,8px)",
+        }}
+      >
+        Request Staff
+      </h2>
 
       {/* Step indicators */}
-      <div className="flex gap-2 mb-4">
+      <div
+        style={{
+          display: "flex",
+          gap: "clamp(6px,2vw,8px)",
+          marginBottom: "clamp(10px,3vw,16px)",
+        }}
+      >
         {steps.map((label, i) => (
-          <div key={label} className="flex items-center gap-2 flex-1">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-              step > i + 1
-                ? "bg-sky-400 text-black"
-                : step === i + 1
-                ? "bg-sky-400/30 border border-sky-400 text-sky-300"
-                : "bg-white/10 text-white/30"
-            }`}>
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: "clamp(4px,1.5vw,8px)", flex: 1 }}>
+            <div
+              style={{
+                width: "clamp(24px,6vw,28px)",
+                height: "clamp(24px,6vw,28px)",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "clamp(10px,2.5vw,13px)",
+                fontWeight: 700,
+                flexShrink: 0,
+                transition: "all 0.3s",
+                background:
+                  step > i + 1
+                    ? "#38bdf8"
+                    : step === i + 1
+                    ? "rgba(56,189,248,0.2)"
+                    : "rgba(255,255,255,0.1)",
+                border:
+                  step === i + 1
+                    ? "1px solid rgba(56,189,248,0.7)"
+                    : "1px solid transparent",
+                color:
+                  step > i + 1
+                    ? "black"
+                    : step === i + 1
+                    ? "#7dd3fc"
+                    : "rgba(255,255,255,0.3)",
+              }}
+            >
               {step > i + 1 ? "✓" : i + 1}
             </div>
-            <span className={`text-xs ${step === i + 1 ? "text-sky-300" : "text-white/30"}`}>
+            <span
+              style={{
+                fontSize: "clamp(9px,2.2vw,11px)",
+                color: step === i + 1 ? "#7dd3fc" : "rgba(255,255,255,0.3)",
+                whiteSpace: "nowrap",
+              }}
+            >
               {label}
             </span>
             {i < steps.length - 1 && (
-              <div className={`flex-1 h-px ${step > i + 1 ? "bg-sky-400" : "bg-white/10"}`} />
+              <div
+                style={{
+                  flex: 1,
+                  height: 1,
+                  background: step > i + 1 ? "#38bdf8" : "rgba(255,255,255,0.1)",
+                }}
+              />
             )}
           </div>
         ))}
       </div>
 
-      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-6">
+      {/* Progress bar */}
+      <div
+        style={{
+          height: "clamp(4px,1vw,6px)",
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: 99,
+          overflow: "hidden",
+          marginBottom: "clamp(16px,4vw,24px)",
+        }}
+      >
         <div
-          className="h-full bg-sky-400 rounded-full transition-all duration-500"
-          style={{ width: `${progress}%` }}
+          style={{
+            height: "100%",
+            background: "linear-gradient(90deg,#0369a1,#38bdf8,#7dd3fc)",
+            borderRadius: 99,
+            transition: "width 0.5s ease",
+            width: `${progress}%`,
+            boxShadow: "0 0 10px rgba(56,189,248,0.4)",
+          }}
         />
       </div>
 
@@ -336,15 +463,20 @@ export function PrivateForm({ onSubmit }) {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -30 }}
-            className="space-y-4"
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "clamp(8px,2.5vw,12px)",
+                marginBottom: "clamp(8px,2.5vw,12px)",
+              }}
+            >
               <LockedInput value={formData.surname}   placeholder="Surname" />
               <LockedInput value={formData.otherName} placeholder="Other Name" />
               <LockedInput value={formData.email}     placeholder="Email Address" />
               <LockedInput value={formData.phone}     placeholder="Phone Number" />
-
-              <div className="col-span-2">
+              <div style={{ gridColumn: "1 / -1" }}>
                 <FloatingInput
                   name="businessLocation"
                   value={formData.businessLocation}
@@ -354,11 +486,21 @@ export function PrivateForm({ onSubmit }) {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "clamp(8px,2vw,12px)" }}>
               <button
                 onClick={() => setStep(2)}
                 disabled={!isStep1Valid()}
-                className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40"
+                style={{
+                  padding: "clamp(8px,2vw,10px) clamp(18px,4vw,24px)",
+                  background: isStep1Valid() ? "linear-gradient(135deg,#0369a1,#38bdf8)" : "rgba(56,189,248,0.2)",
+                  color: isStep1Valid() ? "white" : "rgba(255,255,255,0.3)",
+                  border: "none",
+                  borderRadius: 12,
+                  fontSize: "clamp(12px,3vw,14px)",
+                  fontWeight: 600,
+                  cursor: isStep1Valid() ? "pointer" : "not-allowed",
+                  transition: "all 0.25s ease",
+                }}
               >
                 Next →
               </button>
@@ -373,154 +515,318 @@ export function PrivateForm({ onSubmit }) {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -30 }}
-            className="space-y-4"
           >
-            {/* Country */}
-            <Select
-              options={countries}
-              value={formData.nationality}
-              onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))}
-              placeholder="Country *"
-              styles={glassSelectStyles}
-            />
-
-            <p className="text-white/50 text-sm">Add the staff roles you need:</p>
-
-            {formData.employees.map((emp, index) => {
-              const filtered = STAFF_ROLES.filter(
-                (role) =>
-                  role.toLowerCase().includes((emp.search || "").toLowerCase()) &&
-                  !formData.employees.some((e, i) => e.name === role && i !== index)
-              );
-              return (
-                <div key={index} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
-                  {!emp.name ? (
-                    <div className="space-y-1">
-                      <input
-                        className={glass}
-                        placeholder="Search staff role..."
-                        value={emp.search}
-                        onChange={(e) => updateEmployee(index, "search", e.target.value)}
-                        autoFocus={index === formData.employees.length - 1}
-                      />
-                      {emp.search && filtered.length > 0 && (
-                        <div className="bg-slate-900/90 border border-white/10 rounded-lg max-h-44 overflow-y-auto">
-                          {filtered.map((role) => (
-                            <div
-                              key={role}
-                              onClick={() => selectRole(index, role)}
-                              className="px-3 py-2 hover:bg-sky-400/20 cursor-pointer text-sm text-white/80 hover:text-white transition"
-                            >
-                              {role}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {emp.search && filtered.length === 0 && (
-                        <p className="text-white/30 text-xs pl-1">No matching roles found.</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="bg-sky-400/20 text-sky-300 border border-sky-400/30 rounded-lg px-3 py-1 text-sm font-medium">
-                          {emp.name}
-                        </span>
-                        <button
-                          onClick={() => clearRole(index)}
-                          className="text-white/30 hover:text-red-400 transition text-xs"
-                        >
-                          ✕ Change
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/50 text-sm">How many do you need?</span>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => updateEmployee(index, "quantity", Math.max(1, emp.quantity - 1))}
-                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center"
-                          >−</button>
-                          <span className="w-8 text-center font-semibold text-lg">{emp.quantity}</span>
-                          <button
-                            onClick={() => updateEmployee(index, "quantity", emp.quantity + 1)}
-                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-sky-400/30 hover:text-sky-300 transition text-lg font-bold flex items-center justify-center"
-                          >+</button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {formData.employees.length > 1 && (
-                    <button
-                      onClick={() => removeEmployee(index)}
-                      className="text-red-400/50 hover:text-red-400 transition text-xs w-full text-right"
-                    >
-                      Remove this role
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-
-            <button onClick={addEmployee} className="text-sky-400 hover:text-sky-300 transition text-sm">
-              + Add Another Role
-            </button>
-
-            {/* Additional Comment */}
-            <textarea
-              name="additionalComment"
-              value={formData.additionalComment}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Additional comments (optional)"
-              className={glass + " resize-none"}
-            />
-
-            {/* Agreement */}
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                name="agreed"
-                checked={formData.agreed}
-                onChange={handleChange}
-                className="mt-1 accent-sky-400"
+            <div style={{ display: "flex", flexDirection: "column", gap: "clamp(10px,3vw,16px)" }}>
+              {/* Country */}
+              <Select
+                options={countries}
+                value={formData.nationality}
+                onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))}
+                placeholder="Country *"
+                styles={glassSelectStyles}
               />
-              <span className="text-white/70 text-sm">
-                I agree to the terms and conditions, and confirm that the information provided is accurate.
-              </span>
-            </label>
 
-            {submitStatus === "error" && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
-                ⚠️ {errorMessage}
+              <p
+                style={{
+                  color: "rgba(255,255,255,0.5)",
+                  fontSize: "clamp(11px,2.5vw,13px)",
+                  margin: 0,
+                }}
+              >
+                Add the staff roles you need:
+              </p>
+
+              {formData.employees.map((emp, index) => {
+                const filtered = STAFF_ROLES.filter(
+                  (role) =>
+                    role.toLowerCase().includes((emp.search || "").toLowerCase()) &&
+                    !formData.employees.some((e, i) => e.name === role && i !== index)
+                );
+                return (
+                  <div
+                    key={index}
+                    style={{
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: "rgba(255,255,255,0.04)",
+                      padding: "clamp(10px,3vw,14px)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "clamp(8px,2vw,12px)",
+                    }}
+                  >
+                    {!emp.name ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <input
+                          style={{
+                            ...INPUT_STYLE,
+                            background: "rgba(255,255,255,0.07)",
+                          }}
+                          placeholder="Search staff role..."
+                          value={emp.search}
+                          onChange={(e) => updateEmployee(index, "search", e.target.value)}
+                          autoFocus={index === formData.employees.length - 1}
+                        />
+                        {emp.search && filtered.length > 0 && (
+                          <div
+                            style={{
+                              background: "rgba(13,20,52,0.95)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              borderRadius: 8,
+                              maxHeight: "clamp(120px,30vw,176px)",
+                              overflowY: "auto",
+                            }}
+                          >
+                            {filtered.map((role) => (
+                              <div
+                                key={role}
+                                onClick={() => selectRole(index, role)}
+                                style={{
+                                  padding: "clamp(8px,2vw,10px) clamp(10px,2.5vw,12px)",
+                                  cursor: "pointer",
+                                  fontSize: "clamp(11px,2.8vw,13px)",
+                                  color: "rgba(255,255,255,0.8)",
+                                  transition: "background 0.15s",
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = "rgba(56,189,248,0.15)"}
+                                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                              >
+                                {role}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {emp.search && filtered.length === 0 && (
+                          <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "clamp(10px,2.5vw,12px)", paddingLeft: 4 }}>
+                            No matching roles found.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "clamp(8px,2vw,12px)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span
+                            style={{
+                              background: "rgba(56,189,248,0.15)",
+                              color: "#7dd3fc",
+                              border: "1px solid rgba(56,189,248,0.25)",
+                              borderRadius: 8,
+                              padding: "clamp(4px,1vw,6px) clamp(10px,2.5vw,14px)",
+                              fontSize: "clamp(11px,2.8vw,13px)",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {emp.name}
+                          </span>
+                          <button
+                            onClick={() => clearRole(index)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "rgba(255,255,255,0.3)",
+                              cursor: "pointer",
+                              fontSize: "clamp(10px,2.5vw,12px)",
+                              transition: "color 0.2s",
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
+                            onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.3)"}
+                          >
+                            ✕ Change
+                          </button>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "clamp(11px,2.8vw,13px)" }}>
+                            How many do you need?
+                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px,2vw,12px)" }}>
+                            <button
+                              onClick={() => updateEmployee(index, "quantity", Math.max(1, emp.quantity - 1))}
+                              style={{
+                                width: "clamp(28px,7vw,32px)",
+                                height: "clamp(28px,7vw,32px)",
+                                borderRadius: "50%",
+                                background: "rgba(255,255,255,0.08)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                color: "white",
+                                fontSize: "clamp(14px,3.5vw,18px)",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                transition: "all 0.2s",
+                              }}
+                            >−</button>
+                            <span style={{ width: "clamp(20px,5vw,28px)", textAlign: "center", fontWeight: 600, fontSize: "clamp(14px,3.5vw,18px)" }}>
+                              {emp.quantity}
+                            </span>
+                            <button
+                              onClick={() => updateEmployee(index, "quantity", emp.quantity + 1)}
+                              style={{
+                                width: "clamp(28px,7vw,32px)",
+                                height: "clamp(28px,7vw,32px)",
+                                borderRadius: "50%",
+                                background: "rgba(255,255,255,0.08)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                color: "white",
+                                fontSize: "clamp(14px,3.5vw,18px)",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                transition: "all 0.2s",
+                              }}
+                            >+</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {formData.employees.length > 1 && (
+                      <button
+                        onClick={() => removeEmployee(index)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "rgba(248,113,113,0.5)",
+                          cursor: "pointer",
+                          fontSize: "clamp(10px,2.5vw,12px)",
+                          textAlign: "right",
+                          transition: "color 0.2s",
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
+                        onMouseLeave={e => e.currentTarget.style.color = "rgba(248,113,113,0.5)"}
+                      >
+                        Remove this role
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={addEmployee}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#38bdf8",
+                  cursor: "pointer",
+                  fontSize: "clamp(12px,3vw,13px)",
+                  textAlign: "left",
+                  padding: 0,
+                  transition: "color 0.2s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = "#7dd3fc"}
+                onMouseLeave={e => e.currentTarget.style.color = "#38bdf8"}
+              >
+                + Add Another Role
+              </button>
+
+              {/* Additional Comment */}
+              <textarea
+                name="additionalComment"
+                value={formData.additionalComment}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Additional comments (optional)"
+                style={{
+                  ...INPUT_STYLE,
+                  resize: "none",
+                  padding: "clamp(10px,2.5vw,12px) clamp(12px,3vw,16px)",
+                }}
+              />
+
+              {/* Agreement */}
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "clamp(8px,2vw,12px)", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  name="agreed"
+                  checked={formData.agreed}
+                  onChange={handleChange}
+                  style={{ marginTop: 2, accentColor: "#38bdf8", flexShrink: 0 }}
+                />
+                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "clamp(11px,2.8vw,13px)", lineHeight: 1.6 }}>
+                  I agree to the terms and conditions, and confirm that the information provided is accurate.
+                </span>
+              </label>
+
+              {submitStatus === "error" && (
+                <div
+                  style={{
+                    background: "rgba(248,113,113,0.08)",
+                    border: "1px solid rgba(248,113,113,0.3)",
+                    borderRadius: 12,
+                    padding: "clamp(10px,2.5vw,12px) clamp(12px,3vw,16px)",
+                    color: "#f87171",
+                    fontSize: "clamp(11px,2.8vw,13px)",
+                  }}
+                >
+                  ⚠️ {errorMessage}
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "clamp(4px,1.5vw,8px)" }}>
+                <button
+                  onClick={() => setStep(1)}
+                  disabled={submitting}
+                  style={{
+                    background: "none",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: 12,
+                    color: "rgba(255,255,255,0.6)",
+                    cursor: "pointer",
+                    fontSize: "clamp(12px,3vw,13px)",
+                    padding: "clamp(8px,2vw,10px) clamp(14px,3.5vw,20px)",
+                    transition: "all 0.25s",
+                    opacity: submitting ? 0.4 : 1,
+                  }}
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!isStep2Valid() || submitting}
+                  style={{
+                    padding: "clamp(8px,2vw,10px) clamp(18px,4vw,24px)",
+                    background: isStep2Valid() && !submitting
+                      ? "linear-gradient(135deg,#0369a1,#38bdf8)"
+                      : "rgba(56,189,248,0.2)",
+                    color: isStep2Valid() && !submitting ? "white" : "rgba(255,255,255,0.3)",
+                    border: "none",
+                    borderRadius: 12,
+                    fontSize: "clamp(12px,3vw,14px)",
+                    fontWeight: 600,
+                    cursor: isStep2Valid() && !submitting ? "pointer" : "not-allowed",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    transition: "all 0.25s",
+                  }}
+                >
+                  {submitting ? (
+                    <>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: "clamp(12px,3vw,16px)",
+                          height: "clamp(12px,3vw,16px)",
+                          border: "2px solid rgba(255,255,255,0.25)",
+                          borderTopColor: "white",
+                          borderRadius: "50%",
+                          animation: "spin .75s linear infinite",
+                        }}
+                      />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Request"
+                  )}
+                </button>
               </div>
-            )}
-
-            <div className="flex justify-between pt-2">
-              <button
-                onClick={() => setStep(1)}
-                disabled={submitting}
-                className="px-4 py-2 text-white/60 hover:text-white transition disabled:opacity-40"
-              >
-                ← Back
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={!isStep2Valid() || submitting}
-                className="px-6 py-2 bg-sky-400 text-black rounded-xl font-medium disabled:opacity-40 flex items-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Request"
-                )}
-              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

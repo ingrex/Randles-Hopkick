@@ -58,10 +58,10 @@ const Contact = () => {
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="relative rounded-b-3xl text-center overflow-hidden"
+        className="relative rounded-b-3xl overflow-hidden flex items-center" 
         style={{
-          minHeight: "400px",
-          backgroundImage: `url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=1600&auto=format&fit=crop')`,
+          minHeight: "500px",
+          backgroundImage: `url('https://res.cloudinary.com/dotvnclej/image/upload/v1780164705/Dark_Blue_Modern_Geometric_Simple_Feature_Section_Website_UI_Prototype_3_wvb6sz.png')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -73,21 +73,23 @@ const Contact = () => {
               "linear-gradient(135deg, rgba(0,0,0,0.80) 0%, rgba(35,133,205,0.50) 100%)",
           }}
         />
-        <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 py-28">
-          <p className="uppercase tracking-widest text-[#2385cd] text-sm font-semibold mb-3">
-            Get In Touch
-          </p>
-          <h1 className="text-5xl md:text-6xl font-bold mb-5 leading-tight">
-            <span className="text-white">CONTACT </span>
-            <span className="text-[#2385cd]">US</span>
-          </h1>
-          <p className="max-w-xl mx-auto text-sm md:text-base mb-8 text-gray-300">
-            We are here to help you. Reach out to us through any of the
-            platforms below and our team will respond promptly.
-          </p>
-          <div className="flex justify-center gap-4">
-            <HireStaffButton user={user} />
-            <GetJobButton user={user} />
+        <div className="relative z-10 flex flex-row items-center justify-between h-full px-10 md:px-16 py-28 gap-8">
+          <div className="flex flex-col items-start max-w-lg">
+            <p className="uppercase tracking-widest text-[#2385cd] text-sm font-semibold mb-3">
+              Get In Touch
+            </p>
+            <h1 className="text-5xl md:text-6xl font-bold mb-5 leading-tight">
+              <span className="text-white">CONTACT </span>
+              <span className="text-[#2385cd]">US</span>
+            </h1>
+            <p className="text-sm md:text-base mb-8 text-gray-300">
+              We are here to help you. Reach out to us through any of the
+              platforms below and our team will respond promptly.
+            </p>
+            <div className="flex gap-4">
+              <HireStaffButton user={user} />
+              <GetJobButton user={user} />
+            </div>
           </div>
         </div>
       </motion.section>
@@ -147,7 +149,6 @@ const Contact = () => {
             Fill out the form and we will get back within 24 hours.
           </p>
 
-          {/* SUCCESS BANNER */}
           {success && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
@@ -160,7 +161,6 @@ const Contact = () => {
             </motion.div>
           )}
 
-          {/* ERROR BANNER */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
@@ -255,7 +255,6 @@ const Contact = () => {
             loading="lazy"
           />
 
-          {/* Social + address card */}
           <div
             className="p-5 rounded-xl flex flex-col gap-3"
             style={{

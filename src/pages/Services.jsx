@@ -1175,7 +1175,7 @@ const serviceData = [
           {
             name: "Office Assistants",
             brief: "Versatile support for day-to-day office operations.",
-            description: "Versatile administrative support staff handling clerical duties, documentation, correspondence and general office coordination — keeping your operations running smoothly every single day.",
+            description: "Versatile administrative support staff handling clerical duties, documentation, correspondence and general office coordination- keeping your operations running smoothly every single day.",
             image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=700&q=80",
           },
           {
@@ -1198,13 +1198,13 @@ const serviceData = [
           {
             name: "Cleaners / Janitors",
             brief: "Hygienic, well-presented commercial environments.",
-            description: "Reliable cleaning personnel who maintain hygienic, well-presented work environments — from routine daily cleaning to scheduled deep cleans of commercial and industrial premises.",
+            description: "Reliable cleaning personnel who maintain hygienic, well-presented work environments, from routine daily cleaning to scheduled deep cleans of commercial and industrial premises.",
             image: "https://images.unsplash.com/photo-1563453392212-326f5e854473?w=700&q=80",
           },
           {
             name: "Facility Managers",
             brief: "End-to-end management of your entire facility.",
-            description: "Experienced managers who oversee operations, maintenance and safety compliance across your entire facility — coordinating vendors and ensuring uninterrupted business continuity.",
+            description: "Experienced managers who oversee operations, maintenance and safety compliance across your entire facility; coordinating vendors and ensuring uninterrupted business continuity.",
             image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=700&q=80",
           },
           {
@@ -1233,7 +1233,7 @@ const serviceData = [
           {
             name: "Sales Representatives",
             brief: "Goal-driven professionals growing your revenue base.",
-            description: "Results-driven sales professionals skilled in lead generation, client acquisition, relationship building and closing deals — consistently growing your revenue base and market reach.",
+            description: "Results-driven sales professionals skilled in lead generation, client acquisition, relationship building and closing deals; consistently growing your revenue base and market reach.",
             image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=700&q=80",
           },
         ],
@@ -1255,13 +1255,13 @@ const serviceData = [
           {
             name: "Dispatch Riders",
             brief: "Swift, reliable last-mile delivery solutions.",
-            description: "Reliable and swift riders who ensure timely, safe last-mile delivery of packages, documents and goods across your operational network — efficiently and on schedule.",
+            description: "Reliable and swift riders who ensure timely, safe last-mile delivery of packages, documents and goods across your operational network efficiently and on schedule.",
             image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=80",
           },
           {
             name: "Drivers",
             brief: "Professional drivers for all corporate operations.",
-            description: "Professional drivers for corporate logistics, staff movement, airport transfers and supply chain operations — punctual, courteous and knowledgeable of local routes.",
+            description: "Professional drivers for corporate logistics, staff movement, airport transfers and supply chain operations - punctual, courteous and knowledgeable of local routes.",
             image: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=700&q=80",
           },
         ],
@@ -1273,7 +1273,7 @@ const serviceData = [
     title: "Artisans Recruitment Services",
     shortTitle: "Artisans",
     description:
-      "We source and vet Nigeria's most skilled artisans — builders, fabricators, creatives and personal service professionals — matched precisely to your project requirements.",
+      "We source and vet Nigeria's most skilled artisans; builders, fabricators, creatives and personal service professionals; matched precisely to your project requirements.",
     categoryImage:
       "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=500&q=80",
     subcategories: [
@@ -1283,13 +1283,13 @@ const serviceData = [
           {
             name: "Masons / Bricklayers",
             brief: "Precise, durable brickwork for any structure.",
-            description: "Experienced masons who deliver precise, durable brickwork and masonry for residential foundations, commercial structures and decorative finishes — built to last.",
+            description: "Experienced masons who deliver precise, durable brickwork and masonry for residential foundations, commercial structures and decorative finishes built to last.",
             image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=700&q=80",
           },
           {
             name: "Carpenters",
             brief: "Bespoke woodwork and structural joinery.",
-            description: "Skilled carpenters crafting and installing furniture frameworks, structural woodwork, door frames, roofing timbers and bespoke joinery — all to exacting standards.",
+            description: "Skilled carpenters crafting and installing furniture frameworks, structural woodwork, door frames, roofing timbers and bespoke joinery, all to exacting standards.",
             image: "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=700&q=80",
           },
           {
@@ -1324,19 +1324,19 @@ const serviceData = [
           {
             name: "Generator Technicians",
             brief: "Expert genset installation, servicing and repair.",
-            description: "Specialists in the installation, routine servicing, load testing and emergency repair of diesel and petrol generating sets of all capacities — keeping your power reliable.",
+            description: "Specialists in the installation, routine servicing, load testing and emergency repair of diesel and petrol generating sets of all capacities; keeping your power reliable.",
             image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=700&q=80",
           },
           {
             name: "HVAC Technicians (AC Repair)",
             brief: "Optimal cooling performance maintained year-round.",
-            description: "Trained technicians who install, service and repair split-unit, cassette and ducted air-conditioning systems — ensuring optimal cooling performance throughout every season.",
+            description: "Trained technicians who install, service and repair split-unit, cassette and ducted air-conditioning systems; ensuring optimal cooling performance throughout every season.",
             image: "https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=700&q=80",
           },
           {
             name: "Welders / Fabricators",
             brief: "Precision metalwork using advanced welding techniques.",
-            description: "Skilled welders producing precision metal fabrications — gates, grilles, structural frames, tanks and bespoke metalwork — using MIG, TIG and arc welding techniques.",
+            description: "Skilled welders producing precision metal fabrications; gates, grilles, structural frames, tanks and bespoke metalwork; using MIG, TIG and arc welding techniques.",
             image: "https://res.cloudinary.com/dotvnclej/image/upload/v1777905578/3_Key_Safety_Clothing_for_Machinists_-_Vents_MagaZine_fdclfb.jpg",
           },
         ],
@@ -1502,7 +1502,7 @@ function Modal({ role, onClose, isTraining, user }) {
   );
 }
 
-// ─── ROLE CARD ────────────────────────────────────────────────────────────────
+// ─── ROLE CARD ──
 function RoleCard({ role, onLearnMore, delay = 0 }) {
   const ref = useReveal();
   return (
@@ -1528,7 +1528,7 @@ function RoleCard({ role, onLearnMore, delay = 0 }) {
   );
 }
 
-// ─── TRAINING SUMMARY ─────────────────────────────────────────────────────────
+// ─── TRAINING SUMMARY ───
 function TrainingSummary({ subcategories }) {
   return (
     <div className="training-summary">
@@ -1552,7 +1552,7 @@ function TrainingSummary({ subcategories }) {
   );
 }
 
-// ─── ACCORDION SUBCATEGORY ────────────────────────────────────────────────────
+// ─── ACCORDION SUBCATEGORY ──
 function AccordionSubcategory({ sub, onLearnMore, isOpen, onToggle }) {
   const bodyRef = useRef(null);
 
@@ -1593,7 +1593,7 @@ function AccordionSubcategory({ sub, onLearnMore, isOpen, onToggle }) {
   );
 }
 
-// ─── CATEGORY HEADER ─────────────────────────────────────────────────────────
+// ─── CATEGORY HEADER ────
 function CategoryHeader({ service, isTraining }) {
   const totalRoles = service.subcategories.reduce((a, s) => a + s.roles.length, 0);
   const ref = useReveal();
@@ -1621,7 +1621,7 @@ function CategoryHeader({ service, isTraining }) {
   );
 }
 
-// ─── SERVICE SECTION ──────────────────────────────────────────────────────────
+// ─── SERVICE SECTION ───
 function ServiceSection({ service, user }) {
   const [activeRole, setActiveRole] = useState(null);
   const [openIndex, setOpenIndex] = useState(null);
@@ -1662,7 +1662,7 @@ function ServiceSection({ service, user }) {
   );
 }
 
-// ─── HERO ─────────────────────────────────────────────────────────────────────
+// ─── HERO ───
 function HeroSection({ onNav }) {
   const [idx, setIdx] = useState(0);
   const [fade, setFade] = useState(true);
@@ -1712,7 +1712,7 @@ function HeroSection({ onNav }) {
         </h1>
 
         <p className="hero-subtitle">
-          From staff training and domestic household management to corporate operations and skilled artisan recruitment — connecting you with the professionals who matter most.
+          From staff training and domestic household management to corporate operations and skilled artisan recruitment and connecting you with the professionals who matter most.
         </p>
 
         <div className="hero-buttons">
@@ -1777,7 +1777,7 @@ function CTASection() {
           <p className="cta-eyebrow">Get Started Today</p>
           <h3 className="cta-title">Ready to find the right professional?</h3>
           <p className="cta-body">
-            Let us match you with vetted, reliable staff — tailored to your exact needs and delivered with professionalism every time.
+            Let us match you with vetted, reliable staff; tailored to your exact needs and delivered with professionalism every time.
           </p>
         </div>
 
@@ -1789,7 +1789,7 @@ function CTASection() {
   );
 }
 
-// ─── PAGE ROOT ────────────────────────────────────────────────────────────────
+// ─── PAGE ROOT ─────
 export function ServicesPage({ user }) {
   const scrollTo = (id) => {
     const el = document.getElementById(id);

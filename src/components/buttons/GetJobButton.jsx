@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import StaffForm from "../../ApplicationForms/StaffForm";
@@ -10,7 +10,7 @@ const FONT    = "'Outfit', sans-serif";
 /* ── Lock icon ── */
 function LockIcon() {
   return (
-    <svg width="38" height="38" viewBox="0 0 38 38" fill="none" aria-hidden="true">
+    <svg width="28" height="28" viewBox="0 0 38 38" fill="none" aria-hidden="true">
       <rect x="8" y="16" width="22" height="16" rx="4" stroke="#7dd3fc" strokeWidth="2.2"/>
       <path d="M13 16v-4a6 6 0 0 1 12 0v4" stroke="#7dd3fc" strokeWidth="2.2" strokeLinecap="round"/>
       <circle cx="19" cy="24" r="2.2" fill="#7dd3fc"/>
@@ -21,7 +21,7 @@ function LockIcon() {
 /* ── Warning / shield icon ── */
 function ShieldIcon() {
   return (
-    <svg width="38" height="38" viewBox="0 0 38 38" fill="none" aria-hidden="true">
+    <svg width="28" height="28" viewBox="0 0 38 38" fill="none" aria-hidden="true">
       <path
         d="M19 5L7 10v9c0 7.18 5.16 13.9 12 15.5C25.84 32.9 31 26.18 31 19v-9L19 5z"
         stroke="#7dd3fc" strokeWidth="2.2" strokeLinejoin="round"
@@ -37,7 +37,8 @@ function ShieldIcon() {
 function AlreadySubmittedModal({ onClose }) {
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md"
+      style={{ padding: "clamp(8px, 4vw, 16px)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -49,11 +50,17 @@ function AlreadySubmittedModal({ onClose }) {
         exit={{ scale: 0.88,    opacity: 0 }}
         transition={{ type: "spring", stiffness: 340, damping: 26 }}
         style={{
-          position: "relative", maxWidth: 420, width: "100%",
+          position: "relative",
+          maxWidth: 400,
+          width: "100%",
+          maxHeight: "85vh",
+          overflowY: "auto",
           background: "rgba(6,18,40,.95)",
           border: "1.5px solid rgba(14,165,233,.28)",
-          borderRadius: 28, padding: "42px 36px 36px",
-          textAlign: "center", backdropFilter: "blur(36px)",
+          borderRadius: "clamp(16px, 4vw, 24px)",
+          padding: "clamp(20px, 5vw, 32px) clamp(16px, 5vw, 28px) clamp(16px, 4vw, 26px)",
+          textAlign: "center",
+          backdropFilter: "blur(36px)",
           boxShadow: "0 40px 100px rgba(0,0,0,.4), inset 0 1px 0 rgba(14,165,233,.12)",
           fontFamily: FONT,
         }}
@@ -62,59 +69,61 @@ function AlreadySubmittedModal({ onClose }) {
         <button
           onClick={onClose}
           style={{
-            position: "absolute", top: 14, right: 14,
-            width: 30, height: 30, borderRadius: "50%",
+            position: "absolute", top: 12, right: 12,
+            width: 28, height: 28, borderRadius: "50%",
             background: "rgba(255,255,255,.08)",
             border: "1px solid rgba(255,255,255,.15)",
             color: "rgba(200,225,255,.6)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", fontSize: 14, lineHeight: 1,
+            cursor: "pointer", fontSize: 12, lineHeight: 1,
           }}
         >✕</button>
 
         <div style={{
-          width: 76, height: 76, borderRadius: "50%",
+          width: "clamp(48px, 12vw, 60px)",
+          height: "clamp(48px, 12vw, 60px)",
+          borderRadius: "50%",
           background: "linear-gradient(135deg,#075985,#0ea5e9)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          margin: "0 auto 20px",
-          boxShadow: "0 0 32px rgba(14,165,233,.35)",
+          margin: "0 auto 12px",
+          boxShadow: "0 0 24px rgba(14,165,233,.35)",
         }}>
           <LockIcon />
         </div>
 
         <h2 style={{
           fontFamily: "'Cormorant Garamond', serif",
-          fontSize: 26, fontWeight: 700,
-          color: "#e8f0fe", letterSpacing: "-.02em", marginBottom: 10,
+          fontSize: "clamp(18px, 5vw, 22px)",
+          fontWeight: 700,
+          color: "#e8f0fe", letterSpacing: "-.02em", marginBottom: 6,
         }}>
           Application Submitted
         </h2>
 
-        <p style={{ fontSize: 13, color: "rgba(175,210,245,.65)", lineHeight: 1.75, marginBottom: 8, fontWeight: 300 }}>
+        <p style={{ fontSize: "clamp(11px, 3vw, 13px)", color: "rgba(175,210,245,.65)", lineHeight: 1.7, marginBottom: 5, fontWeight: 300 }}>
           Your staff registration has already been received by{" "}
           <span style={{ color: SKY_300, fontWeight: 500 }}>Randle &amp; Hopkins</span>.
         </p>
-        <p style={{ fontSize: 13, color: "rgba(175,210,245,.65)", lineHeight: 1.75, marginBottom: 24, fontWeight: 300 }}>
-          To update any of your details, please contact our admin team directly.
-          We review every application carefully.
+        <p style={{ fontSize: "clamp(11px, 3vw, 13px)", color: "rgba(175,210,245,.65)", lineHeight: 1.7, marginBottom: 16, fontWeight: 300 }}>
+          To update your details, please contact our admin team directly.
         </p>
 
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
-          padding: "12px 16px",
+          padding: "9px 12px",
           background: "rgba(14,165,233,.08)",
           border: "1px solid rgba(14,165,233,.2)",
-          borderRadius: 14, marginBottom: 24, textAlign: "left",
+          borderRadius: 12, marginBottom: 16, textAlign: "left",
         }}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
             <rect x="1.5" y="3.5" width="15" height="11" rx="2" stroke={SKY_500} strokeWidth="1.6"/>
             <path d="M1.5 6l7.5 5 7.5-5" stroke={SKY_500} strokeWidth="1.6" strokeLinecap="round"/>
           </svg>
           <div>
-            <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".12em", color: "rgba(125,211,252,.55)", margin: "0 0 2px" }}>
+            <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".1em", color: "rgba(125,211,252,.55)", margin: "0 0 2px" }}>
               Contact Admin
             </p>
-            <p style={{ fontSize: 12, color: "rgba(190,225,255,.75)", margin: 0 }}>
+            <p style={{ fontSize: "clamp(10px, 2.8vw, 12px)", color: "rgba(190,225,255,.75)", margin: 0 }}>
               admin@randleandhopkins.com
             </p>
           </div>
@@ -123,10 +132,12 @@ function AlreadySubmittedModal({ onClose }) {
         <button
           onClick={onClose}
           style={{
-            width: "100%", padding: "12px 0", borderRadius: 20, border: "none",
+            width: "100%", padding: "10px 0", borderRadius: 20, border: "none",
             background: "linear-gradient(135deg,#0369a1,#0ea5e9,#38bdf8)",
-            color: "#fff", fontFamily: FONT, fontSize: 14, fontWeight: 600,
-            cursor: "pointer", boxShadow: "0 6px 26px rgba(14,165,233,.28)",
+            color: "#fff", fontFamily: FONT,
+            fontSize: "clamp(12px, 3.5vw, 14px)",
+            fontWeight: 600, cursor: "pointer",
+            boxShadow: "0 6px 26px rgba(14,165,233,.28)",
           }}
         >
           Got it
@@ -148,23 +159,30 @@ function WarningModal({ onProceed, onClose }) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md"
+      style={{ padding: "clamp(8px, 4vw, 16px)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.88, opacity: 0, y: 24 }}
+        initial={{ scale: 0.88, opacity: 0, y: 20 }}
         animate={{ scale: 1,    opacity: 1, y: 0 }}
-        exit={{ scale: 0.88,    opacity: 0, y: 24 }}
+        exit={{ scale: 0.88,    opacity: 0, y: 20 }}
         transition={{ type: "spring", stiffness: 340, damping: 26 }}
         style={{
-          position: "relative", maxWidth: 460, width: "100%",
+          position: "relative",
+          maxWidth: 440,
+          width: "100%",
+          maxHeight: "85vh",
+          overflowY: "auto",
           background: "rgba(4,14,32,.97)",
           border: "1.5px solid rgba(14,165,233,.25)",
-          borderRadius: 28, padding: "44px 38px 38px",
-          textAlign: "center", backdropFilter: "blur(40px)",
+          borderRadius: "clamp(16px, 4vw, 24px)",
+          padding: "clamp(20px, 5vw, 30px) clamp(14px, 5vw, 26px) clamp(14px, 4vw, 22px)",
+          textAlign: "center",
+          backdropFilter: "blur(40px)",
           boxShadow: "0 50px 120px rgba(0,0,0,.5), inset 0 1px 0 rgba(14,165,233,.1)",
           fontFamily: FONT,
         }}
@@ -172,7 +190,8 @@ function WarningModal({ onProceed, onClose }) {
       >
         {/* top accent line */}
         <div style={{
-          position: "absolute", top: 0, left: 0, right: 0, height: 2, borderRadius: "28px 28px 0 0",
+          position: "absolute", top: 0, left: 0, right: 0, height: 2,
+          borderRadius: "24px 24px 0 0",
           background: "linear-gradient(90deg,transparent,#0ea5e9cc,#38bdf888,transparent)",
         }}/>
 
@@ -180,60 +199,75 @@ function WarningModal({ onProceed, onClose }) {
         <button
           onClick={onClose}
           style={{
-            position: "absolute", top: 14, right: 14,
-            width: 30, height: 30, borderRadius: "50%",
+            position: "absolute", top: 12, right: 12,
+            width: 28, height: 28, borderRadius: "50%",
             background: "rgba(255,255,255,.07)",
             border: "1px solid rgba(255,255,255,.13)",
             color: "rgba(200,225,255,.5)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", fontSize: 14, lineHeight: 1,
+            cursor: "pointer", fontSize: 12, lineHeight: 1,
           }}
         >✕</button>
 
         {/* icon */}
         <div style={{
-          width: 80, height: 80, borderRadius: "50%",
+          width: "clamp(48px, 13vw, 60px)",
+          height: "clamp(48px, 13vw, 60px)",
+          borderRadius: "50%",
           background: "linear-gradient(135deg,rgba(3,105,161,.8),rgba(14,165,233,.6))",
           display: "flex", alignItems: "center", justifyContent: "center",
-          margin: "0 auto 22px",
-          boxShadow: "0 0 40px rgba(14,165,233,.3), inset 0 1px 0 rgba(255,255,255,.1)",
+          margin: "0 auto 12px",
+          boxShadow: "0 0 28px rgba(14,165,233,.3), inset 0 1px 0 rgba(255,255,255,.1)",
         }}>
           <ShieldIcon />
         </div>
 
         <h2 style={{
           fontFamily: "'Cormorant Garamond', serif",
-          fontSize: 27, fontWeight: 700,
-          color: "#e8f0fe", letterSpacing: "-.025em", marginBottom: 8,
+          fontSize: "clamp(18px, 5.5vw, 23px)",
+          fontWeight: 700,
+          color: "#e8f0fe", letterSpacing: "-.025em", marginBottom: 4,
         }}>
           Before You Continue
         </h2>
-        <p style={{ fontSize: 12, color: "rgba(155,200,245,.5)", lineHeight: 1.7, marginBottom: 26, fontWeight: 300 }}>
+        <p style={{
+          fontSize: "clamp(10px, 2.8vw, 12px)",
+          color: "rgba(155,200,245,.5)", lineHeight: 1.55, marginBottom: 14, fontWeight: 300,
+        }}>
           Please read these important notes before filling the registration form.
         </p>
 
         {/* checklist */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28, textAlign: "left" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 12, textAlign: "left" }}>
           {points.map(({ icon, label, sub }) => (
             <div key={label} style={{
-              display: "flex", alignItems: "flex-start", gap: 13,
-              padding: "12px 15px",
+              display: "flex", alignItems: "flex-start", gap: 10,
+              padding: "8px 11px",
               background: "rgba(14,165,233,.06)",
               border: "1px solid rgba(14,165,233,.15)",
-              borderRadius: 14,
+              borderRadius: 12,
             }}>
               <span style={{
-                flexShrink: 0, width: 30, height: 30, borderRadius: "50%",
+                flexShrink: 0,
+                width: "clamp(22px, 6vw, 26px)",
+                height: "clamp(22px, 6vw, 26px)",
+                borderRadius: "50%",
                 background: "linear-gradient(135deg,rgba(3,105,161,.6),rgba(14,165,233,.4))",
                 border: "1px solid rgba(14,165,233,.3)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 13, color: SKY_300,
+                fontSize: 11, color: SKY_300,
               }}>{icon}</span>
               <div>
-                <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(200,230,255,.85)", margin: "0 0 3px", fontFamily: FONT }}>
+                <p style={{
+                  fontSize: "clamp(11px, 3vw, 12px)",
+                  fontWeight: 600, color: "rgba(200,230,255,.85)", margin: "0 0 2px", fontFamily: FONT,
+                }}>
                   {label}
                 </p>
-                <p style={{ fontSize: 11, color: "rgba(150,195,240,.5)", margin: 0, fontWeight: 300, lineHeight: 1.55 }}>
+                <p style={{
+                  fontSize: "clamp(10px, 2.5vw, 11px)",
+                  color: "rgba(150,195,240,.5)", margin: 0, fontWeight: 300, lineHeight: 1.45,
+                }}>
                   {sub}
                 </p>
               </div>
@@ -243,32 +277,33 @@ function WarningModal({ onProceed, onClose }) {
 
         {/* admin contact */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 10,
-          padding: "10px 14px",
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "8px 11px",
           background: "rgba(255,255,255,.04)",
           border: "1px solid rgba(255,255,255,.09)",
-          borderRadius: 12, marginBottom: 26, textAlign: "left",
+          borderRadius: 10, marginBottom: 14, textAlign: "left",
         }}>
-          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
+          <svg width="14" height="14" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
             <rect x="1.5" y="3.5" width="15" height="11" rx="2" stroke="rgba(125,211,252,.5)" strokeWidth="1.6"/>
             <path d="M1.5 6l7.5 5 7.5-5" stroke="rgba(125,211,252,.5)" strokeWidth="1.6" strokeLinecap="round"/>
           </svg>
-          <p style={{ fontSize: 11, color: "rgba(155,200,245,.42)", margin: 0, fontWeight: 300 }}>
+          <p style={{ fontSize: "clamp(10px, 2.5vw, 11px)", color: "rgba(155,200,245,.42)", margin: 0, fontWeight: 300 }}>
             For changes after submission, contact{" "}
             <span style={{ color: "rgba(125,211,252,.7)", fontWeight: 500 }}>info@randleandhopkick.com</span>
           </p>
         </div>
 
         {/* CTA buttons */}
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={onClose}
             style={{
-              flex: 1, padding: "12px 0", borderRadius: 20,
+              flex: 1, padding: "10px 0", borderRadius: 20,
               background: "rgba(255,255,255,.07)",
               border: "1px solid rgba(255,255,255,.14)",
               color: "rgba(190,220,255,.6)", fontFamily: FONT,
-              fontSize: 13, fontWeight: 400, cursor: "pointer",
+              fontSize: "clamp(11px, 3vw, 13px)",
+              fontWeight: 400, cursor: "pointer",
               transition: "all .25s ease",
             }}
             onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,.12)"; e.currentTarget.style.color = "#fff"; }}
@@ -279,10 +314,11 @@ function WarningModal({ onProceed, onClose }) {
           <button
             onClick={onProceed}
             style={{
-              flex: 2, padding: "12px 0", borderRadius: 20, border: "none",
+              flex: 2, padding: "10px 0", borderRadius: 20, border: "none",
               background: "linear-gradient(135deg,#0369a1,#0ea5e9,#38bdf8)",
               color: "#fff", fontFamily: FONT,
-              fontSize: 14, fontWeight: 600, cursor: "pointer",
+              fontSize: "clamp(11px, 3vw, 13px)",
+              fontWeight: 600, cursor: "pointer",
               boxShadow: "0 8px 28px rgba(14,165,233,.32)",
               transition: "all .3s ease",
             }}
@@ -303,13 +339,27 @@ function WarningModal({ onProceed, onClose }) {
 export function GetJobButton({ user, onProfileRefresh }) {
   const navigate = useNavigate();
 
-  // "warning" → show warning modal
-  // "form"    → show staff form
-  // "done"    → show already-submitted modal
-  // null      → nothing open
   const [modal, setModal] = useState(null);
 
   const alreadySubmitted = !!user?.staffProfileSubmitted;
+
+  // Hide header whenever any modal is open
+  useEffect(() => {
+    const header = document.querySelector("header");
+    if (!header) return;
+    if (modal) {
+      header.style.transition = "opacity 0.2s ease, visibility 0.2s ease";
+      header.style.opacity = "0";
+      header.style.visibility = "hidden";
+    } else {
+      header.style.opacity = "1";
+      header.style.visibility = "visible";
+    }
+    return () => {
+      header.style.opacity = "1";
+      header.style.visibility = "visible";
+    };
+  }, [modal]);
 
   const handleClick = () => {
     if (!user) { navigate("/login"); return; }
@@ -339,12 +389,10 @@ export function GetJobButton({ user, onProfileRefresh }) {
 
       <AnimatePresence>
 
-        {/* Already submitted */}
         {modal === "done" && (
           <AlreadySubmittedModal key="done" onClose={() => setModal(null)} />
         )}
 
-        {/* Warning gate */}
         {modal === "warning" && (
           <WarningModal
             key="warning"
@@ -353,7 +401,6 @@ export function GetJobButton({ user, onProfileRefresh }) {
           />
         )}
 
-        {/* Registration form */}
         {modal === "form" && (
           <motion.div
             key="form"
@@ -370,10 +417,8 @@ export function GetJobButton({ user, onProfileRefresh }) {
               className="relative w-full max-w-2xl"
               onClick={e => e.stopPropagation()}
             >
-              {/* glow */}
               <div className="absolute inset-0 bg-sky-400/10 blur-3xl rounded-xl pointer-events-none" />
 
-              {/* close */}
               <button
                 onClick={() => setModal(null)}
                 className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-slate-700 border border-white/20 text-white flex items-center justify-center hover:bg-slate-600 transition"

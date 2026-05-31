@@ -67,12 +67,6 @@ function isReadyToApprove(r) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FIX 1: resolveBackendId
-// backendId is set to the Mongo _id string by normaliseRequest in store.js.
-// We prefer it over the plain id, and we guard against sending a request if
-// the id looks like a local timestamp (numeric, > 10 digits) with no backendId.
-// ─────────────────────────────────────────────────────────────────────────────
 function resolveBackendId(r) {
   const id = r.backendId ?? r._id ?? r.id;
   console.log(
@@ -81,21 +75,13 @@ function resolveBackendId(r) {
   return id;
 }
 
-/**
- * Returns true when the resolved id looks like a real MongoDB ObjectId or a
- * server-assigned string — NOT a local Date.now() timestamp fallback.
- * A Mongo ObjectId is a 24-char hex string.  Local timestamps are pure
- * numbers >= 13 digits.
- */
 function isValidBackendId(id) {
   if (!id) return false;
   const str = String(id);
-  // Pure numeric string longer than 12 chars → local timestamp, not a real id
   if (/^\d{13,}$/.test(str)) return false;
   return true;
 }
 
-// ── Safe unique key for list renders (avoids null-key warnings) ──────────────
 function safeKey(r, idx) {
   return r?.backendId ?? r?._id ?? r?.id ?? `__row_${idx}`;
 }
@@ -322,7 +308,6 @@ function RequestsSection({ state, dispatch }) {
     ? (state.requests.find((r) => String(r.id) === String(activeReq.id)) ?? activeReq)
     : null;
 
-  // ── Filter logic ────────────────────────────────────────────────────────────
   const shown = filter === "All"
     ? state.requests
     : filter === "Declined"
@@ -344,32 +329,13 @@ function RequestsSection({ state, dispatch }) {
   };
   const close = () => { setModal(null); setActiveReq(null); };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // FIX 3: saveDates — guard empty dates, warn if no valid backend id
-  // ─────────────────────────────────────────────────────────────────────────
   const saveDates = async () => {
     dispatch({ type: "SET_DATES", id: activeReq.id, ...dates });
-
     const hasStart = dates.startDate?.trim();
     const hasEnd   = dates.endDate?.trim();
-
-    if (!hasStart && !hasEnd) {
-      console.warn("[AdminPanel] saveDates: both dates are empty — skipping API call");
-      close();
-      return;
-    }
-
+    if (!hasStart && !hasEnd) { close(); return; }
     const backendId = resolveBackendId(activeReq);
-    if (!isValidBackendId(backendId)) {
-      console.warn(
-        "[AdminPanel] saveDates: id looks like a local timestamp, not a Mongo id — skipping API call.",
-        "Request must be synced from backend before dates can be set remotely.",
-        { backendId, req: activeReq }
-      );
-      close();
-      return;
-    }
-
+    if (!isValidBackendId(backendId)) { close(); return; }
     try {
       await apiSetDates(backendId, { startDate: hasStart || undefined, endDate: hasEnd || undefined });
     } catch (err) {
@@ -378,38 +344,15 @@ function RequestsSection({ state, dispatch }) {
     close();
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // FIX 2: saveAssign — use backendId for staff; guard invalid request id
-  // The staff objects come from normaliseStaffProfile which sets id = Mongo _id.
-  // We still add the backendId ?? _id ?? id fallback chain for safety.
-  // ─────────────────────────────────────────────────────────────────────────
   const saveAssign = async () => {
     const staffList = Object.entries(selected).map(([id, name]) => ({ id, name }));
-    console.log("=== SAVE ASSIGN DEBUG ===");
-    console.log("selected object:", selected);
-    console.log("staffList:", staffList);
     dispatch({ type: "ASSIGN_STAFF", reqId: activeReq.id, assignedStaff: staffList });
-
     const backendId = resolveBackendId(activeReq);
-    if (!isValidBackendId(backendId)) {
-      console.warn(
-        "[AdminPanel] saveAssign: request id looks like a local timestamp — skipping API call.",
-        { backendId }
-      );
-      close();
-      return;
-    }
-
-    // Build staffIds using the most authoritative id available on each staff object
-    // state.staff records have id = Mongo _id (set by normaliseStaffProfile)
+    if (!isValidBackendId(backendId)) { close(); return; }
     const enrichedStaffList = staffList.map((s) => {
       const storeRecord = state.staff.find((st) => String(st.id) === String(s.id) || st.name === s.name);
-      return {
-        ...s,
-        resolvedId: storeRecord?.backendId ?? storeRecord?.id ?? s.id,
-      };
+      return { ...s, resolvedId: storeRecord?.backendId ?? storeRecord?.id ?? s.id };
     });
-
     try {
       await apiAssignStaff(backendId, enrichedStaffList.map((s) => ({ id: s.resolvedId, name: s.name })));
     } catch (err) {
@@ -429,30 +372,21 @@ function RequestsSection({ state, dispatch }) {
     if (!isReadyToApprove(r)) return;
     dispatch({ type: "APPROVE_REQUEST", id: r.id });
     const backendId = resolveBackendId(r);
-    if (!isValidBackendId(backendId)) {
-      console.warn("[AdminPanel] handleApprove: no valid backend id", { backendId });
-      return;
-    }
+    if (!isValidBackendId(backendId)) return;
     try { await apiApproveRequest(backendId); } catch (err) { console.error(err.message); }
   };
 
   const handleDecline = async (r) => {
     dispatch({ type: "DECLINE_REQUEST", id: r.id });
     const backendId = resolveBackendId(r);
-    if (!isValidBackendId(backendId)) {
-      console.warn("[AdminPanel] handleDecline: no valid backend id", { backendId });
-      return;
-    }
+    if (!isValidBackendId(backendId)) return;
     try { await apiRejectRequest(backendId); } catch (err) { console.error(err.message); }
   };
 
   const handleComplete = async (r) => {
     dispatch({ type: "COMPLETE_REQUEST", id: r.id });
     const backendId = resolveBackendId(r);
-    if (!isValidBackendId(backendId)) {
-      console.warn("[AdminPanel] handleComplete: no valid backend id", { backendId });
-      return;
-    }
+    if (!isValidBackendId(backendId)) return;
     try { await apiCompleteRequest(backendId); } catch (err) { console.error(err.message); }
   };
 
@@ -474,10 +408,8 @@ function RequestsSection({ state, dispatch }) {
     const ready = isReadyToApprove(r);
     const backendId = resolveBackendId(r);
     const hasValidId = isValidBackendId(backendId);
-
     return (
       <div className="flex flex-wrap gap-1.5">
-        {/* Warn visually when the request hasn't been synced from backend yet */}
         {!hasValidId && r.status === "Pending" && (
           <span title="This request was created locally and hasn't synced to the backend yet. Refresh to load it."
             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-amber-50 text-amber-600 border border-amber-200 select-none">
@@ -537,7 +469,6 @@ function RequestsSection({ state, dispatch }) {
 
   return (
     <div>
-      {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
           { label: "Total",           value: stats.total,          color: "text-gray-900",   bg: "bg-white"      },
@@ -552,7 +483,6 @@ function RequestsSection({ state, dispatch }) {
         ))}
       </div>
 
-      {/* ── Filter tabs ── */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
         {["All", "Pending", "Approved", "Completed", "Awaiting Review", "Declined"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
@@ -569,7 +499,6 @@ function RequestsSection({ state, dispatch }) {
         </div>
       )}
 
-      {/* ── Mobile Cards ── */}
       <div className="block md:hidden space-y-3">
         {shown.map((r, idx) => {
           const ds  = displayStatus(r);
@@ -635,7 +564,6 @@ function RequestsSection({ state, dispatch }) {
         })}
       </div>
 
-      {/* ── Desktop Table ── */}
       {shown.length > 0 && (
         <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
@@ -721,7 +649,6 @@ function RequestsSection({ state, dispatch }) {
         </div>
       )}
 
-      {/* ── Detail Modal ── */}
       <Modal open={modal === "detail"} title={`Request — ${liveReq?.clientName}`} onClose={close} footer={<Btn onClick={close}>Close</Btn>}>
         {liveReq && (
           <div className="space-y-3 text-sm">
@@ -783,13 +710,12 @@ function RequestsSection({ state, dispatch }) {
         )}
       </Modal>
 
-      {/* ── Dates Modal ── */}
       <Modal open={modal === "dates"} title={`Set dates — ${liveReq?.clientName}`} onClose={close}
         footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={saveDates}><Save size={12} /> Save dates</Btn></>}>
         {liveReq && !isValidBackendId(resolveBackendId(liveReq)) && (
           <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             <AlertTriangle size={13} className="shrink-0" />
-            This request hasn't synced from the backend yet. Dates will be saved locally only. Refresh the page after the sync to update them on the server.
+            This request hasn't synced from the backend yet. Dates will be saved locally only.
           </div>
         )}
         <p className="text-xs text-gray-400">
@@ -805,7 +731,6 @@ function RequestsSection({ state, dispatch }) {
         </div>
       </Modal>
 
-      {/* ── Assign Modal ── */}
       <Modal open={modal === "assign"} title={`Assign staff — ${liveReq?.clientName}`} onClose={close}
         footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={saveAssign}><Save size={12} /> Save assignment</Btn></>}>
         {liveReq && (
@@ -813,7 +738,7 @@ function RequestsSection({ state, dispatch }) {
             {!isValidBackendId(resolveBackendId(liveReq)) && (
               <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <AlertTriangle size={13} className="shrink-0" />
-                This request hasn't synced yet. Assignment will be saved locally. Refresh to sync with server.
+                This request hasn't synced yet. Assignment will be saved locally.
               </div>
             )}
             <p className="text-xs text-gray-500 mb-1">Roles needed: {(liveReq.roles || []).map((x) => `${x.role} ×${x.quantity}`).join(", ")}</p>
@@ -824,7 +749,7 @@ function RequestsSection({ state, dispatch }) {
               </div>
             )}
             {state.staff.length === 0 ? (
-              <div className="py-6 text-center text-xs text-gray-400">No staff records found. Staff data is loaded from the backend.</div>
+              <div className="py-6 text-center text-xs text-gray-400">No staff records found.</div>
             ) : (
               <>
                 <div className="flex gap-2 mb-3">
@@ -863,7 +788,6 @@ function RequestsSection({ state, dispatch }) {
                             <StarRating rating={s.averageRating} />
                             <span className="text-xs text-gray-400">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
                           </div>
-                          {/* Show the actual Mongo id that will be sent — helpful for debugging */}
                           <p className="text-[9px] text-gray-300 mt-0.5 font-mono truncate" title={s.id}>id: {s.id}</p>
                         </div>
                         <Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} />
@@ -1164,72 +1088,671 @@ function RegisteredSection({ state }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION: Blog
-// ─────────────────────────────────────────────────────────────────────────────
-function BlogSection({ state, dispatch }) {
-  const [modal,   setModal]   = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form,    setForm]    = useState({ title: "", excerpt: "", date: "", status: "Draft" });
 
-  const openEdit = (p) => { setEditing(p); setForm({ ...p }); setModal(true); };
-  const openNew  = ()  => { setEditing(null); setForm({ title: "", excerpt: "", date: new Date().toISOString().slice(0, 10), status: "Draft" }); setModal(true); };
-  const close    = ()  => setModal(false);
-  const handle   = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
-  const save = () => {
-    if (editing) dispatch({ type: "UPDATE_BLOG", payload: { ...editing, ...form } });
-    else         dispatch({ type: "ADD_BLOG",    payload: form });
-    close();
+// ─────────────────────────────────────────────────────────────────────────────
+// BLOG STORAGE KEY — shared with BlogPage and BlogPostPage via blogPosts.js
+// ─────────────────────────────────────────────────────────────────────────────
+const BLOG_STORAGE_KEY = "rnh_blog_posts_v1";
+const FEATURED_STORAGE_KEY = "rnh_blog_featured_v1";
+
+// Content-block types used in blog posts
+const BLOCK_TYPES = ["paragraph", "heading", "quote"];
+
+const ACCENT_OPTIONS = [
+  { label: "Blue (brand)",  value: "#2385cd" },
+  { label: "Gold",          value: "#c8a96e" },
+  { label: "Teal",          value: "#4a7c6f" },
+  { label: "Dark",          value: "#1c1a16" },
+];
+
+const CATEGORY_OPTIONS = [
+  "Hiring Tips",
+  "Workforce Insights",
+  "Caregiver Spotlight",
+  "Domestic Staffing",
+  "Company News",
+];
+
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+// Persist full posts list to localStorage so BlogPage/BlogPostPage pick it up
+function persistBlogPosts(posts) {
+  try { localStorage.setItem(BLOG_STORAGE_KEY, JSON.stringify(posts)); } catch {}
+}
+
+function persistFeatured(featured) {
+  try { localStorage.setItem(FEATURED_STORAGE_KEY, JSON.stringify(featured)); } catch {}
+}
+
+// Load from localStorage — returns null if nothing saved yet (callers fall back to static defaults)
+function loadStoredPosts() {
+  try {
+    const raw = localStorage.getItem(BLOG_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function loadStoredFeatured() {
+  try {
+    const raw = localStorage.getItem(FEATURED_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+// Blank post template
+function blankPost() {
+  return {
+    id:         Date.now(),
+    slug:       "",
+    title:      "",
+    excerpt:    "",
+    author:     "R&H Editorial",
+    authorBio:  "The editorial team at Randle & Hopkick — specialists in domestic and corporate workforce solutions across Nigeria.",
+    date:       new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+    readTime:   "5 min",
+    accent:     "#2385cd",
+    category:   "Hiring Tips",
+    trending:   false,
+    image:      "",
+    status:     "Draft",   // "Draft" | "Published"  (maps to BlogPage visibility)
+    content:    [{ type: "paragraph", text: "" }],
+  };
+}
+
+// Blank featured template
+function blankFeatured() {
+  return {
+    slug:       "",
+    title:      "",
+    excerpt:    "",
+    author:     "R&H Editorial",
+    authorBio:  "The editorial team at Randle & Hopkick.",
+    date:       new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+    readTime:   "10 min",
+    accent:     "#2385cd",
+    category:   "Workforce Insights",
+    image:      "",
+    content:    [{ type: "paragraph", text: "" }],
+  };
+}
+
+// ── Content block editor ─────────────────────────────────────────────────────
+function ContentBlockEditor({ blocks, onChange }) {
+  const update = (idx, field, value) => {
+    const next = blocks.map((b, i) => i === idx ? { ...b, [field]: value } : b);
+    onChange(next);
+  };
+  const add = (type = "paragraph") => onChange([...blocks, { type, text: "" }]);
+  const remove = (idx) => onChange(blocks.filter((_, i) => i !== idx));
+  const move = (idx, dir) => {
+    const next = [...blocks];
+    const target = idx + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange(next);
   };
 
   return (
-    <div>
-      <div className="flex justify-end mb-4">
-        <Btn variant="primary" onClick={openNew}><Plus size={13} /> New post</Btn>
+    <div className="space-y-3">
+      {blocks.map((block, idx) => (
+        <div key={`block-${idx}`} className="border border-gray-200 rounded-xl p-3 space-y-2 bg-gray-50">
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              className={inputCls + " flex-none w-36"}
+              value={block.type}
+              onChange={(e) => update(idx, "type", e.target.value)}
+            >
+              {BLOCK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <span className="text-xs text-gray-400 flex-1">Block {idx + 1}</span>
+            <div className="flex gap-1">
+              <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0}
+                className="text-xs px-2 py-1 rounded bg-white border border-gray-200 text-gray-500 hover:border-[#2385cd] hover:text-[#2385cd] disabled:opacity-30 transition">↑</button>
+              <button type="button" onClick={() => move(idx, 1)} disabled={idx === blocks.length - 1}
+                className="text-xs px-2 py-1 rounded bg-white border border-gray-200 text-gray-500 hover:border-[#2385cd] hover:text-[#2385cd] disabled:opacity-30 transition">↓</button>
+              <button type="button" onClick={() => remove(idx)}
+                className="text-xs px-2 py-1 rounded bg-red-50 border border-red-100 text-red-500 hover:bg-red-100 transition">✕</button>
+            </div>
+          </div>
+          <textarea
+            className={inputCls + " resize-none"}
+            rows={block.type === "paragraph" ? 4 : 2}
+            placeholder={
+              block.type === "paragraph" ? "Paragraph text…" :
+              block.type === "heading"   ? "Section heading…" :
+                                          "Pull quote text…"
+            }
+            value={block.text}
+            onChange={(e) => update(idx, "text", e.target.value)}
+          />
+        </div>
+      ))}
+      <div className="flex gap-2 flex-wrap">
+        {BLOCK_TYPES.map((t) => (
+          <button key={t} type="button" onClick={() => add(t)}
+            className="text-xs px-3 py-1.5 rounded-lg bg-[#eaf4fc] text-[#2385cd] border border-[#b8d9f0] hover:bg-[#b8d9f0] transition">
+            + {t}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Full-width modal for blog post editing (needs more space than the shared Modal) ──
+function BlogModal({ open, title, onClose, children, footer }) {
+  if (!open) return null;
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose}>
+        <motion.div
+          initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+          className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-3xl max-h-[94vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#eaf4fc] sticky top-0 bg-white z-10">
+            <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-[#2385cd] transition p-1 -mr-1">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="px-5 py-4 space-y-4">{children}</div>
+          {footer && (
+            <div className="px-5 py-3 border-t border-[#eaf4fc] flex justify-end gap-2 flex-wrap sticky bottom-0 bg-white">
+              {footer}
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION: Blog  (fully rewritten)
+// ─────────────────────────────────────────────────────────────────────────────
+function BlogSection({ state, dispatch }) {
+  // Import the static defaults once — used as fallback if localStorage is empty
+  // We do a dynamic require-style import so this file doesn't hard-couple to
+  // the static data file. If you're using Vite / CRA the static import at the
+  // top of the file is fine too; just swap the line below for:
+  //   import { posts as defaultPosts, featured as defaultFeatured } from "./data/blogPosts";
+  // and remove the useEffect that sets defaults.
+
+  const [posts,    setPosts]    = useState(() => loadStoredPosts() ?? []);
+  const [featured, setFeatured] = useState(() => loadStoredFeatured() ?? null);
+
+  // Load static defaults on first mount if localStorage is empty
+  useEffect(() => {
+    if (loadStoredPosts() !== null) return; // already hydrated
+    // Dynamically import the static file so this component doesn't crash if it's missing
+    import("./data/blogPosts")
+      .then(({ posts: staticPosts, featured: staticFeatured }) => {
+        // Add status field to static posts if missing
+        const withStatus = staticPosts.map((p) => ({ status: "Published", ...p }));
+        setPosts(withStatus);
+        persistBlogPosts(withStatus);
+        if (staticFeatured) {
+          setFeatured(staticFeatured);
+          persistFeatured(staticFeatured);
+        }
+      })
+      .catch(() => {
+        // static file not found — start with empty list
+      });
+  }, []);
+
+  const [modal,       setModal]       = useState(null); // null | "post" | "featured" | "preview"
+  const [editing,     setEditing]     = useState(null); // post being edited
+  const [form,        setForm]        = useState(blankPost());
+  const [featForm,    setFeatForm]    = useState(blankFeatured());
+  const [previewItem, setPreviewItem] = useState(null);
+  const [filter,      setFilter]      = useState("All"); // "All" | "Published" | "Draft"
+  const [search,      setSearch]      = useState("");
+
+  // ── Derived list ────────────────────────────────────────────────────────────
+  const shown = posts
+    .filter((p) => filter === "All" || p.status === filter)
+    .filter((p) =>
+      !search.trim() ||
+      p.title.toLowerCase().includes(search.toLowerCase()) ||
+      p.category.toLowerCase().includes(search.toLowerCase()) ||
+      p.author.toLowerCase().includes(search.toLowerCase())
+    );
+
+  // ── Post helpers ─────────────────────────────────────────────────────────────
+  const openNewPost = () => {
+    setEditing(null);
+    setForm(blankPost());
+    setModal("post");
+  };
+
+  const openEditPost = (p) => {
+    setEditing(p);
+    setForm({ ...blankPost(), ...p, content: p.content?.length ? p.content : [{ type: "paragraph", text: "" }] });
+    setModal("post");
+  };
+
+  const openPreview = (p) => { setPreviewItem(p); setModal("preview"); };
+
+  const closeModal = () => { setModal(null); setEditing(null); };
+
+  const handleFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+      // Auto-generate slug from title if slug is still blank / auto-mode
+      ...(name === "title" && (!prev.slug || prev.slug === slugify(prev.title))
+        ? { slug: slugify(value) }
+        : {}),
+    }));
+  };
+
+  const savePost = () => {
+    const finalForm = {
+      ...form,
+      slug: form.slug?.trim() || slugify(form.title),
+      id:   editing?.id ?? Date.now(),
+    };
+    let next;
+    if (editing) {
+      next = posts.map((p) => p.id === editing.id ? finalForm : p);
+    } else {
+      next = [finalForm, ...posts];
+    }
+    setPosts(next);
+    persistBlogPosts(next);
+    // Also sync to store so the admin panel's blog state stays consistent
+    if (editing) {
+      dispatch({ type: "UPDATE_BLOG", payload: finalForm });
+    } else {
+      dispatch({ type: "ADD_BLOG", payload: finalForm });
+    }
+    closeModal();
+  };
+
+  const deletePost = (p) => {
+    const next = posts.filter((x) => x.id !== p.id);
+    setPosts(next);
+    persistBlogPosts(next);
+    dispatch({ type: "DELETE_BLOG", id: p.id });
+  };
+
+  const toggleStatus = (p) => {
+    const updated = { ...p, status: p.status === "Published" ? "Draft" : "Published" };
+    const next = posts.map((x) => x.id === p.id ? updated : x);
+    setPosts(next);
+    persistBlogPosts(next);
+    dispatch({ type: "UPDATE_BLOG", payload: updated });
+  };
+
+  const toggleTrending = (p) => {
+    const updated = { ...p, trending: !p.trending };
+    const next = posts.map((x) => x.id === p.id ? updated : x);
+    setPosts(next);
+    persistBlogPosts(next);
+    dispatch({ type: "UPDATE_BLOG", payload: updated });
+  };
+
+  // ── Featured helpers ─────────────────────────────────────────────────────────
+  const openEditFeatured = () => {
+    setFeatForm(featured ? { ...blankFeatured(), ...featured, content: featured.content?.length ? featured.content : [{ type: "paragraph", text: "" }] } : blankFeatured());
+    setModal("featured");
+  };
+
+  const handleFeatFormChange = (e) => {
+    const { name, value } = e.target;
+    setFeatForm((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === "title" && (!prev.slug || prev.slug === slugify(prev.title))
+        ? { slug: slugify(value) }
+        : {}),
+    }));
+  };
+
+  const saveFeatured = () => {
+    const final = { ...featForm, slug: featForm.slug?.trim() || slugify(featForm.title) };
+    setFeatured(final);
+    persistFeatured(final);
+    closeModal();
+  };
+
+  // ── Stats ────────────────────────────────────────────────────────────────────
+  const stats = {
+    total:     posts.length,
+    published: posts.filter((p) => p.status === "Published").length,
+    draft:     posts.filter((p) => p.status === "Draft").length,
+    trending:  posts.filter((p) => p.trending).length,
+  };
+
+  // ── Post form shared fields ──────────────────────────────────────────────────
+  const PostFormFields = ({ f, onChange, onContentChange }) => (
+    <>
+      {/* Row 1: title + slug */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <FormField label="Title *">
+          <input name="title" className={inputCls} value={f.title} onChange={onChange} placeholder="Article title…" />
+        </FormField>
+        <FormField label="Slug (URL path)">
+          <input name="slug" className={inputCls} value={f.slug} onChange={onChange} placeholder="auto-generated-from-title" />
+        </FormField>
       </div>
 
-      {state.blog.length === 0 && (
-        <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState icon={Newspaper} title="No blog posts yet" subtitle="Blog posts from the backend will appear here. You can also create new posts." />
+      {/* Row 2: category + author */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <FormField label="Category">
+          <select name="category" className={inputCls} value={f.category} onChange={onChange}>
+            {CATEGORY_OPTIONS.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Author">
+          <input name="author" className={inputCls} value={f.author} onChange={onChange} placeholder="R&H Editorial" />
+        </FormField>
+      </div>
+
+      {/* Author bio */}
+      <FormField label="Author bio (short, shown under the headline)">
+        <input name="authorBio" className={inputCls} value={f.authorBio || ""} onChange={onChange} placeholder="Brief author description…" />
+      </FormField>
+
+      {/* Row 3: date + readTime */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <FormField label="Publish date">
+          <input name="date" className={inputCls} value={f.date} onChange={onChange} placeholder="22 May 2026" />
+        </FormField>
+        <FormField label="Read time">
+          <input name="readTime" className={inputCls} value={f.readTime} onChange={onChange} placeholder="5 min" />
+        </FormField>
+        <FormField label="Accent colour">
+          <select name="accent" className={inputCls} value={f.accent} onChange={onChange}>
+            {ACCENT_OPTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+          </select>
+        </FormField>
+      </div>
+
+      {/* Cover image */}
+      <FormField label="Cover image URL">
+        <input name="image" className={inputCls} value={f.image || ""} onChange={onChange} placeholder="https://res.cloudinary.com/… or any public image URL" />
+        {f.image && (
+          <div className="mt-2 rounded-lg overflow-hidden border border-gray-100" style={{ maxHeight: 120 }}>
+            <img src={f.image} alt="cover preview" className="w-full object-cover" style={{ maxHeight: 120 }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          </div>
+        )}
+      </FormField>
+
+      {/* Excerpt */}
+      <FormField label="Excerpt / summary (shown on blog listing)">
+        <textarea name="excerpt" className={inputCls + " resize-none"} rows={3} value={f.excerpt} onChange={onChange} placeholder="One-paragraph summary visible on the blog listing page…" />
+      </FormField>
+
+      {/* Status + trending (posts only — featured has no status) */}
+      {"status" in f && (
+        <div className="flex flex-wrap gap-4 items-center">
+          <FormField label="Status">
+            <select name="status" className={inputCls + " w-36"} value={f.status} onChange={onChange}>
+              <option value="Draft">Draft</option>
+              <option value="Published">Published</option>
+            </select>
+          </FormField>
+          <div className="flex items-center gap-2 mt-5">
+            <input type="checkbox" name="trending" id="chk-trending" checked={!!f.trending} onChange={onChange} className="w-4 h-4 accent-[#2385cd]" />
+            <label htmlFor="chk-trending" className="text-sm text-gray-600 cursor-pointer">Mark as trending 🔥</label>
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {state.blog.map((p, idx) => (
-          <div key={p.id ?? p._id ?? `blog-${idx}`} className="bg-white rounded-xl border border-gray-100 p-4 space-y-2 hover:border-[#b8d9f0] transition">
-            <div className="flex items-start justify-between gap-2">
-              <p className="font-medium text-gray-900 text-sm leading-snug">{p.title}</p>
-              <Pill label={p.status} color={p.status === "Published" ? "green" : "yellow"} />
-            </div>
-            <p className="text-xs text-[#2385cd]/70">{p.date}</p>
-            <p className="text-xs text-gray-500 line-clamp-2">{p.excerpt}</p>
-            <div className="flex gap-2 pt-1 flex-wrap">
-              <Btn variant="ghost" onClick={() => openEdit(p)}><Pencil size={13} /> Edit</Btn>
-              <Btn variant="brand" onClick={() => dispatch({ type: "UPDATE_BLOG", payload: { ...p, status: p.status === "Published" ? "Draft" : "Published" } })}>
-                {p.status === "Published" ? "Unpublish" : "Publish"}
-              </Btn>
-              <Btn variant="danger" onClick={() => dispatch({ type: "DELETE_BLOG", id: p.id })}><Trash2 size={13} /></Btn>
+      {/* Content blocks */}
+      <div>
+        <p className="text-xs font-medium text-gray-500 mb-2">Article content blocks</p>
+        <ContentBlockEditor blocks={f.content || []} onChange={onContentChange} />
+      </div>
+    </>
+  );
+
+  return (
+    <div>
+      {/* ── Stat cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        {[
+          { label: "Total posts",  value: stats.total,     color: "text-gray-900",   bg: "bg-white"     },
+          { label: "Published",    value: stats.published, color: "text-[#2385cd]",  bg: "bg-[#eaf4fc]" },
+          { label: "Drafts",       value: stats.draft,     color: "text-yellow-600", bg: "bg-yellow-50" },
+          { label: "Trending",     value: stats.trending,  color: "text-orange-600", bg: "bg-orange-50" },
+        ].map((s) => (
+          <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-[#b8d9f0]/40`}>
+            <p className="text-xs text-gray-400">{s.label}</p>
+            <p className={`text-2xl font-semibold ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Featured article banner ── */}
+      <div className="mb-5 bg-[#0f1e2e] rounded-xl p-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-[#2385cd] mb-1 uppercase tracking-wide">Featured Article (Hero)</p>
+          {featured ? (
+            <>
+              <p className="text-sm font-semibold text-white truncate">{featured.title || "Untitled"}</p>
+              <p className="text-xs text-white/50 mt-0.5">{featured.category} · {featured.date}</p>
+            </>
+          ) : (
+            <p className="text-sm text-white/40 italic">No featured article set yet</p>
+          )}
+        </div>
+        <Btn variant="brand" onClick={openEditFeatured}><Pencil size={12} /> {featured ? "Edit featured" : "Set featured"}</Btn>
+      </div>
+
+      {/* ── Toolbar ── */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <input
+          className={inputCls + " flex-1 min-w-[160px] max-w-xs"}
+          placeholder="Search posts…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="flex gap-1">
+          {["All", "Published", "Draft"].map((f) => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition shrink-0 ${
+                filter === f ? "bg-[#2385cd] text-white shadow-sm" : "bg-white text-gray-600 border border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
+              }`}>{f}</button>
+          ))}
+        </div>
+        <Btn variant="primary" onClick={openNewPost}><Plus size={13} /> New post</Btn>
+      </div>
+
+      {/* ── Empty state ── */}
+      {posts.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState icon={Newspaper} title="No blog posts yet" subtitle="Create a new post or wait for static defaults to load." />
+        </div>
+      )}
+      {posts.length > 0 && shown.length === 0 && (
+        <p className="text-gray-400 text-sm text-center py-10">No posts match your filter.</p>
+      )}
+
+      {/* ── Mobile cards ── */}
+      <div className="block md:hidden space-y-3">
+        {shown.map((p, idx) => (
+          <div key={p.id ?? `blog-mob-${idx}`} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            {p.image && (
+              <div className="h-28 overflow-hidden">
+                <img src={p.image} alt={p.title} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="p-4 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold text-gray-900 text-sm leading-snug flex-1">{p.title || "Untitled"}</p>
+                <Pill label={p.status} color={p.status === "Published" ? "green" : "yellow"} />
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs text-gray-400">
+                <span className="bg-[#eaf4fc] text-[#2385cd] rounded-full px-2 py-0.5">{p.category}</span>
+                <span>{p.date}</span>
+                <span>{p.readTime} read</span>
+                {p.trending && <span className="text-orange-500">🔥 Trending</span>}
+              </div>
+              <p className="text-xs text-gray-500 line-clamp-2">{p.excerpt}</p>
+              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-50">
+                <Btn variant="ghost" onClick={() => openEditPost(p)}><Pencil size={12} /> Edit</Btn>
+                <Btn variant="ghost" onClick={() => openPreview(p)}><Eye size={12} /> Preview</Btn>
+                <Btn variant="brand" onClick={() => toggleStatus(p)}>
+                  {p.status === "Published" ? "Unpublish" : "Publish"}
+                </Btn>
+                <Btn variant="ghost" onClick={() => toggleTrending(p)}>
+                  {p.trending ? "Remove 🔥" : "Set 🔥"}
+                </Btn>
+                <Btn variant="danger" onClick={() => deletePost(p)}><Trash2 size={12} /></Btn>
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      <Modal open={modal} title={editing ? "Edit post" : "New post"} onClose={close}
-        footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={save}><Save size={12} /> Save</Btn></>}>
-        <FormField label="Title"><input name="title" className={inputCls} value={form.title} onChange={handle} /></FormField>
-        <FormField label="Excerpt / body"><textarea name="excerpt" className={inputCls + " resize-none"} rows={4} value={form.excerpt} onChange={handle} /></FormField>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField label="Date"><input type="date" name="date" className={inputCls} value={form.date} onChange={handle} /></FormField>
-          <FormField label="Status">
-            <select name="status" className={inputCls} value={form.status} onChange={handle}>
-              <option>Draft</option><option>Published</option>
-            </select>
-          </FormField>
+      {/* ── Desktop table ── */}
+      {shown.length > 0 && (
+        <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#eaf4fc]/60 border-b border-[#b8d9f0]/50">
+                  {["Cover", "Title", "Category", "Author", "Date", "Status", "Trending", "Actions"].map((h) => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#1a6fa8]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((p, idx) => (
+                  <tr key={p.id ?? `blog-desk-${idx}`} className="border-b border-gray-50 hover:bg-[#eaf4fc]/30 transition">
+                    <td className="px-4 py-3">
+                      {p.image
+                        ? <img src={p.image} alt="" className="w-14 h-10 object-cover rounded-lg border border-gray-100" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                        : <div className="w-14 h-10 rounded-lg bg-gray-100 flex items-center justify-center"><Newspaper size={14} className="text-gray-300" /></div>
+                      }
+                    </td>
+                    <td className="px-4 py-3 max-w-[200px]">
+                      <p className="font-medium text-gray-900 truncate">{p.title || "Untitled"}</p>
+                      <p className="text-xs text-gray-400 font-mono truncate">/blog/{p.slug || "—"}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs bg-[#eaf4fc] text-[#2385cd] rounded-full px-2 py-0.5">{p.category}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500 max-w-[120px] truncate">{p.author}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{p.date}<br/>{p.readTime} read</td>
+                    <td className="px-4 py-3"><Pill label={p.status} color={p.status === "Published" ? "green" : "yellow"} /></td>
+                    <td className="px-4 py-3 text-center">{p.trending ? "🔥" : <span className="text-gray-200">—</span>}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        <Btn variant="ghost" onClick={() => openEditPost(p)}><Pencil size={12} /> Edit</Btn>
+                        <Btn variant="ghost" onClick={() => openPreview(p)}><Eye size={12} /></Btn>
+                        <Btn variant="brand" onClick={() => toggleStatus(p)}>
+                          {p.status === "Published" ? "Unpublish" : "Publish"}
+                        </Btn>
+                        <Btn variant="ghost" onClick={() => toggleTrending(p)}>
+                          {p.trending ? "🔥 Off" : "🔥 On"}
+                        </Btn>
+                        <Btn variant="danger" onClick={() => deletePost(p)}><Trash2 size={12} /></Btn>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </Modal>
+      )}
+
+      {/* ── Post editor modal ── */}
+      <BlogModal
+        open={modal === "post"}
+        title={editing ? `Edit post — ${editing.title || "Untitled"}` : "New blog post"}
+        onClose={closeModal}
+        footer={
+          <>
+            <Btn onClick={closeModal}>Cancel</Btn>
+            <Btn variant="primary" onClick={savePost} disabled={!form.title?.trim()}>
+              <Save size={12} /> {editing ? "Save changes" : "Create post"}
+            </Btn>
+          </>
+        }
+      >
+        <PostFormFields
+          f={form}
+          onChange={handleFormChange}
+          onContentChange={(blocks) => setForm((prev) => ({ ...prev, content: blocks }))}
+        />
+      </BlogModal>
+
+      {/* ── Featured editor modal ── */}
+      <BlogModal
+        open={modal === "featured"}
+        title="Edit featured article (blog hero)"
+        onClose={closeModal}
+        footer={
+          <>
+            <Btn onClick={closeModal}>Cancel</Btn>
+            <Btn variant="primary" onClick={saveFeatured} disabled={!featForm.title?.trim()}>
+              <Save size={12} /> Save featured
+            </Btn>
+          </>
+        }
+      >
+        <div className="text-xs text-[#1a6fa8] bg-[#eaf4fc] border border-[#b8d9f0] rounded-lg px-3 py-2 mb-1">
+          This article appears as the large hero feature on the blog listing page. It can be independent of the main posts list.
+        </div>
+        <PostFormFields
+          f={featForm}
+          onChange={handleFeatFormChange}
+          onContentChange={(blocks) => setFeatForm((prev) => ({ ...prev, content: blocks }))}
+        />
+      </BlogModal>
+
+      {/* ── Preview modal ── */}
+      <BlogModal
+        open={modal === "preview"}
+        title={`Preview — ${previewItem?.title || "Post"}`}
+        onClose={closeModal}
+        footer={<Btn onClick={closeModal}>Close</Btn>}
+      >
+        {previewItem && (
+          <div className="space-y-4">
+            {previewItem.image && (
+              <img src={previewItem.image} alt="" className="w-full h-40 object-cover rounded-xl" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+            )}
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: previewItem.accent || "#2385cd" }}>{previewItem.category}</span>
+              <h2 className="text-xl font-bold text-gray-900 mt-1 leading-snug" style={{ fontFamily: "serif", fontStyle: "italic" }}>{previewItem.title}</h2>
+              <p className="text-xs text-gray-400 mt-1">{previewItem.author} · {previewItem.date} · {previewItem.readTime} read</p>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed border-l-4 pl-3" style={{ borderColor: previewItem.accent || "#2385cd" }}>{previewItem.excerpt}</p>
+            <div className="space-y-3 text-sm">
+              {(previewItem.content || []).map((block, i) => {
+                if (block.type === "heading") return (
+                  <h3 key={i} className="font-bold text-gray-900 text-base" style={{ borderLeft: `3px solid ${previewItem.accent || "#2385cd"}`, paddingLeft: 10 }}>{block.text}</h3>
+                );
+                if (block.type === "quote") return (
+                  <blockquote key={i} className="italic text-gray-600 border-l-4 pl-4 py-1 bg-gray-50 rounded-r-lg" style={{ borderColor: previewItem.accent || "#2385cd" }}>"{block.text}"</blockquote>
+                );
+                return <p key={i} className="text-gray-700 leading-relaxed">{block.text}</p>;
+              })}
+            </div>
+          </div>
+        )}
+      </BlogModal>
     </div>
   );
 }
+
 
 // ── Helper: normalise a raw testimonial from the backend ─────────────────────
 function normaliseTestimonial(t, idx) {
@@ -1898,7 +2421,6 @@ export function AdminPanel() {
   return (
     <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
 
-      {/* Mobile sidebar overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <>
@@ -1923,7 +2445,6 @@ export function AdminPanel() {
         )}
       </AnimatePresence>
 
-      {/* Desktop sidebar */}
       <aside className="hidden md:flex w-48 shrink-0 flex-col" style={{ backgroundColor: "#0f1e2e" }}>
         <div className="px-4 py-5 border-b border-white/10">
           <p className="font-bold text-white text-sm leading-tight">Randle&amp;Hopkick</p>
@@ -1933,7 +2454,6 @@ export function AdminPanel() {
         {SidebarFooter}
       </aside>
 
-      {/* Main */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         <header className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0 gap-3 bg-[#0f1e2e] md:bg-white border-b border-white/10 md:border-gray-100">
           <div className="flex items-center gap-3 min-w-0">
@@ -1995,7 +2515,6 @@ export function AdminPanel() {
         </div>
       </main>
 
-      {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 inset-x-0 z-30 md:hidden border-t border-white/10 flex items-stretch"
         style={{ backgroundColor: "#0f1e2e", paddingBottom: "env(safe-area-inset-bottom)" }}>
         {BOTTOM_NAV.map((key) => {
