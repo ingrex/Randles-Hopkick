@@ -70,7 +70,7 @@ export const staticPosts = [
       "From nannies to chefs, discover what to look for when bringing trusted professionals into your household.",
     author: "R&H Editorial",
     authorBio:
-      "The editorial team at Randle & Hopkick — specialists in domestic and corporate workforce solutions across Nigeria.",
+      "The editorial team at Randle & Hopkick; specialists in domestic and corporate workforce solutions across Nigeria.",
     date: "May 22, 2026",
     readTime: "6 min",
     accent: "#c8a96e",
@@ -81,7 +81,7 @@ export const staticPosts = [
     content: [
       {
         type: "paragraph",
-        text: "Hiring domestic staff is one of the most personal decisions a household can make. Unlike corporate recruitment, the people you bring into your home become part of your daily rhythm — they interact with your children, prepare your meals, and maintain the sanctuary you've built. Getting it right matters enormously.",
+        text: "Hiring domestic staff is one of the most personal decisions a household can make. Unlike corporate recruitment, the people you bring into your home become part of your daily rhythm; they interact with your children, prepare your meals, and maintain the sanctuary you've built. Getting it right matters enormously.",
       },
       {
         type: "heading",
@@ -97,7 +97,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "Background checks are non-negotiable. At Randle & Hopkick, every candidate goes through identity verification, reference checks with previous employers, and a structured interview process. Never skip this step — a shortcut here can cost far more than the time saved.",
+        text: "Background checks are non-negotiable. At Randle & Hopkick, every candidate goes through identity verification, reference checks with previous employers, and a structured interview process. Never skip this step; a shortcut here can cost far more than the time saved.",
       },
       {
         type: "quote",
@@ -129,7 +129,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "At Randle & Hopkick, we don't just place staff — we partner with families to ensure every placement holds. From initial briefing to post-placement check-ins, our team remains available to support a smooth, lasting match.",
+        text: "At Randle & Hopkick, we don't just place staff; we partner with families to ensure every placement holds. From initial briefing to post-placement check-ins, our team remains available to support a smooth, lasting match.",
       },
     ],
   },
@@ -142,7 +142,7 @@ export const staticPosts = [
       "Businesses are increasingly turning to specialist firms to handle staffing. Here's what the data reveals.",
     author: "R&H Editorial",
     authorBio:
-      "The editorial team at Randle & Hopkick — specialists in domestic and corporate workforce solutions across Nigeria.",
+      "The editorial team at Randle & Hopkick; specialists in domestic and corporate workforce solutions across Nigeria.",
     date: "May 19, 2026",
     readTime: "8 min",
     accent: "#2385cd",
@@ -153,7 +153,7 @@ export const staticPosts = [
     content: [
       {
         type: "paragraph",
-        text: "The outsourcing landscape in West Africa has shifted dramatically over the past decade. What was once viewed as a cost-cutting measure has evolved into a sophisticated strategic tool — a way for businesses to access specialised talent, reduce administrative burden, and stay agile in fast-moving markets.",
+        text: "The outsourcing landscape in West Africa has shifted dramatically over the past decade. What was once viewed as a cost-cutting measure has evolved into a sophisticated strategic tool; a way for businesses to access specialised talent, reduce administrative burden, and stay agile in fast-moving markets.",
       },
       {
         type: "heading",
@@ -173,7 +173,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "Facility management, security, cleaning, catering, and administrative support are the most commonly outsourced functions. But the trend is expanding upward — executive assistants, drivers with corporate protocol training, and even on-site welfare officers are now routinely placed through specialist firms like Randle & Hopkick.",
+        text: "Facility management, security, cleaning, catering, and administrative support are the most commonly outsourced functions. But the trend is expanding upward; executive assistants, drivers with corporate protocol training, and even on-site welfare officers are now routinely placed through specialist firms like Randle & Hopkick.",
       },
       {
         type: "heading",
@@ -189,7 +189,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "Look for a firm with a structured vetting process, clear SLAs, and post-placement support. Ask how they handle performance issues, replacements, and complaints. A good outsourcing partner takes accountability seriously — they don't disappear after the contract is signed.",
+        text: "Look for a firm with a structured vetting process, clear SLAs, and post-placement support. Ask how they handle performance issues, replacements, and complaints. A good outsourcing partner takes accountability seriously; they don't disappear after the contract is signed.",
       },
     ],
   },
@@ -199,10 +199,10 @@ export const staticPosts = [
     category: "Caregiver Spotlight",
     title: "What Makes a World-Class Caregiver? We Asked Our Top Placements",
     excerpt:
-      "Patience, presence, and professionalism — the three pillars our caregivers embody every single day.",
+      "Patience, presence, and professionalism; the three pillars our caregivers embody every single day.",
     author: "R&H Editorial",
     authorBio:
-      "The editorial team at Randle & Hopkick — specialists in domestic and corporate workforce solutions across Nigeria.",
+      "The editorial team at Randle & Hopkick; specialists in domestic and corporate workforce solutions across Nigeria.",
     date: "May 15, 2026",
     readTime: "5 min",
     accent: "#4a7c6f",
@@ -213,7 +213,7 @@ export const staticPosts = [
     content: [
       {
         type: "paragraph",
-        text: "We sat down with five of our highest-rated caregiver placements to ask a simple question: what separates a good caregiver from a great one? Their answers were revealing — and deeply human.",
+        text: "We sat down with five of our highest-rated caregiver placements to ask a simple question: what separates a good caregiver from a great one? Their answers were revealing and deeply human.",
       },
       {
         type: "heading",
@@ -233,7 +233,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "World-class caregivers are fully present. Not distracted by phones, not going through the motions. Families can feel the difference immediately. Genuine attentiveness — noticing a change in mood, anticipating a need before it's expressed — is the mark of someone who treats caregiving as a vocation, not a job.",
+        text: "World-class caregivers are fully present. Not distracted by phones, not going through the motions. Families can feel the difference immediately. Genuine attentiveness; noticing a change in mood, anticipating a need before it's expressed is the mark of someone who treats caregiving as a vocation, not a job.",
       },
       {
         type: "heading",
@@ -249,7 +249,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "At Randle & Hopkick, every caregiver placement is preceded by a detailed briefing about the individual being cared for — their history, preferences, triggers, and routines. We don't match skills alone; we match character. Because the person in your home deserves nothing less.",
+        text: "At Randle & Hopkick, every caregiver placement is preceded by a detailed briefing about the individual being cared for; their history, preferences, triggers, and routines. We don't match skills alone; we match character. Because the person in your home deserves nothing less.",
       },
     ],
   },
@@ -259,10 +259,10 @@ export const staticPosts = [
     category: "Domestic Staffing",
     title: "The Art of a Perfect Household: Staffing Beyond the Job Description",
     excerpt:
-      "Great domestic staff don't just complete tasks — they become part of the fabric of a well-run home.",
+      "Great domestic staff don't just complete tasks; they become part of the fabric of a well-run home.",
     author: "R&H Editorial",
     authorBio:
-      "The editorial team at Randle & Hopkick — specialists in domestic and corporate workforce solutions across Nigeria.",
+      "The editorial team at Randle & Hopkick; specialists in domestic and corporate workforce solutions across Nigeria.",
     date: "May 12, 2026",
     readTime: "7 min",
     accent: "#c8a96e",
@@ -293,7 +293,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "In high-profile households, discretion isn't optional — it's foundational. The best domestic staff understand that what happens inside a private home stays there. This isn't merely contractual; it's a matter of professional honour. At Randle & Hopkick, we screen explicitly for this quality during our placement process.",
+        text: "In high-profile households, discretion isn't optional; it's foundational. The best domestic staff understand that what happens inside a private home stays there. This isn't merely contractual; it's a matter of professional honour. At Randle & Hopkick, we screen explicitly for this quality during our placement process.",
       },
       {
         type: "heading",
@@ -301,7 +301,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "The most satisfied families are those who think of their domestic staff as long-term partners, not interchangeable hires. Investing in fair pay, genuine respect, and clear communication builds loyalty — and loyalty produces the consistency that truly elevates a household.",
+        text: "The most satisfied families are those who think of their domestic staff as long-term partners, not interchangeable hires. Investing in fair pay, genuine respect, and clear communication builds loyalty and loyalty produces the consistency that truly elevates a household.",
       },
       {
         type: "heading",
@@ -309,7 +309,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "Beyond technical skills, we assess initiative, emotional intelligence, and the quiet professionalism that can't be taught in a training course. We look for people who bring pride to their work — because that pride is exactly what your home deserves.",
+        text: "Beyond technical skills, we assess initiative, emotional intelligence, and the quiet professionalism that can't be taught in a training course. We look for people who bring pride to their work; because that pride is exactly what your home deserves.",
       },
     ],
   },
@@ -322,7 +322,7 @@ export const staticPosts = [
       "Safety, discretion, and reliability matter most. Use this guide to find someone you can truly trust.",
     author: "R&H Editorial",
     authorBio:
-      "The editorial team at Randle & Hopkick — specialists in domestic and corporate workforce solutions across Nigeria.",
+      "The editorial team at Randle & Hopkick; specialists in domestic and corporate workforce solutions across Nigeria.",
     date: "May 8, 2026",
     readTime: "4 min",
     accent: "#2385cd",
@@ -333,7 +333,7 @@ export const staticPosts = [
     content: [
       {
         type: "paragraph",
-        text: "A personal or corporate driver is one of the most trust-intensive hires you'll make. This person will know your schedule, your routes, and often your most private conversations. Getting the hire right is not optional — it's essential.",
+        text: "A personal or corporate driver is one of the most trust-intensive hires you'll make. This person will know your schedule, your routes, and often your most private conversations. Getting the hire right is not optional; it's essential.",
       },
       {
         type: "heading",
@@ -341,7 +341,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "Don't just ask for a licence — ask for a story. How long have they been driving professionally? What kinds of vehicles? Have they driven principals with security requirements? Gaps and inconsistencies in the narrative are as informative as the facts themselves.",
+        text: "Don't just ask for a licence; ask for a story. How long have they been driving professionally? What kinds of vehicles? Have they driven principals with security requirements? Gaps and inconsistencies in the narrative are as informative as the facts themselves.",
       },
       {
         type: "heading",
@@ -349,11 +349,11 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "Listen for composure. The right answer involves calmness, planning, and consideration for the passenger's time — not aggression, speed, or risk-taking. Lagos traffic is a stress test. You need someone who passes it daily.",
+        text: "Listen for composure. The right answer involves calmness, planning, and consideration for the passenger's time; not aggression, speed, or risk-taking. Lagos traffic is a stress test. You need someone who passes it daily.",
       },
       {
         type: "quote",
-        text: "The best drivers don't just get you there — they get you there calmly, safely, and on time, every single time.",
+        text: "The best drivers don't just get you there; they get you there calmly, safely, and on time, every single time.",
       },
       {
         type: "heading",
@@ -369,7 +369,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "Ask this directly. A driver who understands discretion will give you a thoughtful, specific answer — not a vague one. They should be able to explain what it means practically: not discussing the principal's movements, not using mobile phones when passengers are in the vehicle, not sharing professional information socially.",
+        text: "Ask this directly. A driver who understands discretion will give you a thoughtful, specific answer; not a vague one. They should be able to explain what it means practically: not discussing the principal's movements, not using mobile phones when passengers are in the vehicle, not sharing professional information socially.",
       },
       {
         type: "heading",
@@ -390,7 +390,7 @@ export const staticPosts = [
       "We're proud to announce a new wave of vetted professionals now available across major cities in Nigeria.",
     author: "R&H Editorial",
     authorBio:
-      "The editorial team at Randle & Hopkick — specialists in domestic and corporate workforce solutions across Nigeria.",
+      "The editorial team at Randle & Hopkick; specialists in domestic and corporate workforce solutions across Nigeria.",
     date: "May 5, 2026",
     readTime: "3 min",
     accent: "#1c1a16",
@@ -401,7 +401,7 @@ export const staticPosts = [
     content: [
       {
         type: "paragraph",
-        text: "We are proud to announce that Randle & Hopkick has formally expanded its premium placement services to cover additional cities across Nigeria. What began as a Lagos-focused operation has grown — driven by client demand and our commitment to bringing world-class staffing standards to every home and business that needs them.",
+        text: "We are proud to announce that Randle & Hopkick has formally expanded its premium placement services to cover additional cities across Nigeria. What began as a Lagos-focused operation has grown; driven by client demand and our commitment to bringing world-class staffing standards to every home and business that needs them.",
       },
       {
         type: "heading",
@@ -429,7 +429,7 @@ export const staticPosts = [
       },
       {
         type: "paragraph",
-        text: "Mrs. Peace Obieke, Head of Operations, notes: 'This expansion is the result of trust — the trust our clients place in us, and the trust we place in every professional we deploy. We don't take either lightly. We're growing because our standards hold, and we intend to keep it that way.'",
+        text: "Mrs. Peace Obieke, Head of Operations, notes: 'This expansion is the result of trust; the trust our clients place in us, and the trust we place in every professional we deploy. We don't take either lightly. We're growing because our standards hold, and we intend to keep it that way.'",
       },
       {
         type: "paragraph",
@@ -444,10 +444,10 @@ export const staticFeatured = {
   title:
     "Why Premium Staffing Is the Smartest Investment Your Business Can Make This Year",
   excerpt:
-    "In a competitive landscape, the quality of your team — from executive assistants to janitorial staff — defines your brand. Randle & Hopkick explores why getting staffing right is non-negotiable.",
+    "In a competitive landscape, the quality of your team from executive assistants to janitorial staff; defines your brand. Randle & Hopkick explores why getting staffing right is non-negotiable.",
   author: "R&H Editorial",
   authorBio:
-    "The editorial team at Randle & Hopkick, led by Mrs. Peace Obieke — 15+ years in HR consulting and workforce strategy.",
+    "The editorial team at Randle & Hopkick, led by Mrs. Peace Obieke; 15+ years in HR consulting and workforce strategy.",
   date: "May 26, 2026",
   readTime: "10 min",
   accent: "#2385cd",
@@ -457,7 +457,7 @@ export const staticFeatured = {
   content: [
     {
       type: "paragraph",
-      text: "In a business environment where margins are tighter and expectations are higher than ever, leaders are rightly focused on optimising every line of expenditure. Staffing, however, is not a line to cut — it's a lever to pull.",
+      text: "In a business environment where margins are tighter and expectations are higher than ever, leaders are rightly focused on optimising every line of expenditure. Staffing, however, is not a line to cut; it's a lever to pull.",
     },
     {
       type: "heading",
@@ -465,7 +465,7 @@ export const staticFeatured = {
     },
     {
       type: "paragraph",
-      text: "The temptation to fill roles with the lowest-cost option is understandable. But the downstream costs of poor staffing — turnover, retraining, reputational damage, and lost productivity — consistently outweigh the upfront savings. Premium staffing is not a luxury: it's a risk management strategy.",
+      text: "The temptation to fill roles with the lowest-cost option is understandable. But the downstream costs of poor staffing; turnover, retraining, reputational damage, and lost productivity; consistently outweigh the upfront savings. Premium staffing is not a luxury: it's a risk management strategy.",
     },
     {
       type: "quote",
