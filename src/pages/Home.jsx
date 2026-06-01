@@ -602,14 +602,8 @@ const Home = () => {
               {/* Slide-up reveal panel */}
               <div className="reveal-panel">
                 <p
-                  style={{
-                    fontSize: "0.82rem",
-                    color: "#ddeeff",
-                    lineHeight: 1.65,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 4,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
+                  style={{ fontSize: "0.82rem",color: "#ddeeff",lineHeight: 1.65,
+                    display: "-webkit-box",WebkitLineClamp: 4,WebkitBoxOrient: "vertical",overflow: "hidden",
                   }}
                 >
                   {service.desc}

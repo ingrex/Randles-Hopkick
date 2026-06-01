@@ -131,7 +131,6 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
   const scrollProgress = useScrollProgress();
 
   // Load all published posts + featured on every render so edits show immediately.
-  // includeDrafts:false is the default — post pages only serve published content.
   const posts    = loadBlogPosts();
   const featured = loadFeatured();
 
@@ -189,7 +188,8 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
 
         @media (max-width: 768px) {
           .rh-post-grid    { grid-template-columns: 1fr; gap: 32px; }
-          .rh-hero-pad     { padding: 32px 18px !important; }
+          /* FIX: 88px header (unscrolled) + 48px back-nav + extra breathing room */
+          .rh-hero-pad     { padding: 156px 18px 0 !important; }
           .rh-body-pad     { padding: 32px 18px !important; }
           .rh-hero-title   { font-size: 22px !important; }
           .rh-related-grid { grid-template-columns: 1fr; }
@@ -197,7 +197,8 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
         }
         @media (min-width: 769px) and (max-width: 1024px) {
           .rh-post-grid    { grid-template-columns: 1fr; gap: 36px; }
-          .rh-hero-pad     { padding: 36px 28px !important; }
+          /* FIX: 88px header (unscrolled) + 48px back-nav + extra breathing room */
+          .rh-hero-pad     { padding: 148px 28px 0 !important; }
           .rh-body-pad     { padding: 36px 28px !important; }
           .rh-related-grid { grid-template-columns: repeat(2, 1fr); }
           .rh-sidebar-post { order: -1; }
@@ -207,8 +208,18 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
       {/* ── SCROLL PROGRESS BAR ── */}
       <div style={{ position: "fixed", top: 0, left: 0, zIndex: 9999, height: 3, background: accent, width: `${scrollProgress}%`, transition: "width 0.1s linear", boxShadow: `0 0 8px ${accent}88` }} />
 
-      {/* ── BACK NAV ── */}
-      <div style={{ background: "#1c1a16", borderBottom: "1px solid #2a2823" }}>
+      {/* ── BACK NAV ──
+          Sticky so it sits just below the fixed site header.
+          top: 88px matches the header's unscrolled height (tallest state).
+          Once the user scrolls and the header shrinks to 64px, the back-nav
+          will naturally follow because it's sticky, not fixed. */}
+      <div style={{
+        background: "#1c1a16",
+        borderBottom: "1px solid #2a2823",
+        position: "sticky",
+        top: 88,       /* ← matches unscrolled header height (88px) */
+        zIndex: 100,
+      }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", height: 48, display: "flex", alignItems: "center" }}>
           <button
             onClick={onBackToBlog}
@@ -224,11 +235,16 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
         </div>
       </div>
 
-      {/* ── HERO ── */}
+      {/* ── HERO ──
+          paddingTop = 136px:
+            88px  (unscrolled header height)
+          + 48px  (sticky back-nav height)
+          = 136px total clearance so the title is never hidden.
+          The responsive overrides in the <style> block above mirror this. */}
       <section style={{ background: "#1c1a16" }}>
         <motion.div
           className="rh-hero-pad"
-          style={{ maxWidth: 1200, margin: "0 auto", padding: "56px 32px 0" }}
+          style={{ maxWidth: 1200, margin: "0 auto", padding: "136px 32px 0" }}
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}

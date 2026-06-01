@@ -318,7 +318,8 @@ export function BlogPage({ onNavigate }) {
           .rh-hero-grid    { grid-template-columns: 1fr; gap: 24px; }
           .rh-main-grid    { grid-template-columns: 1fr; gap: 32px; }
           .rh-cards-grid   { grid-template-columns: 1fr; }
-          .rh-hero-padding { padding: 28px 18px !important; }
+          /* FIX: 88px header + 16px breathing room */
+          .rh-hero-padding { padding: 104px 18px 28px !important; }
           .rh-main-padding { padding: 28px 16px !important; }
           .rh-hero-title   { font-size: 21px !important; }
           .rh-sidebar      { order: -1; }
@@ -328,7 +329,8 @@ export function BlogPage({ onNavigate }) {
         @media (min-width: 769px) and (max-width: 1024px) {
           .rh-hero-grid    { grid-template-columns: 1fr; gap: 28px; }
           .rh-main-grid    { grid-template-columns: 1fr; gap: 36px; }
-          .rh-hero-padding { padding: 36px 28px !important; }
+          /* FIX: 88px header + 16px breathing room */
+          .rh-hero-padding { padding: 104px 28px 36px !important; }
           .rh-main-padding { padding: 36px 28px !important; }
           .rh-sidebar      { order: -1; }
           .rh-sidebar-inner{ display: grid !important; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -344,10 +346,15 @@ export function BlogPage({ onNavigate }) {
         boxShadow: "0 0 8px rgba(35,133,205,0.5)",
       }} />
 
-      {/* ── HERO BANNER ── */}
+      {/* ── HERO BANNER ──
+          paddingTop = 104px: 88px (unscrolled header) + 16px breathing room.
+          The responsive overrides in the <style> block above mirror this. */}
       {featured && (
         <section style={{ background: "#1c1a16" }}>
-          <div className="rh-hero-padding" style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 32px" }}>
+          <div
+            className="rh-hero-padding"
+            style={{ maxWidth: 1200, margin: "0 auto", padding: "104px 32px 48px" }}
+          >
             <motion.div
               className="rh-hero-grid"
               initial={{ opacity: 0, y: 30 }}
@@ -431,8 +438,17 @@ export function BlogPage({ onNavigate }) {
         </section>
       )}
 
-      {/* ── FILTER BAR ── */}
-      <div style={{ borderBottom: "1px solid #ece8e0", background: "#faf9f6", position: "sticky", top: 3, zIndex: 90 }}>
+      {/* ── FILTER BAR ──
+          top: 88px so it sticks just below the fixed site header (unscrolled height).
+          Once the user scrolls and the header shrinks to 64px, the filter bar
+          slides up naturally to fill the gap — a smooth, correct behaviour. */}
+      <div style={{
+        borderBottom: "1px solid #ece8e0",
+        background: "#faf9f6",
+        position: "sticky",
+        top: 88,       /* ← matches unscrolled header height */
+        zIndex: 90,
+      }}>
         <div
           className="rh-filter-bar"
           style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", height: 52, display: "flex", alignItems: "center", gap: 8, overflowX: "auto" }}
