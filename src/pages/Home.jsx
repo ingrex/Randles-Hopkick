@@ -93,7 +93,7 @@ function StatCard({ stat, index, fadeUp }) {
   );
 }
 
-/* ─── Main component ─────────────────────────────────────────────── */
+/* ─── Main component ── */
 const Home = () => {
   const user = JSON.parse(localStorage.getItem("user"));
 
@@ -490,7 +490,7 @@ const Home = () => {
               marginTop: "0.5rem",
             }}
           >
-            From your home to your boardroom — we place the right people, every time.
+            From your Office to your boardroom; we place the right people, every time.
           </p>
         </div>
 
