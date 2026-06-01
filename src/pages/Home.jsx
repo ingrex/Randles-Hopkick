@@ -138,28 +138,34 @@ const Home = () => {
 
   const services = [
     {
+      number: "01",
+      tag: "Residential",
       title: "Domestic Staffing",
-      desc: "Professional home staff including nannies, cleaners, and cooks.",
+      desc: "We provide professional, vetted home staff including nannies, cleaners, cooks, and housekeepers. Every candidate is background-checked and matched to fit your household's unique routine and culture.",
       image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778601551/Untitled_design_15_kvzz9a.jpg",
     },
     {
+      number: "02",
+      tag: "Enterprise",
       title: "Corporate Staffing",
-      desc: "Skilled professionals tailored to your business needs.",
+      desc: "We source and place skilled professionals tailored to your business operations; from administrative and customer-facing roles to support staff. Our process ensures you get reliable talent, fast.",
       image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778601888/Untitled_design_16_szvtnk.jpg",
     },
     {
+      number: "03",
+      tag: "Development",
       title: "Staff Training",
-      desc: "We train staff to meet modern workplace standards.",
+      desc: "We equip your existing or newly placed staff with the skills to thrive in modern work environments. Our training programs cover professionalism, role-specific competencies, and workplace etiquette.",
       image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778602221/Untitled_design_17_o8eevf.jpg",
     },
     {
+      number: "04",
+      tag: "Skilled Trades",
       title: "Artisan Outsourcing",
-      desc: "Expert advice to optimize your workforce and processes.",
+      desc: "We connect homes and businesses with skilled tradespeople; including electricians, plumbers, painters, and other craftsmen. Get reliable hands-on expertise without the hassle of sourcing them yourself.",
       image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778602685/Untitled_design_18_rl7zlb.jpg",
     },
   ];
-
-
 
   return (
     <div className="w-full overflow-hidden">
@@ -257,8 +263,6 @@ const Home = () => {
           >
             <GetJobButton user={user} />
             <HireStaffButton user={user} />
-
-
           </motion.div>
         </motion.div>
 
@@ -284,8 +288,6 @@ const Home = () => {
           />
         </div>
 
-
-
         {/* CSS keyframes via style tag */}
         <style>{`
           @keyframes heroPulse {
@@ -297,6 +299,53 @@ const Home = () => {
             49%  { transform: scaleY(1); transform-origin: top; opacity: 1; }
             50%  { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
             100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+          }
+          .service-card .reveal-panel {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: linear-gradient(to top, rgba(5,10,20,0.98) 60%, rgba(5,10,20,0.88) 100%);
+            padding: 1.5rem;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          }
+          .service-card:hover .reveal-panel {
+            transform: translateY(0);
+          }
+          .service-card:hover img {
+            transform: scale(1.08);
+          }
+          .service-card:hover .card-border {
+            opacity: 1;
+          }
+          .explore-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 1rem;
+            padding: 9px 20px;
+            border: 1px solid rgba(35,133,205,0.6);
+            border-radius: 100px;
+            color: #7dc6f5;
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            background: transparent;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+            text-decoration: none;
+          }
+          .explore-btn:hover {
+            background: rgba(35,133,205,0.15);
+            border-color: #2385cd;
+            color: #ffffff;
+          }
+          .explore-btn .arrow {
+            display: inline-block;
+            transition: transform 0.2s;
+          }
+          .explore-btn:hover .arrow {
+            transform: translateX(4px);
           }
         `}</style>
       </section>
@@ -381,58 +430,200 @@ const Home = () => {
         </motion.div>
       </section>
 
-      {/* ── SERVICES (hover quick-view overlay) ───────────────────── */}
-      <section className="py-20 px-6 bg-gray-100">
-        <motion.h2
-          initial="hidden"
-          whileInView="show"
-          variants={fadeUp}
-          className="text-3xl font-bold text-center mb-12"
-        >
-          Our Services
-        </motion.h2>
+      {/* ── SERVICES (premium light, slide-up reveal) ─────────────── */}
+      <section
+        style={{
+          background: "linear-gradient(160deg, #f0f6ff 0%, #e8f2fb 50%, #f5f9ff 100%)",
+        }}
+        className="py-24 px-6 relative overflow-hidden"
+      >
 
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="show"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto"
+        {/* Top border line */}
+        <div
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0,
+            height: "1px",
+            background: "linear-gradient(90deg, transparent, #2385cd44, transparent)",
+          }}
+        />
+        {/* Bottom border line */}
+        <div
+          style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            height: "1px",
+            background: "linear-gradient(90deg, transparent, #2385cd22, transparent)",
+          }}
+        />
+
+        {/* Section header */}
+        <div
+          className="text-center mb-14 max-w-2xl mx-auto"
+          style={{ position: "relative", zIndex: 10 }}
         >
+          <p
+            style={{
+              fontSize: "0.78rem",
+              fontWeight: "700",
+              color: "#1565a8",
+              textTransform: "uppercase",
+              letterSpacing: "0.12em",
+              marginBottom: "0.75rem",
+            }}
+          >
+            What We Offer
+          </p>
+          <h2
+            style={{
+              fontSize: "clamp(1.8rem, 4vw, 2.4rem)",
+              fontWeight: "800",
+              color: "#0a1628",
+              marginBottom: "0.75rem",
+            }}
+          >
+            Our Services
+          </h2>
+          <p
+            style={{
+              color: "#2c4a6a",
+              fontSize: "0.97rem",
+              lineHeight: 1.75,
+              marginTop: "0.5rem",
+            }}
+          >
+            From your home to your boardroom — we place the right people, every time.
+          </p>
+        </div>
+
+        {/* Cards grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto" style={{ position: "relative", zIndex: 1 }}>
           {services.map((service, i) => (
-            <motion.div
+            <div
               key={i}
-              variants={fadeUp}
-              whileHover={{ y: -10 }}
-              className="rounded-xl overflow-hidden shadow-lg group relative"
+              className="service-card rounded-2xl overflow-hidden relative cursor-pointer"
+              style={{
+                height: "340px",
+                border: "1px solid rgba(35,133,205,0.25)",
+                boxShadow: "0 4px 24px rgba(35,133,205,0.08)",
+                transition: "border-color 0.3s, box-shadow 0.3s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(35,133,205,0.6)";
+                e.currentTarget.style.boxShadow = "0 8px 36px rgba(35,133,205,0.18)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "rgba(35,133,205,0.25)";
+                e.currentTarget.style.boxShadow = "0 4px 24px rgba(35,133,205,0.08)";
+              }}
             >
-              <div className="relative h-56 w-full overflow-hidden">
-                <img
-                  src={service.image}
-                  alt={service.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
-                <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <h3 className="text-lg font-semibold">{service.title}</h3>
-                </div>
+              {/* Background image */}
+              <img
+                src={service.image}
+                alt={service.title}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                  transition: "transform 0.5s ease",
+                }}
+              />
+
+              {/* Always-visible gradient + top meta */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background:
+                    "linear-gradient(to top, rgba(5,10,20,0.95) 0%, rgba(5,10,20,0.45) 45%, transparent 100%)",
+                  pointerEvents: "none",
+                }}
+              />
+
+              {/* Card number + tag — top left */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "1rem",
+                  left: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: "800",
+                    color: "#2385cd",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {service.number}
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.68rem",
+                    fontWeight: "600",
+                    color: "#7dc6f5",
+                    background: "rgba(35,133,205,0.2)",
+                    border: "0.5px solid rgba(35,133,205,0.4)",
+                    borderRadius: "100px",
+                    padding: "3px 10px",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {service.tag}
+                </span>
               </div>
 
-              <div className="p-5 bg-white">
-                <p className="text-sm text-gray-600">{service.desc}</p>
-                <Link to="/services">
-                  <button
-                    className="mt-4 text-white px-4 py-2 rounded transition"
-                    style={{ background: "#2385cd" }}
-                    onMouseOver={(e) => (e.target.style.opacity = "0.85")}
-                    onMouseOut={(e) => (e.target.style.opacity = "1")}
-                  >
+              {/* Always-visible title at bottom */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "1.2rem",
+                  left: "1.2rem",
+                  right: "1.2rem",
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: "700",
+                    color: "#ffffff",
+                    lineHeight: 1.2,
+                    textShadow: "0 1px 8px rgba(0,0,0,0.7)",
+                  }}
+                >
+                  {service.title}
+                </h3>
+              </div>
+
+              {/* Slide-up reveal panel */}
+              <div className="reveal-panel">
+                <p
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#ddeeff",
+                    lineHeight: 1.65,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 4,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {service.desc}
+                </p>
+                <Link to="/services" style={{ textDecoration: "none" }}>
+                  <span className="explore-btn">
                     Explore Service
-                  </button>
+                    <span className="arrow">→</span>
+                  </span>
                 </Link>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </section>
 
       {/* ── TESTIMONIALS ────────────────────────────────────────────── */}
