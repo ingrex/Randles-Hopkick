@@ -902,25 +902,8 @@ export function Dashboard() {
             )}
 
             {filtered.map((r) => {
-              const displayStatus = r.status === "Rejected" ? "Declined" : r.status;
-
-              // ── Per-staff review tracking ──────────────────────────────────
-              // Build the set of staffIds that have already been reviewed for
-              // this request so we only show the button for remaining ones.
-              const reviewedStaffIds = new Set(
-                (r.reviews ?? []).map((rv) => String(rv.staffId)).filter(Boolean)
-              );
-              const unreviewedStaff = (r.assignedStaff ?? []).filter(
-                (s) => !reviewedStaffIds.has(String(s.id))
-              );
-              const awaitingReview =
-                r.status === "Completed" && unreviewedStaff.length > 0;
-              // allReviewed is true only when every assigned staff has a review
-              const allReviewed =
-                r.status === "Completed" &&
-                (r.assignedStaff ?? []).length > 0 &&
-                unreviewedStaff.length === 0;
-
+              const awaitingReview = r.status === "Completed" && !r.reviewed;
+              const displayStatus  = r.status === "Rejected" ? "Declined" : r.status;
               return (
                 <motion.div key={r.id} whileHover={{ scale: 1.005 }}
                   className="bg-white p-4 rounded-xl shadow mb-3 space-y-3">
@@ -933,60 +916,20 @@ export function Dashboard() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <StatusBadge status={displayStatus} awaitingReview={awaitingReview} />
 
-                      {/* ── Leave Review button — stays visible until ALL staff reviewed ── */}
-                      {awaitingReview && (
+                      {r.status === "Completed" && !r.reviewed && (
                         <button
-                          onClick={() => {
-                            // Pass only the unreviewed staff into the modal so the
-                            // client can't re-rate someone they've already rated.
-                            setReviewReq({ ...r, assignedStaff: unreviewedStaff });
-                            setModalType("review");
-                            setReviewError("");
-                          }}
+                          onClick={() => { setReviewReq(r); setModalType("review"); setReviewError(""); }}
                           className="px-3 py-1 text-xs bg-purple-50 text-sky-700 rounded-full border border-purple-200 hover:bg-purple-100 transition font-medium">
                           ⭐ Leave Review
-                          {unreviewedStaff.length < (r.assignedStaff ?? []).length && (
-                            <span className="ml-1 opacity-70">
-                              ({unreviewedStaff.length} remaining)
-                            </span>
-                          )}
                         </button>
                       )}
-
-                      {/* ── Fully reviewed state ── */}
-                      {allReviewed && (
+                      {r.status === "Completed" && r.reviewed && (
                         <div className="flex flex-col gap-1">
                           <span className="px-3 py-1 text-xs bg-green-50 text-green-600 rounded-full border border-green-200 font-medium self-start">
                             ✓ Reviewed
                           </span>
                           {(r.reviews ?? []).map((rv, i) => (
                             <div key={`dash-rv-${i}`} className="flex items-center gap-1.5 text-xs text-gray-500">
-                              {rv.staffName && (
-                                <span className="font-medium text-gray-700">{rv.staffName}</span>
-                              )}
-                              <span className="flex items-center gap-0.5">
-                                {Array.from({ length: 5 }, (_, si) => (
-                                  <span
-                                    key={si}
-                                    className={si < Math.round(rv.rating) ? "text-yellow-400" : "text-gray-300"}
-                                  >
-                                    ★
-                                  </span>
-                                ))}
-                              </span>
-                              {rv.comment && (
-                                <span className="italic text-gray-400 truncate max-w-[160px]">"{rv.comment}"</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* ── Partially reviewed: show submitted reviews inline ── */}
-                      {r.status === "Completed" && !allReviewed && !awaitingReview && (r.reviews ?? []).length > 0 && (
-                        <div className="flex flex-col gap-1">
-                          {(r.reviews ?? []).map((rv, i) => (
-                            <div key={`dash-partial-rv-${i}`} className="flex items-center gap-1.5 text-xs text-gray-500">
                               {rv.staffName && (
                                 <span className="font-medium text-gray-700">{rv.staffName}</span>
                               )}
@@ -1034,15 +977,9 @@ export function Dashboard() {
                       <div className="flex flex-wrap gap-1.5">
                         {r.assignedStaff.map((s) => {
                           const staffInfo = store.staff.find((x) => x.id === s.id);
-                          const hasReview = reviewedStaffIds.has(String(s.id));
                           return (
-                            <span key={s.id} className={`text-xs border rounded-full px-2.5 py-0.5 flex items-center gap-1 ${
-                              hasReview
-                                ? "bg-green-50 text-green-700 border-green-200"
-                                : "bg-sky-50 text-sky-700 border-sky-200"  // ← sky when not yet reviewed
-                            }`}>
+                            <span key={s.id} className="text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2.5 py-0.5 flex items-center gap-1">
                               {s.name}
-                              {hasReview && <span className="text-green-500 text-[10px]">✓</span>}
                               {staffInfo && <StarRating value={staffInfo.averageRating} max={5} />}
                             </span>
                           );

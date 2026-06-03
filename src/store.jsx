@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useReducer } from "react";
 
 function defaultState() {
@@ -120,8 +121,7 @@ export function normaliseRequest(raw) {
     comment:       rv.comment ?? rv.review ?? rv.text ?? "",
     submittedAt:   rv.submittedAt ?? rv.createdAt ?? new Date().toISOString(),
     reviewedReqId: rv.reviewedReqId ?? raw._id ?? raw.id,
-    staffId:       String(rv.staffId ?? rv.staff ?? ""),
-    staffName:     rv.staffName ?? "",
+    staffId:       rv.staffId ?? rv.staff ?? null,
   }));
 
   const assignedStaff = (raw.assignedStaff ?? raw.assignedTo ?? []).map((s) =>
@@ -132,14 +132,7 @@ export function normaliseRequest(raw) {
 
   const mongoId = String(raw._id ?? raw.id ?? "");
 
-  // reviewed is true only when every assigned staff member has been reviewed
-  const reviewedStaffIds = new Set(reviews.map((rv) => String(rv.staffId)).filter(Boolean));
-  const reviewed =
-    raw.reviewed === true
-      ? true
-      : assignedStaff.length > 0
-        ? assignedStaff.every((s) => reviewedStaffIds.has(String(s.id)))
-        : reviews.length > 0;
+  const reviewed = raw.reviewed ?? (reviews.length > 0);
 
   return {
     id:            mongoId,
@@ -295,7 +288,8 @@ export function normaliseMessage(m, idx) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseTestimonial
-// ─────────────────────────────────────────────────────────────────────────────
+//
+
 export function normaliseTestimonial(t, idx) {
   if (!t || typeof t !== "object") return null;
   return {
@@ -690,17 +684,17 @@ function reducer(state, action) {
     }
 
     // ── Review submission ─────────────────────────────────────────────────────
-    case "SUBMIT_REVIEW": {
-      const { reqId, staffId, rating, comment } = action;
-      const staffMember = state.staff.find((s) => String(s.id) === String(staffId));
-      const review = {
-        rating,
-        comment:       comment ?? "",
-        submittedAt:   new Date().toISOString(),
-        reviewedReqId: reqId,
-        staffId:       String(staffId),
-        staffName:     staffMember?.name ?? "",
-      };
+case "SUBMIT_REVIEW": {
+  const { reqId, staffId, rating, comment } = action;
+  const staffMember = state.staff.find((s) => String(s.id) === String(staffId));
+  const review = {
+    rating,
+    comment:       comment ?? "",
+    submittedAt:   new Date().toISOString(),
+    reviewedReqId: reqId,
+    staffId,
+    staffName:     staffMember?.name ?? "",   
+  };
 
       const updatedStaff = state.staff.map((s) => {
         if (String(s.id) !== String(staffId)) return s;
@@ -714,18 +708,11 @@ function reducer(state, action) {
         };
       });
 
-      const updatedRequests = state.requests.map((r) => {
-        if (String(r.id) !== String(reqId)) return r;
-        const updatedReviews = [...(r.reviews ?? []), review];
-        // Only mark fully reviewed once every assigned staff member has a review
-        const reviewedStaffIds = new Set(
-          updatedReviews.map((rv) => String(rv.staffId)).filter(Boolean)
-        );
-        const allReviewed = (r.assignedStaff ?? []).length > 0
-          ? (r.assignedStaff ?? []).every((s) => reviewedStaffIds.has(String(s.id)))
-          : true;
-        return { ...r, reviews: updatedReviews, reviewed: allReviewed };
-      });
+      const updatedRequests = state.requests.map((r) =>
+        String(r.id) === String(reqId)
+          ? { ...r, reviews: [...(r.reviews ?? []), review], reviewed: true }
+          : r
+      );
 
       next = { ...state, requests: updatedRequests, staff: updatedStaff };
       break;
