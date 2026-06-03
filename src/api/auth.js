@@ -304,3 +304,97 @@ export async function apiRemoveStaff(id) {
     headers: authHeaders(),
   });
 }
+
+
+/**
+ * Fetch all blog posts (admin, includes drafts).
+ * GET /api/v1/blog/admin/all
+ */
+export async function apiGetAdminBlogPosts() {
+  return request("/blog/admin/all", {
+    method: "GET",
+    headers: authHeaders(),
+  });
+}
+ 
+/**
+ * Fetch all published blog posts (public, no auth required).
+ * GET /api/v1/blog  (adjust if your backend uses a different public path)
+ */
+export async function apiGetPublicBlogPosts() {
+  return request("/blog", { method: "GET" });
+}
+ 
+/**
+ * Create a new blog post.
+ * POST /api/v1/blog/admin
+ */
+export async function apiCreateBlogPost(payload) {
+  return request("/blog/admin", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(normaliseBlogPayload(payload)),
+  });
+}
+ 
+/**
+ * Update an existing blog post.
+ * PATCH /api/v1/blog/admin/:id
+ */
+export async function apiUpdateBlogPost(id, payload) {
+  return request(`/blog/admin/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(normaliseBlogPayload(payload)),
+  });
+}
+ 
+/**
+ * Delete a blog post.
+ * DELETE /api/v1/blog/admin/:id
+ */
+export async function apiDeleteBlogPost(id) {
+  return request(`/blog/admin/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}
+ 
+/**
+ * Set (replace) the featured article.
+ * PUT /api/v1/blog/admin/featured
+ */
+export async function apiSetFeaturedBlogPost(payload) {
+  return request("/blog/admin/featured", {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(normaliseBlogPayload(payload)),
+  });
+}
+ 
+/**
+ * Fetch the current featured article (public).
+ * GET /api/v1/blog/featured  (adjust if your backend uses a different path)
+ */
+export async function apiGetFeaturedBlogPost() {
+  return request("/blog/featured", { method: "GET" });
+}
+ 
+// ─── Internal: shape a blog post for the wire ────────────────────────────────
+function normaliseBlogPayload(p) {
+  return {
+    slug:      p.slug      ?? "",
+    title:     p.title     ?? "",
+    excerpt:   p.excerpt   ?? "",
+    author:    p.author    ?? "R&H Editorial",
+    authorBio: p.authorBio ?? "",
+    date:      p.date      ?? "",
+    readTime:  p.readTime  ?? "5 min",
+    accent:    p.accent    ?? "#2385cd",
+    category:  p.category  ?? "Hiring Tips",
+    trending:  p.trending  ?? false,
+    status:    p.status    ?? "Draft",
+    image:     p.image     ?? "",
+    content:   Array.isArray(p.content) ? p.content : [],
+  };
+}
