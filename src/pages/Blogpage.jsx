@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "framer-motion";
-
-import { loadBlogPosts, loadFeatured } from "./data/blogPosts";
+import { loadBlogPosts, loadFeatured, refreshBlogCache } from "./data/blogPosts";
 
 /* ─── categories ─── */
 const categories = [
@@ -14,10 +13,10 @@ const categories = [
 ];
 
 const services = [
-  { label: "Domestic Staffing",   desc: "Nannies, cleaners, cooks & more."          },
-  { label: "Corporate Staffing",  desc: "Skilled professionals for your business."  },
-  { label: "Staff Training",      desc: "We train staff to meet modern standards."   },
-  { label: "Artisan Outsourcing", desc: "Expert artisans for specialized roles."     },
+  { label: "Domestic Staffing",   desc: "Nannies, cleaners, cooks & more."         },
+  { label: "Corporate Staffing",  desc: "Skilled professionals for your business." },
+  { label: "Staff Training",      desc: "We train staff to meet modern standards."  },
+  { label: "Artisan Outsourcing", desc: "Expert artisans for specialized roles."    },
 ];
 
 /* ─── scroll progress hook ─── */
@@ -145,7 +144,6 @@ function ArticleCard({ post, index, isFeaturedCard, onNavigate }) {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* image */}
         <div style={{ position: "relative", overflow: "hidden", height: 160 }}>
           <img
             src={post.image}
@@ -175,7 +173,6 @@ function ArticleCard({ post, index, isFeaturedCard, onNavigate }) {
           </span>
         </div>
 
-        {/* body */}
         <div style={{ padding: "16px 18px 18px", flex: 1, display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: post.accent, fontWeight: 500, marginBottom: 8 }}>
             {post.category}
@@ -187,7 +184,6 @@ function ArticleCard({ post, index, isFeaturedCard, onNavigate }) {
             {post.excerpt}
           </p>
 
-          {/* footer */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
               <InitialsAvatar name={post.author} accent={post.accent} />
@@ -203,7 +199,6 @@ function ArticleCard({ post, index, isFeaturedCard, onNavigate }) {
             </span>
           </div>
 
-          {/* share row */}
           <div
             style={{
               display: "flex", gap: 8, marginTop: 12, paddingTop: 12,
@@ -240,12 +235,24 @@ export function BlogPage({ onNavigate }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery,    setSearchQuery]    = useState("");
   const [sortOrder,      setSortOrder]      = useState("newest");
+
+  // ── Live data from backend (with static fallback) ─────────────────────────
+  const [posts,    setPosts]    = useState(() => loadBlogPosts());
+  const [featured, setFeatured] = useState(() => loadFeatured());
+
   const scrollProgress = useScrollProgress();
 
-  // ── Load live posts and featured from localStorage (admin writes) ──────────
-  // Re-read on every render so navigation back to this page picks up changes.
-  const posts    = loadBlogPosts();   // only Published posts
-  const featured = loadFeatured();
+  useEffect(() => {
+    let cancelled = false;
+    refreshBlogCache()
+      .then(({ posts: freshPosts, featured: freshFeatured }) => {
+        if (cancelled) return;
+        if (freshPosts?.length)  setPosts(freshPosts);
+        if (freshFeatured)       setFeatured(freshFeatured);
+      })
+      .catch(() => {/* keep static fallback — already in state */});
+    return () => { cancelled = true; };
+  }, []);
 
   /* filter + search + sort */
   const filtered = posts
@@ -257,7 +264,6 @@ export function BlogPage({ onNavigate }) {
     )
     .sort((a, b) => {
       if (sortOrder === "popular") return (b.trending ? 1 : 0) - (a.trending ? 1 : 0);
-      // Sort by id descending (higher id = newer) — admin-created posts get Date.now() ids
       return (Number(b.id) || 0) - (Number(a.id) || 0);
     });
 
@@ -318,7 +324,6 @@ export function BlogPage({ onNavigate }) {
           .rh-hero-grid    { grid-template-columns: 1fr; gap: 24px; }
           .rh-main-grid    { grid-template-columns: 1fr; gap: 32px; }
           .rh-cards-grid   { grid-template-columns: 1fr; }
-          /* FIX: 88px header + 16px breathing room */
           .rh-hero-padding { padding: 104px 18px 28px !important; }
           .rh-main-padding { padding: 28px 16px !important; }
           .rh-hero-title   { font-size: 21px !important; }
@@ -329,7 +334,6 @@ export function BlogPage({ onNavigate }) {
         @media (min-width: 769px) and (max-width: 1024px) {
           .rh-hero-grid    { grid-template-columns: 1fr; gap: 28px; }
           .rh-main-grid    { grid-template-columns: 1fr; gap: 36px; }
-          /* FIX: 88px header + 16px breathing room */
           .rh-hero-padding { padding: 104px 28px 36px !important; }
           .rh-main-padding { padding: 36px 28px !important; }
           .rh-sidebar      { order: -1; }
@@ -346,9 +350,7 @@ export function BlogPage({ onNavigate }) {
         boxShadow: "0 0 8px rgba(35,133,205,0.5)",
       }} />
 
-      {/* ── HERO BANNER ──
-          paddingTop = 104px: 88px (unscrolled header) + 16px breathing room.
-          The responsive overrides in the <style> block above mirror this. */}
+      {/* ── HERO BANNER ── */}
       {featured && (
         <section style={{ background: "#1c1a16" }}>
           <div
@@ -361,7 +363,6 @@ export function BlogPage({ onNavigate }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, ease: "easeOut" }}
             >
-              {/* left: featured article */}
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
                 <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", color: "#2385cd", fontWeight: 500, marginBottom: 14 }}>
                   Featured Article
@@ -407,7 +408,6 @@ export function BlogPage({ onNavigate }) {
                 </div>
               </div>
 
-              {/* right: featured image + stats */}
               <div
                 style={{ display: "flex", flexDirection: "column", gap: 1, cursor: "pointer" }}
                 onClick={() => onNavigate(featured.slug)}
@@ -421,10 +421,10 @@ export function BlogPage({ onNavigate }) {
                 </div>
                 <div className="rh-stats-grid">
                   {[
-                    { num: "300+", label: "Staff Deployed"         },
-                    { num: "100%", label: "Client Satisfaction"    },
-                    { num: "15+",  label: "Yrs Leadership Exp."    },
-                    { num: "3+",   label: "Years of Excellence"    },
+                    { num: "300+", label: "Staff Deployed"      },
+                    { num: "100%", label: "Client Satisfaction" },
+                    { num: "15+",  label: "Yrs Leadership Exp." },
+                    { num: "3+",   label: "Years of Excellence" },
                   ].map((s) => (
                     <div key={s.label} style={{ background: "#1c1a16", padding: "18px 16px" }}>
                       <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: "#2385cd" }}>{s.num}</div>
@@ -438,15 +438,12 @@ export function BlogPage({ onNavigate }) {
         </section>
       )}
 
-      {/* ── FILTER BAR ──
-          top: 88px so it sticks just below the fixed site header (unscrolled height).
-          Once the user scrolls and the header shrinks to 64px, the filter bar
-          slides up naturally to fill the gap — a smooth, correct behaviour. */}
+      {/* ── FILTER BAR ── */}
       <div style={{
         borderBottom: "1px solid #ece8e0",
         background: "#faf9f6",
         position: "sticky",
-        top: 88,       /* ← matches unscrolled header height */
+        top: 88,
         zIndex: 90,
       }}>
         <div
@@ -467,7 +464,6 @@ export function BlogPage({ onNavigate }) {
 
           {/* ── ARTICLES COLUMN ── */}
           <div>
-            {/* toolbar */}
             <div className="rh-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, gap: 16, flexWrap: "wrap" }}>
               <div>
                 <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: "#1c1a16", fontStyle: "italic" }}>
@@ -493,7 +489,6 @@ export function BlogPage({ onNavigate }) {
               </div>
             </div>
 
-            {/* cards grid */}
             {filtered.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 0", color: "#aaa", fontSize: 13 }}>
                 No articles match your search.

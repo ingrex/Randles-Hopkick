@@ -18,6 +18,7 @@ import ApplicantForm from "./pages/ApplicantForm";
 
 import Login    from "./pages/Login";
 import Register from "./pages/Register";
+import useTawk  from "./hooks/useTawk";
 
 import { AuthProvider } from "./pages/AuthContext";
 import ProtectedRoute   from "./pages/ProtectedRoute";
@@ -26,8 +27,8 @@ import AdminPanel        from "./pages/Adminpanel";
 import AdminGate         from "./pages/AdminGate";
 import Profile from "./pages/Profile";
 
-import SplashScreen from "./components/SplashScreen";  
-import PageWrapper  from "./components/PageWrapper";     
+import SplashScreen from "./components/SplashScreen";
+import PageWrapper  from "./components/PageWrapper";
 
 function AdminRoute({ children }) {
   const admitted = sessionStorage.getItem("sl_admin_admitted") === "true";
@@ -46,6 +47,12 @@ function BlogPostPageWrapper({ navigate }) {
   );
 }
 
+// ── Tawk.to wrapper — must live inside AuthProvider so useAuth() works ──
+function TawkWrapper() {
+  useTawk();
+  return null;
+}
+
 function App() {
   const location  = useLocation();
   const navigate  = useNavigate();
@@ -60,6 +67,10 @@ function App() {
   return (
     <StoreProvider>
       <AuthProvider>
+
+        {/* ── Tawk.to live chat — inside AuthProvider so user context is available ── */}
+        <TawkWrapper />
+
         <ScrollToTopOnNavigate />
 
         {/* ── SPLASH (shown once on first load) ── */}

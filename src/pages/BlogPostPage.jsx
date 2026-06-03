@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-// Use the live-loading helpers so admin changes are reflected immediately.
-import { loadBlogPosts, loadFeatured } from "./data/blogPosts";
+import { loadBlogPosts, loadFeatured, refreshBlogCache } from "./data/blogPosts";
 
 /* ─── scroll progress ─── */
 function useScrollProgress() {
@@ -130,15 +129,27 @@ function RelatedCard({ post, onNavigate }) {
 export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
   const scrollProgress = useScrollProgress();
 
-  // Load all published posts + featured on every render so edits show immediately.
-  const posts    = loadBlogPosts();
-  const featured = loadFeatured();
+  // ── Live data — start from cache, refresh from backend in background ───────
+  const [posts,    setPosts]    = useState(() => loadBlogPosts());
+  const [featured, setFeatured] = useState(() => loadFeatured());
 
-  // Search both the posts list and the featured article for the requested slug
+  useEffect(() => {
+    let cancelled = false;
+    refreshBlogCache()
+      .then(({ posts: freshPosts, featured: freshFeatured }) => {
+        if (cancelled) return;
+        if (freshPosts?.length)  setPosts(freshPosts);
+        if (freshFeatured)       setFeatured(freshFeatured);
+      })
+      .catch(() => {/* keep static fallback */});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Search both posts list and the featured article for the requested slug
   const allArticles = featured ? [featured, ...posts] : posts;
   const article = allArticles.find((p) => p.slug === slug);
 
-  // Related: same category, excluding current, published only
+  // Related: same category, excluding current
   const related = posts
     .filter((p) => p.slug !== slug && p.category === article?.category)
     .slice(0, 3);
@@ -188,7 +199,6 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
 
         @media (max-width: 768px) {
           .rh-post-grid    { grid-template-columns: 1fr; gap: 32px; }
-          /* FIX: 88px header (unscrolled) + 48px back-nav + extra breathing room */
           .rh-hero-pad     { padding: 156px 18px 0 !important; }
           .rh-body-pad     { padding: 32px 18px !important; }
           .rh-hero-title   { font-size: 22px !important; }
@@ -197,7 +207,6 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
         }
         @media (min-width: 769px) and (max-width: 1024px) {
           .rh-post-grid    { grid-template-columns: 1fr; gap: 36px; }
-          /* FIX: 88px header (unscrolled) + 48px back-nav + extra breathing room */
           .rh-hero-pad     { padding: 148px 28px 0 !important; }
           .rh-body-pad     { padding: 36px 28px !important; }
           .rh-related-grid { grid-template-columns: repeat(2, 1fr); }
@@ -208,16 +217,12 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
       {/* ── SCROLL PROGRESS BAR ── */}
       <div style={{ position: "fixed", top: 0, left: 0, zIndex: 9999, height: 3, background: accent, width: `${scrollProgress}%`, transition: "width 0.1s linear", boxShadow: `0 0 8px ${accent}88` }} />
 
-      {/* ── BACK NAV ──
-          Sticky so it sits just below the fixed site header.
-          top: 88px matches the header's unscrolled height (tallest state).
-          Once the user scrolls and the header shrinks to 64px, the back-nav
-          will naturally follow because it's sticky, not fixed. */}
+      {/* ── BACK NAV ── */}
       <div style={{
         background: "#1c1a16",
         borderBottom: "1px solid #2a2823",
         position: "sticky",
-        top: 88,       /* ← matches unscrolled header height (88px) */
+        top: 88,
         zIndex: 100,
       }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", height: 48, display: "flex", alignItems: "center" }}>
@@ -235,12 +240,7 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
         </div>
       </div>
 
-      {/* ── HERO ──
-          paddingTop = 136px:
-            88px  (unscrolled header height)
-          + 48px  (sticky back-nav height)
-          = 136px total clearance so the title is never hidden.
-          The responsive overrides in the <style> block above mirror this. */}
+      {/* ── HERO ── */}
       <section style={{ background: "#1c1a16" }}>
         <motion.div
           className="rh-hero-pad"
@@ -390,10 +390,10 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog }) {
               <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.07 }} style={{ border: "1px solid #ece8e0", padding: 22, background: "#fff" }}>
                 <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#aaa", fontWeight: 500, marginBottom: 14 }}>Article Details</div>
                 {[
-                  { label: "Category",  value: article.category              },
-                  { label: "Published", value: article.date                  },
-                  { label: "Read time", value: article.readTime + " read"    },
-                  { label: "Author",    value: article.author                },
+                  { label: "Category",  value: article.category           },
+                  { label: "Published", value: article.date               },
+                  { label: "Read time", value: article.readTime + " read" },
+                  { label: "Author",    value: article.author             },
                 ].map((d) => (
                   <div key={d.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid #f5f2ee" }}>
                     <span style={{ fontSize: 11, color: "#bbb" }}>{d.label}</span>

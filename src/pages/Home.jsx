@@ -490,7 +490,7 @@ const Home = () => {
               marginTop: "0.5rem",
             }}
           >
-            From your Office to your boardroom; we place the right people, every time.
+            From your Home to your boardroom; we place the right people, every time.
           </p>
         </div>
 

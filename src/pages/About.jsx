@@ -114,7 +114,7 @@ export function AboutPage() {
   const slides = [
     {
       image:
-        "https://res.cloudinary.com/dotvnclej/image/upload/v1777915998/Workers_jkh5ha.jpg",
+        "https://res.cloudinary.com/dotvnclej/image/upload/v1780431613/tabbg1_zovthx.png",
       titleWhite: "ABOUT ",
       titleBlue: "US",
       description:
@@ -122,7 +122,7 @@ export function AboutPage() {
     },
     {
       image:
-        "https://res.cloudinary.com/dotvnclej/image/upload/v1777916140/Our_team_bwvejv.jpg",
+        "https://res.cloudinary.com/dotvnclej/image/upload/v1780431641/bg2_v9bp0u.jpg",
       titleWhite: "OUR ",
       titleBlue: "TEAM",
       description:
