@@ -13,7 +13,14 @@ import {
   apiSetDates,
   apiAssignStaff,
   apiGetContactMessages,
+  apiGetAdminBlogPosts,
+  apiCreateBlogPost,
+  apiUpdateBlogPost,
+  apiDeleteBlogPost,
+  apiSetFeaturedBlogPost,
+  apiGetFeaturedBlogPost,
 } from "../api/auth";
+import { invalidateBlogCache } from "./data/blogPosts";
 import {
   ClipboardList, Users, UserCheck, Newspaper, MessageSquare, Mail, BadgeCheck,
   Check, X, CheckCheck, Plus, Pencil, Trash2, Eye, CalendarDays, Save,
@@ -1090,12 +1097,8 @@ function RegisteredSection({ state }) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BLOG STORAGE KEY — shared with BlogPage and BlogPostPage via blogPosts.js
+// BLOG HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-const BLOG_STORAGE_KEY = "rnh_blog_posts_v1";
-const FEATURED_STORAGE_KEY = "rnh_blog_featured_v1";
-
-// Content-block types used in blog posts
 const BLOCK_TYPES = ["paragraph", "heading", "quote"];
 
 const ACCENT_OPTIONS = [
@@ -1122,34 +1125,11 @@ function slugify(text) {
     .replace(/-+/g, "-");
 }
 
-// Persist full posts list to localStorage so BlogPage/BlogPostPage pick it up
-function persistBlogPosts(posts) {
-  try { localStorage.setItem(BLOG_STORAGE_KEY, JSON.stringify(posts)); } catch {}
-}
-
-function persistFeatured(featured) {
-  try { localStorage.setItem(FEATURED_STORAGE_KEY, JSON.stringify(featured)); } catch {}
-}
-
-// Load from localStorage — returns null if nothing saved yet (callers fall back to static defaults)
-function loadStoredPosts() {
-  try {
-    const raw = localStorage.getItem(BLOG_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function loadStoredFeatured() {
-  try {
-    const raw = localStorage.getItem(FEATURED_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
 // Blank post template
 function blankPost() {
   return {
-    id:         Date.now(),
+    id:         null,   // null until backend assigns _id
+    backendId:  null,
     slug:       "",
     title:      "",
     excerpt:    "",
@@ -1161,7 +1141,7 @@ function blankPost() {
     category:   "Hiring Tips",
     trending:   false,
     image:      "",
-    status:     "Draft",   // "Draft" | "Published"  (maps to BlogPage visibility)
+    status:     "Draft",
     content:    [{ type: "paragraph", text: "" }],
   };
 }
@@ -1180,6 +1160,29 @@ function blankFeatured() {
     category:   "Workforce Insights",
     image:      "",
     content:    [{ type: "paragraph", text: "" }],
+  };
+}
+
+// Normalise a raw backend post into the admin-panel UI shape
+function normaliseAdminPost(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const backendId = raw._id ?? raw.id ?? null;
+  return {
+    id:        backendId ?? String(Date.now()),
+    backendId: backendId,
+    slug:      raw.slug      ?? "",
+    title:     raw.title     ?? "",
+    excerpt:   raw.excerpt   ?? "",
+    author:    raw.author    ?? "R&H Editorial",
+    authorBio: raw.authorBio ?? "",
+    date:      raw.date      ?? "",
+    readTime:  raw.readTime  ?? "5 min",
+    accent:    raw.accent    ?? "#2385cd",
+    category:  raw.category  ?? "Hiring Tips",
+    trending:  raw.trending  ?? false,
+    status:    raw.status    ?? "Draft",
+    image:     raw.image     ?? "",
+    content:   Array.isArray(raw.content) ? raw.content : [],
   };
 }
 
@@ -1246,7 +1249,7 @@ function ContentBlockEditor({ blocks, onChange }) {
   );
 }
 
-// ── Full-width modal for blog post editing (needs more space than the shared Modal) ──
+// ── Full-width modal for blog post editing ────────────────────────────────────
 function BlogModal({ open, title, onClose, children, footer }) {
   if (!open) return null;
   return (
@@ -1278,48 +1281,60 @@ function BlogModal({ open, title, onClose, children, footer }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION: Blog  (fully rewritten)
+// SECTION: Blog  — all writes go to backend; cache is invalidated after each
 // ─────────────────────────────────────────────────────────────────────────────
 function BlogSection({ state, dispatch }) {
-  // Import the static defaults once — used as fallback if localStorage is empty
-  // We do a dynamic require-style import so this file doesn't hard-couple to
-  // the static data file. If you're using Vite / CRA the static import at the
-  // top of the file is fine too; just swap the line below for:
-  //   import { posts as defaultPosts, featured as defaultFeatured } from "./data/blogPosts";
-  // and remove the useEffect that sets defaults.
-
-  const [posts,    setPosts]    = useState(() => loadStoredPosts() ?? []);
-  const [featured, setFeatured] = useState(() => loadStoredFeatured() ?? null);
-
-  // Load static defaults on first mount if localStorage is empty
-  useEffect(() => {
-    if (loadStoredPosts() !== null) return; // already hydrated
-    // Dynamically import the static file so this component doesn't crash if it's missing
-    import("./data/blogPosts")
-      .then(({ posts: staticPosts, featured: staticFeatured }) => {
-        // Add status field to static posts if missing
-        const withStatus = staticPosts.map((p) => ({ status: "Published", ...p }));
-        setPosts(withStatus);
-        persistBlogPosts(withStatus);
-        if (staticFeatured) {
-          setFeatured(staticFeatured);
-          persistFeatured(staticFeatured);
-        }
-      })
-      .catch(() => {
-        // static file not found — start with empty list
-      });
-  }, []);
+  // posts & featured are loaded fresh from the backend on mount
+  const [posts,    setPosts]    = useState([]);
+  const [featured, setFeatured] = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [apiError, setApiError] = useState("");
 
   const [modal,       setModal]       = useState(null); // null | "post" | "featured" | "preview"
-  const [editing,     setEditing]     = useState(null); // post being edited
+  const [editing,     setEditing]     = useState(null);
   const [form,        setForm]        = useState(blankPost());
   const [featForm,    setFeatForm]    = useState(blankFeatured());
   const [previewItem, setPreviewItem] = useState(null);
-  const [filter,      setFilter]      = useState("All"); // "All" | "Published" | "Draft"
+  const [saving,      setSaving]      = useState(false);
+  const [saveNote,    setSaveNote]    = useState("");
+  const [filter,      setFilter]      = useState("All");
   const [search,      setSearch]      = useState("");
 
-  // ── Derived list ────────────────────────────────────────────────────────────
+  // ── Load from backend on mount ───────────────────────────────────────────
+  const loadFromBackend = async () => {
+    setLoading(true);
+    setApiError("");
+    try {
+      const [rawPosts, rawFeatured] = await Promise.allSettled([
+        apiGetAdminBlogPosts(),
+        apiGetFeaturedBlogPost(),
+      ]);
+
+      if (rawPosts.status === "fulfilled") {
+        const list = Array.isArray(rawPosts.value)
+          ? rawPosts.value
+          : (rawPosts.value?.posts ?? rawPosts.value?.data ?? []);
+        setPosts(list.map(normaliseAdminPost).filter(Boolean));
+      } else {
+        console.warn("[BlogSection] Could not load posts:", rawPosts.reason?.message);
+        setApiError("Could not load posts from backend.");
+      }
+
+      if (rawFeatured.status === "fulfilled") {
+        const raw = rawFeatured.value;
+        const feat = raw?.featured ?? raw?.data ?? raw ?? null;
+        if (feat && typeof feat === "object" && feat.title) {
+          setFeatured(feat);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadFromBackend(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Derived list ─────────────────────────────────────────────────────────
   const shown = posts
     .filter((p) => filter === "All" || p.status === filter)
     .filter((p) =>
@@ -1329,84 +1344,121 @@ function BlogSection({ state, dispatch }) {
       p.author.toLowerCase().includes(search.toLowerCase())
     );
 
-  // ── Post helpers ─────────────────────────────────────────────────────────────
+  // ── Post helpers ──────────────────────────────────────────────────────────
   const openNewPost = () => {
     setEditing(null);
     setForm(blankPost());
+    setSaveNote("");
     setModal("post");
   };
 
   const openEditPost = (p) => {
     setEditing(p);
     setForm({ ...blankPost(), ...p, content: p.content?.length ? p.content : [{ type: "paragraph", text: "" }] });
+    setSaveNote("");
     setModal("post");
   };
 
   const openPreview = (p) => { setPreviewItem(p); setModal("preview"); };
 
-  const closeModal = () => { setModal(null); setEditing(null); };
+  const closeModal = () => { setModal(null); setEditing(null); setSaveNote(""); };
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
-      // Auto-generate slug from title if slug is still blank / auto-mode
       ...(name === "title" && (!prev.slug || prev.slug === slugify(prev.title))
         ? { slug: slugify(value) }
         : {}),
     }));
   };
 
-  const savePost = () => {
-    const finalForm = {
+  // ── SAVE POST → backend ──────────────────────────────────────────────────
+  const savePost = async () => {
+    setSaving(true);
+    setSaveNote("");
+    const payload = {
       ...form,
       slug: form.slug?.trim() || slugify(form.title),
-      id:   editing?.id ?? Date.now(),
     };
-    let next;
-    if (editing) {
-      next = posts.map((p) => p.id === editing.id ? finalForm : p);
-    } else {
-      next = [finalForm, ...posts];
+    try {
+      if (editing && editing.backendId) {
+        // UPDATE existing post
+        const updated = await apiUpdateBlogPost(editing.backendId, payload);
+        const normalised = normaliseAdminPost(updated?.post ?? updated?.data ?? updated ?? payload);
+        setPosts((prev) => prev.map((p) => p.backendId === editing.backendId ? normalised : p));
+      } else {
+        // CREATE new post
+        const created = await apiCreateBlogPost(payload);
+        const normalised = normaliseAdminPost(created?.post ?? created?.data ?? created ?? payload);
+        setPosts((prev) => [normalised, ...prev]);
+      }
+      // Bust public cache so BlogPage picks up the change
+      invalidateBlogCache();
+      closeModal();
+    } catch (err) {
+      console.error("[BlogSection] savePost failed:", err.message);
+      setSaveNote(`Backend error: ${err.message}. Changes not saved.`);
+    } finally {
+      setSaving(false);
     }
-    setPosts(next);
-    persistBlogPosts(next);
-    // Also sync to store so the admin panel's blog state stays consistent
-    if (editing) {
-      dispatch({ type: "UPDATE_BLOG", payload: finalForm });
-    } else {
-      dispatch({ type: "ADD_BLOG", payload: finalForm });
+  };
+
+  // ── DELETE POST → backend ────────────────────────────────────────────────
+  const deletePost = async (p) => {
+    if (!p.backendId) {
+      // No backend ID — just remove from local state
+      setPosts((prev) => prev.filter((x) => x.id !== p.id));
+      return;
     }
-    closeModal();
+    try {
+      await apiDeleteBlogPost(p.backendId);
+      setPosts((prev) => prev.filter((x) => x.backendId !== p.backendId));
+      invalidateBlogCache();
+    } catch (err) {
+      console.error("[BlogSection] deletePost failed:", err.message);
+    }
   };
 
-  const deletePost = (p) => {
-    const next = posts.filter((x) => x.id !== p.id);
-    setPosts(next);
-    persistBlogPosts(next);
-    dispatch({ type: "DELETE_BLOG", id: p.id });
+  // ── TOGGLE STATUS (Publish / Unpublish) → backend ────────────────────────
+  const toggleStatus = async (p) => {
+    const newStatus = p.status === "Published" ? "Draft" : "Published";
+    // Optimistic UI update
+    setPosts((prev) => prev.map((x) => x.id === p.id ? { ...x, status: newStatus } : x));
+    if (!p.backendId) return;
+    try {
+      await apiUpdateBlogPost(p.backendId, { ...p, status: newStatus });
+      invalidateBlogCache();
+    } catch (err) {
+      console.error("[BlogSection] toggleStatus failed:", err.message);
+      // Revert on failure
+      setPosts((prev) => prev.map((x) => x.id === p.id ? { ...x, status: p.status } : x));
+    }
   };
 
-  const toggleStatus = (p) => {
-    const updated = { ...p, status: p.status === "Published" ? "Draft" : "Published" };
-    const next = posts.map((x) => x.id === p.id ? updated : x);
-    setPosts(next);
-    persistBlogPosts(next);
-    dispatch({ type: "UPDATE_BLOG", payload: updated });
+  // ── TOGGLE TRENDING → backend ────────────────────────────────────────────
+  const toggleTrending = async (p) => {
+    const newTrending = !p.trending;
+    setPosts((prev) => prev.map((x) => x.id === p.id ? { ...x, trending: newTrending } : x));
+    if (!p.backendId) return;
+    try {
+      await apiUpdateBlogPost(p.backendId, { ...p, trending: newTrending });
+      invalidateBlogCache();
+    } catch (err) {
+      console.error("[BlogSection] toggleTrending failed:", err.message);
+      setPosts((prev) => prev.map((x) => x.id === p.id ? { ...x, trending: p.trending } : x));
+    }
   };
 
-  const toggleTrending = (p) => {
-    const updated = { ...p, trending: !p.trending };
-    const next = posts.map((x) => x.id === p.id ? updated : x);
-    setPosts(next);
-    persistBlogPosts(next);
-    dispatch({ type: "UPDATE_BLOG", payload: updated });
-  };
-
-  // ── Featured helpers ─────────────────────────────────────────────────────────
+  // ── Featured helpers ─────────────────────────────────────────────────────
   const openEditFeatured = () => {
-    setFeatForm(featured ? { ...blankFeatured(), ...featured, content: featured.content?.length ? featured.content : [{ type: "paragraph", text: "" }] } : blankFeatured());
+    setFeatForm(
+      featured
+        ? { ...blankFeatured(), ...featured, content: featured.content?.length ? featured.content : [{ type: "paragraph", text: "" }] }
+        : blankFeatured()
+    );
+    setSaveNote("");
     setModal("featured");
   };
 
@@ -1421,14 +1473,25 @@ function BlogSection({ state, dispatch }) {
     }));
   };
 
-  const saveFeatured = () => {
-    const final = { ...featForm, slug: featForm.slug?.trim() || slugify(featForm.title) };
-    setFeatured(final);
-    persistFeatured(final);
-    closeModal();
+  // ── SAVE FEATURED → backend ──────────────────────────────────────────────
+  const saveFeatured = async () => {
+    setSaving(true);
+    setSaveNote("");
+    const payload = { ...featForm, slug: featForm.slug?.trim() || slugify(featForm.title) };
+    try {
+      await apiSetFeaturedBlogPost(payload);
+      setFeatured(payload);
+      invalidateBlogCache();
+      closeModal();
+    } catch (err) {
+      console.error("[BlogSection] saveFeatured failed:", err.message);
+      setSaveNote(`Backend error: ${err.message}. Changes not saved.`);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // ── Stats ────────────────────────────────────────────────────────────────────
+  // ── Stats ────────────────────────────────────────────────────────────────
   const stats = {
     total:     posts.length,
     published: posts.filter((p) => p.status === "Published").length,
@@ -1436,10 +1499,9 @@ function BlogSection({ state, dispatch }) {
     trending:  posts.filter((p) => p.trending).length,
   };
 
-  // ── Post form shared fields ──────────────────────────────────────────────────
+  // ── Post form shared fields ──────────────────────────────────────────────
   const PostFormFields = ({ f, onChange, onContentChange }) => (
     <>
-      {/* Row 1: title + slug */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label="Title *">
           <input name="title" className={inputCls} value={f.title} onChange={onChange} placeholder="Article title…" />
@@ -1449,7 +1511,6 @@ function BlogSection({ state, dispatch }) {
         </FormField>
       </div>
 
-      {/* Row 2: category + author */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label="Category">
           <select name="category" className={inputCls} value={f.category} onChange={onChange}>
@@ -1461,12 +1522,10 @@ function BlogSection({ state, dispatch }) {
         </FormField>
       </div>
 
-      {/* Author bio */}
       <FormField label="Author bio (short, shown under the headline)">
         <input name="authorBio" className={inputCls} value={f.authorBio || ""} onChange={onChange} placeholder="Brief author description…" />
       </FormField>
 
-      {/* Row 3: date + readTime */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <FormField label="Publish date">
           <input name="date" className={inputCls} value={f.date} onChange={onChange} placeholder="22 May 2026" />
@@ -1481,7 +1540,6 @@ function BlogSection({ state, dispatch }) {
         </FormField>
       </div>
 
-      {/* Cover image */}
       <FormField label="Cover image URL">
         <input name="image" className={inputCls} value={f.image || ""} onChange={onChange} placeholder="https://res.cloudinary.com/… or any public image URL" />
         {f.image && (
@@ -1491,12 +1549,10 @@ function BlogSection({ state, dispatch }) {
         )}
       </FormField>
 
-      {/* Excerpt */}
       <FormField label="Excerpt / summary (shown on blog listing)">
         <textarea name="excerpt" className={inputCls + " resize-none"} rows={3} value={f.excerpt} onChange={onChange} placeholder="One-paragraph summary visible on the blog listing page…" />
       </FormField>
 
-      {/* Status + trending (posts only — featured has no status) */}
       {"status" in f && (
         <div className="flex flex-wrap gap-4 items-center">
           <FormField label="Status">
@@ -1512,7 +1568,6 @@ function BlogSection({ state, dispatch }) {
         </div>
       )}
 
-      {/* Content blocks */}
       <div>
         <p className="text-xs font-medium text-gray-500 mb-2">Article content blocks</p>
         <ContentBlockEditor blocks={f.content || []} onChange={onContentChange} />
@@ -1520,6 +1575,7 @@ function BlogSection({ state, dispatch }) {
     </>
   );
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div>
       {/* ── Stat cards ── */}
@@ -1536,6 +1592,15 @@ function BlogSection({ state, dispatch }) {
           </div>
         ))}
       </div>
+
+      {/* ── API error banner ── */}
+      {apiError && (
+        <div className="mb-4 flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <AlertTriangle size={13} className="shrink-0" />
+          {apiError}
+          <button onClick={loadFromBackend} className="ml-auto underline text-red-700 hover:text-red-900">Retry</button>
+        </div>
+      )}
 
       {/* ── Featured article banner ── */}
       <div className="mb-5 bg-[#0f1e2e] rounded-xl p-4 flex items-start justify-between gap-4">
@@ -1569,58 +1634,70 @@ function BlogSection({ state, dispatch }) {
               }`}>{f}</button>
           ))}
         </div>
+        <Btn variant="brand" onClick={loadFromBackend} disabled={loading}>
+          <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Refresh
+        </Btn>
         <Btn variant="primary" onClick={openNewPost}><Plus size={13} /> New post</Btn>
       </div>
 
-      {/* ── Empty state ── */}
-      {posts.length === 0 && (
-        <div className="bg-white rounded-xl border border-gray-100">
-          <EmptyState icon={Newspaper} title="No blog posts yet" subtitle="Create a new post or wait for static defaults to load." />
+      {/* ── Loading / empty states ── */}
+      {loading && (
+        <div className="space-y-3 animate-pulse">
+          <div className="h-14 bg-gray-100 rounded-xl" />
+          <div className="h-14 bg-gray-100 rounded-xl" />
+          <div className="h-14 bg-gray-100 rounded-xl" />
         </div>
       )}
-      {posts.length > 0 && shown.length === 0 && (
+      {!loading && posts.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <EmptyState icon={Newspaper} title="No blog posts yet" subtitle="Create a new post — it will be published to the website immediately." />
+        </div>
+      )}
+      {!loading && posts.length > 0 && shown.length === 0 && (
         <p className="text-gray-400 text-sm text-center py-10">No posts match your filter.</p>
       )}
 
       {/* ── Mobile cards ── */}
-      <div className="block md:hidden space-y-3">
-        {shown.map((p, idx) => (
-          <div key={p.id ?? `blog-mob-${idx}`} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            {p.image && (
-              <div className="h-28 overflow-hidden">
-                <img src={p.image} alt={p.title} className="w-full h-full object-cover" />
-              </div>
-            )}
-            <div className="p-4 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-gray-900 text-sm leading-snug flex-1">{p.title || "Untitled"}</p>
-                <Pill label={p.status} color={p.status === "Published" ? "green" : "yellow"} />
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs text-gray-400">
-                <span className="bg-[#eaf4fc] text-[#2385cd] rounded-full px-2 py-0.5">{p.category}</span>
-                <span>{p.date}</span>
-                <span>{p.readTime} read</span>
-                {p.trending && <span className="text-orange-500">🔥 Trending</span>}
-              </div>
-              <p className="text-xs text-gray-500 line-clamp-2">{p.excerpt}</p>
-              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-50">
-                <Btn variant="ghost" onClick={() => openEditPost(p)}><Pencil size={12} /> Edit</Btn>
-                <Btn variant="ghost" onClick={() => openPreview(p)}><Eye size={12} /> Preview</Btn>
-                <Btn variant="brand" onClick={() => toggleStatus(p)}>
-                  {p.status === "Published" ? "Unpublish" : "Publish"}
-                </Btn>
-                <Btn variant="ghost" onClick={() => toggleTrending(p)}>
-                  {p.trending ? "Remove 🔥" : "Set 🔥"}
-                </Btn>
-                <Btn variant="danger" onClick={() => deletePost(p)}><Trash2 size={12} /></Btn>
+      {!loading && (
+        <div className="block md:hidden space-y-3">
+          {shown.map((p, idx) => (
+            <div key={p.id ?? `blog-mob-${idx}`} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              {p.image && (
+                <div className="h-28 overflow-hidden">
+                  <img src={p.image} alt={p.title} className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-gray-900 text-sm leading-snug flex-1">{p.title || "Untitled"}</p>
+                  <Pill label={p.status} color={p.status === "Published" ? "green" : "yellow"} />
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-gray-400">
+                  <span className="bg-[#eaf4fc] text-[#2385cd] rounded-full px-2 py-0.5">{p.category}</span>
+                  <span>{p.date}</span>
+                  <span>{p.readTime} read</span>
+                  {p.trending && <span className="text-orange-500">🔥 Trending</span>}
+                </div>
+                <p className="text-xs text-gray-500 line-clamp-2">{p.excerpt}</p>
+                <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-50">
+                  <Btn variant="ghost" onClick={() => openEditPost(p)}><Pencil size={12} /> Edit</Btn>
+                  <Btn variant="ghost" onClick={() => openPreview(p)}><Eye size={12} /> Preview</Btn>
+                  <Btn variant="brand" onClick={() => toggleStatus(p)}>
+                    {p.status === "Published" ? "Unpublish" : "Publish"}
+                  </Btn>
+                  <Btn variant="ghost" onClick={() => toggleTrending(p)}>
+                    {p.trending ? "Remove 🔥" : "Set 🔥"}
+                  </Btn>
+                  <Btn variant="danger" onClick={() => deletePost(p)}><Trash2 size={12} /></Btn>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Desktop table ── */}
-      {shown.length > 0 && (
+      {!loading && shown.length > 0 && (
         <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -1679,9 +1756,14 @@ function BlogSection({ state, dispatch }) {
         onClose={closeModal}
         footer={
           <>
-            <Btn onClick={closeModal}>Cancel</Btn>
-            <Btn variant="primary" onClick={savePost} disabled={!form.title?.trim()}>
-              <Save size={12} /> {editing ? "Save changes" : "Create post"}
+            {saveNote && (
+              <p className="text-xs text-red-600 mr-auto self-center flex items-center gap-1">
+                <AlertTriangle size={12} /> {saveNote}
+              </p>
+            )}
+            <Btn onClick={closeModal} disabled={saving}>Cancel</Btn>
+            <Btn variant="primary" onClick={savePost} disabled={saving || !form.title?.trim()}>
+              {saving ? "Saving…" : <><Save size={12} /> {editing ? "Save changes" : "Create post"}</>}
             </Btn>
           </>
         }
@@ -1700,15 +1782,20 @@ function BlogSection({ state, dispatch }) {
         onClose={closeModal}
         footer={
           <>
-            <Btn onClick={closeModal}>Cancel</Btn>
-            <Btn variant="primary" onClick={saveFeatured} disabled={!featForm.title?.trim()}>
-              <Save size={12} /> Save featured
+            {saveNote && (
+              <p className="text-xs text-red-600 mr-auto self-center flex items-center gap-1">
+                <AlertTriangle size={12} /> {saveNote}
+              </p>
+            )}
+            <Btn onClick={closeModal} disabled={saving}>Cancel</Btn>
+            <Btn variant="primary" onClick={saveFeatured} disabled={saving || !featForm.title?.trim()}>
+              {saving ? "Saving…" : <><Save size={12} /> Save featured</>}
             </Btn>
           </>
         }
       >
         <div className="text-xs text-[#1a6fa8] bg-[#eaf4fc] border border-[#b8d9f0] rounded-lg px-3 py-2 mb-1">
-          This article appears as the large hero feature on the blog listing page. It can be independent of the main posts list.
+          This article appears as the large hero feature on the blog listing page. Changes are saved directly to the backend.
         </div>
         <PostFormFields
           f={featForm}

@@ -7,9 +7,6 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.6 } },
 };
 
-// Normalise a single testimonial from the public endpoint.
-// Backend shape: { name, role, company, content, rating, avatar, isApproved }
-// Internal shape: { name, role, company, text, rating, image, visible }
 function normalise(t, i) {
   if (!t || typeof t !== "object") return null;
   return {
@@ -21,7 +18,7 @@ function normalise(t, i) {
     image:   t.image      ?? t.avatar     ?? t.photo       ?? t.photoUrl
              ?? t.imageUrl ?? t.picture   ?? t.img         ?? "",
     rating:  typeof t.rating === "number" ? t.rating : Number(t.rating ?? t.stars ?? 5),
-    visible: t.visible    ?? t.isApproved ?? t.isVisible   ?? t.active ?? true,
+    visible: true,
   };
 }
 
@@ -30,14 +27,13 @@ const Testimonials = () => {
   const [current, setCurrent]           = useState(0);
   const [loading, setLoading]           = useState(true);
 
-  // Fetch from backend on mount
   useEffect(() => {
     apiFetchTestimonials()
       .then((data) => {
         const raw  = Array.isArray(data) ? data : (data?.testimonials ?? data?.data ?? []);
         const list = raw
           .map((t, i) => normalise(t, i))
-          .filter((t) => t && t.visible !== false && t.text);
+          .filter((t) => t && t.text);
         setTestimonials(list);
       })
       .catch((err) => {
@@ -46,14 +42,12 @@ const Testimonials = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Reset current index if list shrinks (e.g. admin deleted one)
   useEffect(() => {
     if (current >= testimonials.length && testimonials.length > 0) {
       setCurrent(0);
     }
   }, [testimonials.length, current]);
 
-  // Auto-advance
   useEffect(() => {
     if (testimonials.length <= 1) return;
     const interval = setInterval(() => {
@@ -72,7 +66,6 @@ const Testimonials = () => {
         background: "linear-gradient(135deg, #0a0f1e 0%, #0d1b2a 60%, #0a1628 100%)",
       }}
     >
-      {/* Ambient glows */}
       <div style={{ position:"absolute", top:"-120px", left:"-120px", width:"400px", height:"400px",
         background:"radial-gradient(circle, #2385cd18 0%, transparent 70%)", pointerEvents:"none" }} />
       <div style={{ position:"absolute", bottom:"-100px", right:"-100px", width:"350px", height:"350px",
@@ -109,7 +102,6 @@ const Testimonials = () => {
                   padding: "28px 24px 32px",
                 }}
               >
-                {/* Decorative quote mark */}
                 <span style={{
                   position:"absolute", top:"14px", right:"20px",
                   fontSize:"72px", lineHeight:1,
@@ -118,7 +110,6 @@ const Testimonials = () => {
                   pointerEvents:"none", userSelect:"none",
                 }}>"</span>
 
-                {/* Avatar + name + role + stars */}
                 <div style={{ display:"flex", alignItems:"center", gap:"16px", marginBottom:"20px" }}>
                   {item.image ? (
                     <img
@@ -146,15 +137,12 @@ const Testimonials = () => {
                     <p style={{ fontWeight:700, color:"#ffffff", fontSize:"0.95rem", margin:"0 0 2px" }}>
                       {item.name}
                     </p>
-
-                    {/* Show role and company if both present, otherwise whichever exists */}
                     <p style={{ fontWeight:600, color:"#2385cd", fontSize:"0.72rem",
                       textTransform:"uppercase", letterSpacing:"0.05em", margin:"0 0 6px" }}>
                       {item.role && item.company
                         ? `${item.role}, ${item.company}`
                         : item.role || item.company}
                     </p>
-
                     <div style={{ display:"flex", gap:"3px" }}>
                       {[...Array(5)].map((_, s) => (
                         <span key={s} style={{
@@ -166,11 +154,9 @@ const Testimonials = () => {
                   </div>
                 </div>
 
-                {/* Accent divider */}
                 <div style={{ width:"36px", height:"2px", background:"#2385cd",
                   borderRadius:"2px", marginBottom:"14px" }} />
 
-                {/* Quote text */}
                 <p className="italic leading-relaxed"
                   style={{ color:"#c8d8e8", fontSize:"0.95rem", margin:0 }}>
                   "{item.text}"
