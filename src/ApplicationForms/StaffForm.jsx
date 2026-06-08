@@ -490,7 +490,6 @@ const QUALIFICATION_OPTIONS = [
 ];
 
 /* ═══════════════════════ GRID HELPERS (pure inline) ════════════ */
-/* These replace all CSS class-based grid usage */
 const Grid2 = ({ children, style={} }) => (
   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, ...style }}>
     {children}
@@ -564,17 +563,38 @@ export function StaffForm({ onSubmit }) {
       const monthIndex = String(MONTHS.indexOf(form.dobMonth)+1).padStart(2,"0");
       const isoDate    = `${form.dobYear}-${monthIndex}-${form.dobDay}`;
       const yoeMap = {"1 year":1,"2 years":2,"3 years":3,"4 years":4,"5 years":5,"6 years":6,"7 years":7,"8 years":8,"9 years":9,"10 years":10,"10+ years":10};
+
       const payload = {
-        surname:form.surname, otherNames:form.otherName, email:form.email, phoneNumber:form.phone,
-        country:form.country, homeAddress:form.address, maritalStatus:form.maritalStatus,
-        languageSkill:form.language, dateOfBirth:isoDate, gender:form.gender,
-        disabled:form.disabled, internallyDisplaced:form.internallyDisplaced,
-        primarySkills:form.primarySkill, yearsOfExperience:yoeMap[form.yearsExp]??0,
-        additionalSkills:form.additionalSkills.join(", "), bio:form.bio,
-        educationalQualification:form.qualification, agreedToPolicy:form.agreed,
+        surname:               form.surname,
+        otherNames:            form.otherName,
+        email:                 form.email,
+        phoneNumber:           form.phone,
+        nationality:           form.country,       // ✅ map country → nationality to match API/Profile field name
+        country:               form.country,
+        homeAddress:           form.address,
+        maritalStatus:         form.maritalStatus,
+        languageSkill:         form.language,
+        dateOfBirth:           isoDate,
+        gender:                form.gender,
+        disabled:              form.disabled,
+        internallyDisplaced:   form.internallyDisplaced,
+        primarySkills:         form.primarySkill,
+        yearsOfExperience:     yoeMap[form.yearsExp] ?? 0,
+        additionalSkills:      form.additionalSkills.join(", "),
+        bio:                   form.bio,
+        educationalQualification: form.qualification,
+        agreedToPolicy:        form.agreed,
       };
+
       await apiStaffProfile(payload);
-      updateUser({ ...payload, nationality:form.country, staffProfileSubmitted:true });
+
+      // ✅ FIX: update AuthContext user so Profile reflects changes immediately
+      updateUser({ ...payload, staffProfileSubmitted: true });
+
+      // ✅ FIX: write to staffProfile cache so data survives logout/login
+      // This is the key fix — without this, the profile page loses data on re-login
+      localStorage.setItem("staffProfile", JSON.stringify(payload));
+
       localStorage.removeItem("staffRequestDraft");
       setDone(true);
       onSubmit?.(payload);

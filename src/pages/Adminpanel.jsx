@@ -26,6 +26,8 @@ import {
   Check, X, CheckCheck, Plus, Pencil, Trash2, Eye, CalendarDays, Save,
   UserPlus, Send, ArrowRightCircle, StopCircle, Star, AlertTriangle,
   ShieldAlert, Menu, ChevronLeft, MoreHorizontal, RefreshCw, LogIn, Lock,
+  Flame, ChevronUp, ChevronDown, XCircle, CheckCircle2, Circle,
+  Target, Repeat2, Image, Phone, Mail as MailIcon, Loader2,
 } from "lucide-react";
 
 // ── Brand tokens: Primary #2385cd | Navy #0f1e2e | Light #eaf4fc | Mid #b8d9f0
@@ -198,7 +200,7 @@ function SkillTagInput({ value = [], onChange }) {
           {value.map((sk) => (
             <span key={sk} className="flex items-center gap-1 text-xs bg-[#eaf4fc] text-[#1a6fa8] border border-[#b8d9f0] rounded-full px-2.5 py-0.5">
               {sk}
-              <button type="button" onClick={() => remove(sk)} className="text-[#2385cd] hover:text-red-500 transition leading-none">×</button>
+              <button type="button" onClick={() => remove(sk)} className="text-[#2385cd] hover:text-red-500 transition leading-none flex items-center"><XCircle size={12} /></button>
             </span>
           ))}
         </div>
@@ -522,8 +524,12 @@ function RequestsSection({ state, dispatch }) {
               </div>
               {r.status === "Pending" && (
                 <div className="flex gap-3 text-[10px]">
-                  <span className={r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}>{r.assignedStaff?.length ? "✓" : "○"} Staff assigned</span>
-                  <span className={r.startDate?.trim() ? "text-green-600" : "text-gray-300"}>{r.startDate?.trim() ? "✓" : "○"} Dates set</span>
+                  <span className={`flex items-center gap-1 ${r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}`}>
+                    {r.assignedStaff?.length ? <CheckCircle2 size={11} /> : <Circle size={11} />} Staff assigned
+                  </span>
+                  <span className={`flex items-center gap-1 ${r.startDate?.trim() ? "text-green-600" : "text-gray-300"}`}>
+                    {r.startDate?.trim() ? <CheckCircle2 size={11} /> : <Circle size={11} />} Dates set
+                  </span>
                 </div>
               )}
               <div className="flex flex-wrap gap-1">
@@ -604,8 +610,12 @@ function RequestsSection({ state, dispatch }) {
                         <Pill label={ds} color={statusColor(ds)} />
                         {r.status === "Pending" && (
                           <div className="mt-1 flex flex-col gap-0.5">
-                            <span className={`text-[10px] ${r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}`}>{r.assignedStaff?.length ? "✓" : "○"} Staff assigned</span>
-                            <span className={`text-[10px] ${r.startDate?.trim() ? "text-green-600" : "text-gray-300"}`}>{r.startDate?.trim() ? "✓" : "○"} Dates set</span>
+                            <span className={`flex items-center gap-1 text-[10px] ${r.assignedStaff?.length ? "text-green-600" : "text-gray-300"}`}>
+                              {r.assignedStaff?.length ? <CheckCircle2 size={10} /> : <Circle size={10} />} Staff assigned
+                            </span>
+                            <span className={`flex items-center gap-1 text-[10px] ${r.startDate?.trim() ? "text-green-600" : "text-gray-300"}`}>
+                              {r.startDate?.trim() ? <CheckCircle2 size={10} /> : <Circle size={10} />} Dates set
+                            </span>
                           </div>
                         )}
                       </td>
@@ -668,10 +678,17 @@ function RequestsSection({ state, dispatch }) {
                 ["Location",   liveReq.location],
                 ["Status",     displayStatus(liveReq)],
                 ["Backend ID", resolveBackendId(liveReq)],
-                ["Synced ID?", isValidBackendId(resolveBackendId(liveReq)) ? "✅ Yes" : "⚠️ Not synced"],
               ].map(([l, v]) => (
                 <div key={l}><p className="text-xs text-gray-400">{l}</p><p className="font-medium break-all">{v}</p></div>
               ))}
+              <div>
+                <p className="text-xs text-gray-400">Synced ID?</p>
+                {isValidBackendId(resolveBackendId(liveReq)) ? (
+                  <p className="font-medium flex items-center gap-1 text-green-600"><CheckCircle2 size={13} /> Yes</p>
+                ) : (
+                  <p className="font-medium flex items-center gap-1 text-amber-600"><AlertTriangle size={13} /> Not synced</p>
+                )}
+              </div>
             </div>
             <div>
               <p className="text-xs text-gray-400 mb-1">Roles requested</p>
@@ -765,7 +782,10 @@ function RequestsSection({ state, dispatch }) {
                       className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition ${
                         skillFilter === f ? "bg-[#2385cd] text-white border-[#2385cd]" : "bg-white text-gray-600 border-gray-200 hover:border-[#2385cd] hover:text-[#2385cd]"
                       }`}>
-                      {f === "primary" ? "🎯 Primary Skill" : "🔄 Alt. Skills"}
+                      {f === "primary"
+                        ? <span className="flex items-center gap-1.5"><Target size={12} /> Primary Skill</span>
+                        : <span className="flex items-center gap-1.5"><Repeat2 size={12} /> Alt. Skills</span>
+                      }
                     </button>
                   ))}
                 </div>
@@ -1217,11 +1237,17 @@ function ContentBlockEditor({ blocks, onChange }) {
             <span className="text-xs text-gray-400 flex-1">Block {idx + 1}</span>
             <div className="flex gap-1">
               <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0}
-                className="text-xs px-2 py-1 rounded bg-white border border-gray-200 text-gray-500 hover:border-[#2385cd] hover:text-[#2385cd] disabled:opacity-30 transition">↑</button>
+                className="flex items-center justify-center px-2 py-1 rounded bg-white border border-gray-200 text-gray-500 hover:border-[#2385cd] hover:text-[#2385cd] disabled:opacity-30 transition">
+                <ChevronUp size={13} />
+              </button>
               <button type="button" onClick={() => move(idx, 1)} disabled={idx === blocks.length - 1}
-                className="text-xs px-2 py-1 rounded bg-white border border-gray-200 text-gray-500 hover:border-[#2385cd] hover:text-[#2385cd] disabled:opacity-30 transition">↓</button>
+                className="flex items-center justify-center px-2 py-1 rounded bg-white border border-gray-200 text-gray-500 hover:border-[#2385cd] hover:text-[#2385cd] disabled:opacity-30 transition">
+                <ChevronDown size={13} />
+              </button>
               <button type="button" onClick={() => remove(idx)}
-                className="text-xs px-2 py-1 rounded bg-red-50 border border-red-100 text-red-500 hover:bg-red-100 transition">✕</button>
+                className="flex items-center justify-center px-2 py-1 rounded bg-red-50 border border-red-100 text-red-500 hover:bg-red-100 transition">
+                <X size={13} />
+              </button>
             </div>
           </div>
           <textarea
@@ -1277,6 +1303,160 @@ function BlogModal({ open, title, onClose, children, footer }) {
         </motion.div>
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BLOG POST FORM FIELDS
+// Defined at module level so React never treats it as a new component type
+// between renders — this is what prevents the "one letter at a time" bug
+// where inputs lose focus on every keystroke.
+// ─────────────────────────────────────────────────────────────────────────────
+function PostFormFields({ f, onChange, onContentChange }) {
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <FormField label="Title *">
+          <input
+            name="title"
+            className={inputCls}
+            value={f.title}
+            onChange={onChange}
+            placeholder="Article title…"
+            autoComplete="off"
+          />
+        </FormField>
+        <FormField label="Slug (URL path)">
+          <input
+            name="slug"
+            className={inputCls}
+            value={f.slug}
+            onChange={onChange}
+            placeholder="auto-generated-from-title"
+            autoComplete="off"
+          />
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <FormField label="Category">
+          <select name="category" className={inputCls} value={f.category} onChange={onChange}>
+            {CATEGORY_OPTIONS.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Author">
+          <input
+            name="author"
+            className={inputCls}
+            value={f.author}
+            onChange={onChange}
+            placeholder="R&H Editorial"
+            autoComplete="off"
+          />
+        </FormField>
+      </div>
+
+      <FormField label="Author bio (short, shown under the headline)">
+        <input
+          name="authorBio"
+          className={inputCls}
+          value={f.authorBio || ""}
+          onChange={onChange}
+          placeholder="Brief author description…"
+          autoComplete="off"
+        />
+      </FormField>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <FormField label="Publish date">
+          <input
+            name="date"
+            className={inputCls}
+            value={f.date}
+            onChange={onChange}
+            placeholder="22 May 2026"
+            autoComplete="off"
+          />
+        </FormField>
+        <FormField label="Read time">
+          <input
+            name="readTime"
+            className={inputCls}
+            value={f.readTime}
+            onChange={onChange}
+            placeholder="5 min"
+            autoComplete="off"
+          />
+        </FormField>
+        <FormField label="Accent colour">
+          <select name="accent" className={inputCls} value={f.accent} onChange={onChange}>
+            {ACCENT_OPTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+          </select>
+        </FormField>
+      </div>
+
+      <FormField label="Cover image URL">
+        <input
+          name="image"
+          className={inputCls}
+          value={f.image || ""}
+          onChange={onChange}
+          placeholder="https://res.cloudinary.com/… or any public image URL"
+          autoComplete="off"
+        />
+        {f.image && (
+          <div className="mt-2 rounded-lg overflow-hidden border border-gray-100" style={{ maxHeight: 120 }}>
+            <img
+              src={f.image}
+              alt="cover preview"
+              className="w-full object-cover"
+              style={{ maxHeight: 120 }}
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+            />
+          </div>
+        )}
+      </FormField>
+
+      <FormField label="Excerpt / summary (shown on blog listing)">
+        <textarea
+          name="excerpt"
+          className={inputCls + " resize-none"}
+          rows={3}
+          value={f.excerpt}
+          onChange={onChange}
+          placeholder="One-paragraph summary visible on the blog listing page…"
+        />
+      </FormField>
+
+      {"status" in f && (
+        <div className="flex flex-wrap gap-4 items-center">
+          <FormField label="Status">
+            <select name="status" className={inputCls + " w-36"} value={f.status} onChange={onChange}>
+              <option value="Draft">Draft</option>
+              <option value="Published">Published</option>
+            </select>
+          </FormField>
+          <div className="flex items-center gap-2 mt-5">
+            <input
+              type="checkbox"
+              name="trending"
+              id="chk-trending"
+              checked={!!f.trending}
+              onChange={onChange}
+              className="w-4 h-4 accent-[#2385cd]"
+            />
+            <label htmlFor="chk-trending" className="text-sm text-gray-600 cursor-pointer flex items-center gap-1.5">
+              <Flame size={13} className="text-orange-500" /> Mark as trending
+            </label>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <p className="text-xs font-medium text-gray-500 mb-2">Article content blocks</p>
+        <ContentBlockEditor blocks={f.content || []} onChange={onContentChange} />
+      </div>
+    </>
   );
 }
 
@@ -1499,82 +1679,6 @@ function BlogSection({ state, dispatch }) {
     trending:  posts.filter((p) => p.trending).length,
   };
 
-  // ── Post form shared fields ──────────────────────────────────────────────
-  const PostFormFields = ({ f, onChange, onContentChange }) => (
-    <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FormField label="Title *">
-          <input name="title" className={inputCls} value={f.title} onChange={onChange} placeholder="Article title…" />
-        </FormField>
-        <FormField label="Slug (URL path)">
-          <input name="slug" className={inputCls} value={f.slug} onChange={onChange} placeholder="auto-generated-from-title" />
-        </FormField>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FormField label="Category">
-          <select name="category" className={inputCls} value={f.category} onChange={onChange}>
-            {CATEGORY_OPTIONS.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </FormField>
-        <FormField label="Author">
-          <input name="author" className={inputCls} value={f.author} onChange={onChange} placeholder="R&H Editorial" />
-        </FormField>
-      </div>
-
-      <FormField label="Author bio (short, shown under the headline)">
-        <input name="authorBio" className={inputCls} value={f.authorBio || ""} onChange={onChange} placeholder="Brief author description…" />
-      </FormField>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <FormField label="Publish date">
-          <input name="date" className={inputCls} value={f.date} onChange={onChange} placeholder="22 May 2026" />
-        </FormField>
-        <FormField label="Read time">
-          <input name="readTime" className={inputCls} value={f.readTime} onChange={onChange} placeholder="5 min" />
-        </FormField>
-        <FormField label="Accent colour">
-          <select name="accent" className={inputCls} value={f.accent} onChange={onChange}>
-            {ACCENT_OPTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-          </select>
-        </FormField>
-      </div>
-
-      <FormField label="Cover image URL">
-        <input name="image" className={inputCls} value={f.image || ""} onChange={onChange} placeholder="https://res.cloudinary.com/… or any public image URL" />
-        {f.image && (
-          <div className="mt-2 rounded-lg overflow-hidden border border-gray-100" style={{ maxHeight: 120 }}>
-            <img src={f.image} alt="cover preview" className="w-full object-cover" style={{ maxHeight: 120 }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-          </div>
-        )}
-      </FormField>
-
-      <FormField label="Excerpt / summary (shown on blog listing)">
-        <textarea name="excerpt" className={inputCls + " resize-none"} rows={3} value={f.excerpt} onChange={onChange} placeholder="One-paragraph summary visible on the blog listing page…" />
-      </FormField>
-
-      {"status" in f && (
-        <div className="flex flex-wrap gap-4 items-center">
-          <FormField label="Status">
-            <select name="status" className={inputCls + " w-36"} value={f.status} onChange={onChange}>
-              <option value="Draft">Draft</option>
-              <option value="Published">Published</option>
-            </select>
-          </FormField>
-          <div className="flex items-center gap-2 mt-5">
-            <input type="checkbox" name="trending" id="chk-trending" checked={!!f.trending} onChange={onChange} className="w-4 h-4 accent-[#2385cd]" />
-            <label htmlFor="chk-trending" className="text-sm text-gray-600 cursor-pointer">Mark as trending 🔥</label>
-          </div>
-        </div>
-      )}
-
-      <div>
-        <p className="text-xs font-medium text-gray-500 mb-2">Article content blocks</p>
-        <ContentBlockEditor blocks={f.content || []} onChange={onContentChange} />
-      </div>
-    </>
-  );
-
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div>
@@ -1676,7 +1780,11 @@ function BlogSection({ state, dispatch }) {
                   <span className="bg-[#eaf4fc] text-[#2385cd] rounded-full px-2 py-0.5">{p.category}</span>
                   <span>{p.date}</span>
                   <span>{p.readTime} read</span>
-                  {p.trending && <span className="text-orange-500">🔥 Trending</span>}
+                  {p.trending && (
+                    <span className="text-orange-500 flex items-center gap-1">
+                      <Flame size={11} /> Trending
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 line-clamp-2">{p.excerpt}</p>
                 <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-50">
@@ -1686,7 +1794,8 @@ function BlogSection({ state, dispatch }) {
                     {p.status === "Published" ? "Unpublish" : "Publish"}
                   </Btn>
                   <Btn variant="ghost" onClick={() => toggleTrending(p)}>
-                    {p.trending ? "Remove 🔥" : "Set 🔥"}
+                    <Flame size={12} className={p.trending ? "text-orange-500" : "text-gray-400"} />
+                    {p.trending ? "Remove" : "Set trending"}
                   </Btn>
                   <Btn variant="danger" onClick={() => deletePost(p)}><Trash2 size={12} /></Btn>
                 </div>
@@ -1727,7 +1836,11 @@ function BlogSection({ state, dispatch }) {
                     <td className="px-4 py-3 text-xs text-gray-500 max-w-[120px] truncate">{p.author}</td>
                     <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{p.date}<br/>{p.readTime} read</td>
                     <td className="px-4 py-3"><Pill label={p.status} color={p.status === "Published" ? "green" : "yellow"} /></td>
-                    <td className="px-4 py-3 text-center">{p.trending ? "🔥" : <span className="text-gray-200">—</span>}</td>
+                    <td className="px-4 py-3 text-center">
+                      {p.trending
+                        ? <Flame size={14} className="text-orange-500 mx-auto" />
+                        : <span className="text-gray-200">—</span>}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         <Btn variant="ghost" onClick={() => openEditPost(p)}><Pencil size={12} /> Edit</Btn>
@@ -1736,7 +1849,8 @@ function BlogSection({ state, dispatch }) {
                           {p.status === "Published" ? "Unpublish" : "Publish"}
                         </Btn>
                         <Btn variant="ghost" onClick={() => toggleTrending(p)}>
-                          {p.trending ? "🔥 Off" : "🔥 On"}
+                          <Flame size={12} className={p.trending ? "text-orange-500" : "text-gray-400"} />
+                          {p.trending ? "Off" : "On"}
                         </Btn>
                         <Btn variant="danger" onClick={() => deletePost(p)}><Trash2 size={12} /></Btn>
                       </div>
@@ -1971,7 +2085,9 @@ function TestimonialsSection({ state, dispatch }) {
               </div>
               <p className="text-sm text-gray-600 italic line-clamp-2">"{t.text}"</p>
               {t.image && (
-                <p className="text-[10px] text-gray-300 truncate mt-0.5" title={t.image}>🖼 {t.image}</p>
+                <p className="text-[10px] text-gray-300 truncate mt-0.5 flex items-center gap-1" title={t.image}>
+                  <Image size={10} className="shrink-0" /> {t.image}
+                </p>
               )}
               <div className="flex gap-2 mt-2 flex-wrap">
                 <Btn variant="ghost" onClick={() => openEdit(t)}><Pencil size={13} /> Edit</Btn>
@@ -2029,7 +2145,11 @@ function TestimonialsSection({ state, dispatch }) {
               <input name="rating" type="number" min="1" max="5" step="0.5" className={inputCls} value={form.rating} onChange={handle} />
               <div className="flex gap-0.5 shrink-0">
                 {[1,2,3,4,5].map((s) => (
-                  <span key={`preview-star-${s}`} style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "#e5e7eb", fontSize: 16 }}>★</span>
+                  <Star
+                    key={`preview-star-${s}`}
+                    size={16}
+                    className={s <= Math.round(form.rating) ? "text-[#2385cd] fill-[#2385cd]" : "text-gray-200 fill-gray-200"}
+                  />
                 ))}
               </div>
             </div>
@@ -2054,7 +2174,12 @@ function TestimonialsSection({ state, dispatch }) {
                   <p style={{ color: "#2385cd", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 5px" }}>{form.role || "Role, Company"}</p>
                   <div style={{ display: "flex", gap: 2 }}>
                     {[1,2,3,4,5].map((s) => (
-                      <span key={`preview-card-star-${s}`} style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "rgba(35,133,205,0.2)", fontSize: 11 }}>★</span>
+                      <Star
+                        key={`preview-card-star-${s}`}
+                        size={11}
+                        style={{ color: s <= Math.round(form.rating) ? "#2385cd" : "rgba(35,133,205,0.2)" }}
+                        className={s <= Math.round(form.rating) ? "fill-[#2385cd]" : ""}
+                      />
                     ))}
                   </div>
                 </div>
@@ -2160,8 +2285,16 @@ function MessagesSection({ state, dispatch }) {
         <p className="font-semibold text-sm text-gray-900 mt-2">{liveActive.subject}</p>
         {(liveActive.phone || liveActive.email) && (
           <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
-            {liveActive.email && <span>✉ {liveActive.email}</span>}
-            {liveActive.phone && <span>📞 {liveActive.phone}</span>}
+            {liveActive.email && (
+              <span className="flex items-center gap-1">
+                <MailIcon size={11} className="shrink-0" /> {liveActive.email}
+              </span>
+            )}
+            {liveActive.phone && (
+              <span className="flex items-center gap-1">
+                <Phone size={11} className="shrink-0" /> {liveActive.phone}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -2552,8 +2685,8 @@ export function AdminPanel() {
               <p className="text-xs text-white/40 md:text-gray-400 hidden sm:block">
                 {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 {state.lastSyncedAt && <span className="ml-2 text-[#2385cd]">· Synced {new Date(state.lastSyncedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>}
-                {syncing   && <span className="text-xs text-[#2385cd] animate-pulse ml-2">⟳ Syncing…</span>}
-                {syncError && <span className="text-xs text-red-400 ml-2" title={syncError}>⚠ Sync failed</span>}
+                {syncing   && <span className="inline-flex items-center gap-1 text-xs text-[#2385cd] animate-pulse ml-2"><Loader2 size={11} className="animate-spin" /> Syncing…</span>}
+                {syncError && <span className="inline-flex items-center gap-1 text-xs text-red-400 ml-2" title={syncError}><AlertTriangle size={11} /> Sync failed</span>}
               </p>
             </div>
           </div>
