@@ -80,6 +80,8 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
+    localStorage.removeItem("staffProfile"); // ✅ FIX 3: clear staff cache on logout
+    localStorage.removeItem("userProfile");  // ✅ also clear avatar so it doesn't bleed into next user
   };
 
   /* UPDATE USER — merges new fields into the existing user object

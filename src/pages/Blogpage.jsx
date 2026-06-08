@@ -1,8 +1,23 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, useInView } from "framer-motion";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, useInView, AnimatePresence } from "framer-motion";
 import { loadBlogPosts, loadFeatured, refreshBlogCache } from "./data/blogPosts";
+import {
+  FileText,
+  File,
+  Flame,
+  ArrowRight,
+  AlertTriangle,
+  ChevronUp,
+  Search,
+  WifiOff,
+  Inbox,
+  X,
+  ExternalLink,
+} from "lucide-react";
 
-/* ─── categories ─── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   CONSTANTS
+───────────────────────────────────────────────────────────────────────────── */
 const categories = [
   "All",
   "Hiring Tips",
@@ -13,37 +28,47 @@ const categories = [
 ];
 
 const services = [
-  { label: "Domestic Staffing",   desc: "Nannies, cleaners, cooks & more."         },
+  { label: "Domestic Staffing",   desc: "Nannies, cleaners, cooks & more."        },
   { label: "Corporate Staffing",  desc: "Skilled professionals for your business." },
-  { label: "Staff Training",      desc: "We train staff to meet modern standards."  },
-  { label: "Artisan Outsourcing", desc: "Expert artisans for specialized roles."    },
+  { label: "Staff Training",      desc: "We train staff to meet modern standards." },
+  { label: "Artisan Outsourcing", desc: "Expert artisans for specialized roles."   },
 ];
 
-/* ─── scroll progress hook ─── */
+const POSTS_PER_PAGE = 6;
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SCROLL PROGRESS HOOK
+───────────────────────────────────────────────────────────────────────────── */
 function useScrollProgress() {
   const [progress, setProgress] = useState(0);
   useEffect(() => {
+    let rafId;
     const onScroll = () => {
-      const el = document.documentElement;
-      const scrolled = el.scrollTop || document.body.scrollTop;
-      const total = el.scrollHeight - el.clientHeight;
-      setProgress(total > 0 ? Math.min(100, (scrolled / total) * 100) : 0);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const el = document.documentElement;
+        const scrolled = el.scrollTop || document.body.scrollTop;
+        const total = el.scrollHeight - el.clientHeight;
+        setProgress(total > 0 ? Math.min(100, (scrolled / total) * 100) : 0);
+      });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
   return progress;
 }
 
-/* ─── share helpers ─── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   SHARE HELPERS
+───────────────────────────────────────────────────────────────────────────── */
 function shareWhatsApp(title, slug) {
   const url = slug
     ? `${window.location.origin}/blog/${slug}`
     : window.location.href;
-  window.open(
-    `https://wa.me/?text=${encodeURIComponent(title + "\n" + url)}`,
-    "_blank"
-  );
+  window.open(`https://wa.me/?text=${encodeURIComponent(title + "\n" + url)}`, "_blank");
 }
 function shareLinkedIn(slug) {
   const url = slug
@@ -55,21 +80,69 @@ function shareLinkedIn(slug) {
   );
 }
 
-/* ─── avatar ─── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   ROBUST IMAGE — falls back to a branded placeholder on error
+───────────────────────────────────────────────────────────────────────────── */
+function RobustImage({ src, alt, className, style, PlaceholderIcon = FileText }) {
+  const [status, setStatus] = useState(src ? "loading" : "error");
+  const prevSrc = useRef(src);
+
+  // Reset when src changes
+  useEffect(() => {
+    if (src !== prevSrc.current) {
+      prevSrc.current = src;
+      setStatus(src ? "loading" : "error");
+    }
+  }, [src]);
+
+  if (!src || status === "error") {
+    return (
+      <div
+        className={className}
+        style={{
+          ...style,
+          background: "linear-gradient(135deg, #eaf4fc 0%, #b8d9f0 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#2385cd",
+        }}
+      >
+        <PlaceholderIcon size={28} strokeWidth={1.5} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      style={{ ...style, opacity: status === "loaded" ? 1 : 0, transition: "opacity 0.3s ease" }}
+      onLoad={() => setStatus("loaded")}
+      onError={() => setStatus("error")}
+    />
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   INITIALS AVATAR
+───────────────────────────────────────────────────────────────────────────── */
 function InitialsAvatar({ name, accent }) {
-  const initials = name
+  const initials = (name || "?")
     .split(" ")
     .slice(0, 2)
-    .map((n) => n[0])
+    .map((n) => n[0] || "")
     .join("")
     .toUpperCase();
   return (
     <div
       style={{
         width: 28, height: 28, borderRadius: "50%",
-        background: accent + "22", border: `1px solid ${accent}44`,
+        background: (accent || "#2385cd") + "22",
+        border: `1px solid ${(accent || "#2385cd")}44`,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 10, fontWeight: 600, color: accent, flexShrink: 0,
+        fontSize: 10, fontWeight: 600, color: accent || "#2385cd", flexShrink: 0,
       }}
     >
       {initials}
@@ -77,7 +150,53 @@ function InitialsAvatar({ name, accent }) {
   );
 }
 
-/* ─── animated card wrapper ─── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   SKELETON CARD — shown while loading
+───────────────────────────────────────────────────────────────────────────── */
+function SkeletonCard() {
+  return (
+    <div className="rh-card" style={{ pointerEvents: "none" }}>
+      <div style={{ height: 160, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "rh-shimmer 1.4s infinite" }} />
+      <div style={{ padding: "16px 18px 18px" }}>
+        <div style={{ height: 10, width: "40%", background: "#f0f0f0", borderRadius: 4, marginBottom: 10, animation: "rh-shimmer 1.4s infinite" }} />
+        <div style={{ height: 14, width: "90%", background: "#f0f0f0", borderRadius: 4, marginBottom: 6, animation: "rh-shimmer 1.4s infinite" }} />
+        <div style={{ height: 14, width: "70%", background: "#f0f0f0", borderRadius: 4, marginBottom: 14, animation: "rh-shimmer 1.4s infinite" }} />
+        <div style={{ height: 10, width: "80%", background: "#f0f0f0", borderRadius: 4, marginBottom: 6, animation: "rh-shimmer 1.4s infinite" }} />
+        <div style={{ height: 10, width: "60%", background: "#f0f0f0", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HERO SKELETON — shown while featured is loading
+───────────────────────────────────────────────────────────────────────────── */
+function HeroSkeleton() {
+  return (
+    <section style={{ background: "#1c1a16" }}>
+      <div className="rh-hero-padding" style={{ maxWidth: 1200, margin: "0 auto", padding: "104px 32px 48px" }}>
+        <div className="rh-hero-grid">
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ height: 10, width: "30%", background: "#2a3a4a", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+            <div style={{ height: 22, width: "90%", background: "#2a3a4a", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+            <div style={{ height: 22, width: "70%", background: "#2a3a4a", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+            <div style={{ height: 12, width: "95%", background: "#2a3a4a", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+            <div style={{ height: 12, width: "80%", background: "#2a3a4a", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+            <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+              <div style={{ height: 38, width: 140, background: "#2a3a4a", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+              <div style={{ height: 38, width: 160, background: "#2a3a4a", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+            </div>
+          </div>
+          <div style={{ height: 280, background: "#2a3a4a", borderRadius: 4, animation: "rh-shimmer 1.4s infinite" }} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ANIMATED CARD WRAPPER
+───────────────────────────────────────────────────────────────────────────── */
 function FadeCard({ children, delay = 0 }) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
@@ -94,7 +213,9 @@ function FadeCard({ children, delay = 0 }) {
   );
 }
 
-/* ─── inline hire CTA ─── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   INLINE HIRE CTA
+───────────────────────────────────────────────────────────────────────────── */
 function InlineCTA() {
   return (
     <motion.div
@@ -131,23 +252,33 @@ function InlineCTA() {
   );
 }
 
-/* ─── article card ─── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   ARTICLE CARD
+───────────────────────────────────────────────────────────────────────────── */
 function ArticleCard({ post, index, isFeaturedCard, onNavigate }) {
   const [hovered, setHovered] = useState(false);
-  const handleNavigate = () => onNavigate(post.slug);
+
+  // Guard: if post is somehow null/undefined, render nothing
+  if (!post || !post.slug) return null;
+
+  const handleNavigate = useCallback(() => onNavigate(post.slug), [post.slug, onNavigate]);
+  const accent = post.accent || "#2385cd";
 
   return (
-    <FadeCard delay={index * 0.07}>
+    <FadeCard delay={Math.min(index * 0.07, 0.35)}>
       <div
         className={`rh-card ${isFeaturedCard ? "rh-card-featured" : ""}`}
         onClick={handleNavigate}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        role="article"
+        aria-label={post.title}
       >
-        <div style={{ position: "relative", overflow: "hidden", height: 160 }}>
-          <img
+        {/* Cover image */}
+        <div style={{ position: "relative", overflow: "hidden", height: 160, background: "#f0f6fc" }}>
+          <RobustImage
             src={post.image}
-            alt={post.title}
+            alt={post.title || "Blog post"}
             style={{
               width: "100%", height: "100%", objectFit: "cover",
               transition: "transform 0.5s ease",
@@ -155,50 +286,54 @@ function ArticleCard({ post, index, isFeaturedCard, onNavigate }) {
               display: "block",
             }}
           />
-          <div style={{ position: "absolute", top: 10, left: 10, display: "flex", gap: 6 }}>
-            {post.trending && (
+          {post.trending && (
+            <div style={{ position: "absolute", top: 10, left: 10 }}>
               <span style={{
                 background: "#c8a96e", color: "#1c1a16",
                 fontSize: 9, fontWeight: 700, letterSpacing: 1,
                 padding: "3px 8px", textTransform: "uppercase",
-              }}>🔥 Trending</span>
-            )}
-          </div>
+                display: "inline-flex", alignItems: "center", gap: 4,
+              }}>
+                <Flame size={10} strokeWidth={2} /> Trending
+              </span>
+            </div>
+          )}
           <span style={{
             position: "absolute", bottom: 10, right: 10,
             background: "rgba(28,26,22,0.75)", color: "#faf9f6",
             fontSize: 10, padding: "3px 9px", backdropFilter: "blur(4px)",
           }}>
-            {post.readTime} read
+            {post.readTime || "5 min"} read
           </span>
         </div>
 
+        {/* Content */}
         <div style={{ padding: "16px 18px 18px", flex: 1, display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: post.accent, fontWeight: 500, marginBottom: 8 }}>
-            {post.category}
+          <div style={{ fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: accent, fontWeight: 500, marginBottom: 8 }}>
+            {post.category || "Article"}
           </div>
           <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, color: "#1c1a16", lineHeight: 1.35, fontStyle: "italic", flex: 1 }}>
-            {post.title}
+            {post.title || "Untitled"}
           </h3>
-          <p style={{ fontSize: 12, color: "#888", lineHeight: 1.6, marginTop: 8 }}>
-            {post.excerpt}
-          </p>
+          {post.excerpt && (
+            <p style={{ fontSize: 12, color: "#888", lineHeight: 1.6, marginTop: 8, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {post.excerpt}
+            </p>
+          )}
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <InitialsAvatar name={post.author} accent={post.accent} />
+              <InitialsAvatar name={post.author || "R&H"} accent={accent} />
               <span style={{ fontSize: 11, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {post.author} · {post.date}
+                {post.author || "R&H Editorial"} · {post.date || ""}
               </span>
             </div>
-            <span
-              className="rh-read-btn"
-              onClick={(e) => { e.stopPropagation(); handleNavigate(); }}
-            >
-              Read →
+            <span className="rh-read-btn" onClick={(e) => { e.stopPropagation(); handleNavigate(); }}>
+              Read <ArrowRight size={12} strokeWidth={2} />
             </span>
           </div>
 
+          {/* Share row — only visible on hover */}
           <div
             style={{
               display: "flex", gap: 8, marginTop: 12, paddingTop: 12,
@@ -206,6 +341,7 @@ function ArticleCard({ post, index, isFeaturedCard, onNavigate }) {
               opacity: hovered ? 1 : 0,
               transform: hovered ? "translateY(0)" : "translateY(4px)",
               transition: "opacity 0.2s, transform 0.2s",
+              pointerEvents: hovered ? "auto" : "none",
             }}
           >
             <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>Share:</span>
@@ -228,97 +364,249 @@ function ArticleCard({ post, index, isFeaturedCard, onNavigate }) {
   );
 }
 
-/* ══════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────────────────────
+   ERROR BANNER
+───────────────────────────────────────────────────────────────────────────── */
+function ErrorBanner({ message, onRetry }) {
+  return (
+    <div style={{
+      background: "#fff8f0", border: "1px solid #fed7aa", borderRadius: 10,
+      padding: "12px 16px", display: "flex", alignItems: "center",
+      gap: 10, fontSize: 13, color: "#9a3412", marginBottom: 16,
+    }}>
+      <AlertTriangle size={18} style={{ flexShrink: 0, color: "#c2410c" }} />
+      <span style={{ flex: 1 }}>{message}</span>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          style={{ fontSize: 12, fontWeight: 600, color: "#2385cd", background: "none", border: "1px solid #2385cd44", padding: "4px 12px", borderRadius: 6, cursor: "pointer" }}
+        >
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BACK TO TOP BUTTON
+───────────────────────────────────────────────────────────────────────────── */
+function BackToTop() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  if (!visible) return null;
+  return (
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      style={{
+        position: "fixed", bottom: 24, right: 24, zIndex: 200,
+        width: 40, height: 40, borderRadius: "50%",
+        background: "#2385cd", color: "#fff", border: "none",
+        fontSize: 18, cursor: "pointer", boxShadow: "0 4px 16px rgba(35,133,205,0.4)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        transition: "transform 0.15s, box-shadow 0.15s",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(35,133,205,0.5)"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(35,133,205,0.4)"; }}
+      title="Back to top"
+      aria-label="Back to top"
+    >
+      <ChevronUp size={20} strokeWidth={2.5} />
+    </button>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    MAIN COMPONENT
-══════════════════════════════════════════ */
+───────────────────────────────────────────────────────────────────────────── */
 export function BlogPage({ onNavigate }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery,    setSearchQuery]    = useState("");
   const [sortOrder,      setSortOrder]      = useState("newest");
+  const [visibleCount,   setVisibleCount]   = useState(POSTS_PER_PAGE);
 
-  // ── Live data from backend (with static fallback) ─────────────────────────
-  const [posts,    setPosts]    = useState(() => loadBlogPosts());
-  const [featured, setFeatured] = useState(() => loadFeatured());
+  // Data states — initialise from cache immediately so page is never blank
+  const [posts,       setPosts]       = useState(() => loadBlogPosts());
+  const [featured,    setFeatured]    = useState(() => loadFeatured());
+  const [fetchState,  setFetchState]  = useState("idle"); // "idle" | "loading" | "success" | "error"
+  const [fetchError,  setFetchError]  = useState("");
 
   const scrollProgress = useScrollProgress();
 
-  useEffect(() => {
-    let cancelled = false;
-    refreshBlogCache()
-      .then(({ posts: freshPosts, featured: freshFeatured }) => {
-        if (cancelled) return;
-        if (freshPosts?.length)  setPosts(freshPosts);
-        if (freshFeatured)       setFeatured(freshFeatured);
-      })
-      .catch(() => {/* keep static fallback — already in state */});
-    return () => { cancelled = true; };
+  // ── Fetch from backend, update state on success ────────────────────────
+  const fetchFresh = useCallback(async () => {
+    setFetchState("loading");
+    setFetchError("");
+    try {
+      const { posts: freshPosts, featured: freshFeatured } = await refreshBlogCache();
+
+      // Only update if we got real data back
+      if (Array.isArray(freshPosts) && freshPosts.length > 0) {
+        setPosts(freshPosts);
+      }
+      if (freshFeatured && freshFeatured.title) {
+        setFeatured(freshFeatured);
+      }
+      setFetchState("success");
+    } catch (err) {
+      console.warn("[BlogPage] refreshBlogCache failed:", err?.message ?? err);
+      setFetchState("error");
+      setFetchError("Could not refresh articles. Showing cached content.");
+      // Keep whatever is already in state (cache or static)
+    }
   }, []);
 
-  /* filter + search + sort */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setFetchState("loading");
+      setFetchError("");
+      try {
+        const { posts: freshPosts, featured: freshFeatured } = await refreshBlogCache();
+        if (cancelled) return;
+        if (Array.isArray(freshPosts) && freshPosts.length > 0) setPosts(freshPosts);
+        if (freshFeatured && freshFeatured.title) setFeatured(freshFeatured);
+        setFetchState("success");
+      } catch (err) {
+        if (cancelled) return;
+        console.warn("[BlogPage] initial fetch failed:", err?.message ?? err);
+        setFetchState("error");
+        setFetchError("Could not load latest articles. Showing cached content.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(POSTS_PER_PAGE);
+  }, [activeCategory, searchQuery, sortOrder]);
+
+  // ── Derived / filtered list ────────────────────────────────────────────
+  const safeSearch = searchQuery.trim().toLowerCase();
+
   const filtered = posts
+    .filter((p) => p && p.title && p.slug) // guard: skip malformed posts
     .filter((p) => activeCategory === "All" || p.category === activeCategory)
     .filter((p) =>
-      searchQuery.trim() === "" ||
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.excerpt.toLowerCase().includes(searchQuery.toLowerCase())
+      !safeSearch ||
+      p.title.toLowerCase().includes(safeSearch) ||
+      (p.excerpt || "").toLowerCase().includes(safeSearch) ||
+      (p.author || "").toLowerCase().includes(safeSearch) ||
+      (p.category || "").toLowerCase().includes(safeSearch)
     )
     .sort((a, b) => {
-      if (sortOrder === "popular") return (b.trending ? 1 : 0) - (a.trending ? 1 : 0);
-      return (Number(b.id) || 0) - (Number(a.id) || 0);
+      if (sortOrder === "popular") {
+        const diff = (b.trending ? 1 : 0) - (a.trending ? 1 : 0);
+        if (diff !== 0) return diff;
+      }
+      // newest: sort by id descending (backend assigns mongo IDs which sort chronologically)
+      const aId = String(a.id || "");
+      const bId = String(b.id || "");
+      return bId.localeCompare(aId);
     });
 
-  /* inject inline CTA after every 4 cards */
+  const visiblePosts = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
+
+  // ── Build card grid with inline CTAs every 4 cards ────────────────────
   const cardElements = [];
-  filtered.forEach((post, i) => {
+  visiblePosts.forEach((post, i) => {
     cardElements.push(
       <ArticleCard
-        key={post.id}
+        key={post.id ?? post.slug ?? `post-${i}`}
         post={post}
         index={i}
-        isFeaturedCard={i === 0 && activeCategory === "All"}
+        isFeaturedCard={i === 0 && activeCategory === "All" && !safeSearch}
         onNavigate={onNavigate}
       />
     );
-    if ((i + 1) % 4 === 0 && i !== filtered.length - 1) {
+    if ((i + 1) % 4 === 0 && i !== visiblePosts.length - 1) {
       cardElements.push(<InlineCTA key={`cta-${i}`} />);
     }
   });
+
+  const isFirstLoad = fetchState === "loading" && posts.length === 0;
+  const isFeaturedReady = featured && featured.title;
 
   return (
     <div style={{ minHeight: "100vh", background: "#faf9f6", fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap');
 
-        .rh-pill { padding: 6px 14px; border-radius: 20px; border: 1px solid #e0dbd3; background: #faf9f6; color: #888; font-size: 12px; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; white-space: nowrap; flex-shrink: 0; }
-        .rh-pill:hover { border-color: #2385cd; color: #2385cd; }
+        @keyframes rh-shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        .rh-pill {
+          padding: 6px 14px; border-radius: 20px;
+          border: 1px solid #e0dbd3; background: #faf9f6; color: #888;
+          font-size: 12px; cursor: pointer; transition: all 0.15s;
+          font-family: 'DM Sans', sans-serif; white-space: nowrap; flex-shrink: 0;
+        }
+        .rh-pill:hover  { border-color: #2385cd; color: #2385cd; }
         .rh-pill.active { background: #2385cd; color: #fff; border-color: #2385cd; }
 
-        .rh-card { background: #fff; border: 1px solid #ece8e0; display: flex; flex-direction: column; transition: transform 0.22s, box-shadow 0.22s; cursor: pointer; }
+        .rh-card {
+          background: #fff; border: 1px solid #ece8e0;
+          display: flex; flex-direction: column;
+          transition: transform 0.22s, box-shadow 0.22s; cursor: pointer;
+        }
         .rh-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(28,26,22,0.1); }
         .rh-card-featured { border-left: 3px solid #2385cd; }
 
-        .rh-btn { background: #2385cd; color: #fff; border: none; padding: 12px 28px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; letter-spacing: 0.3px; transition: background 0.15s; }
+        .rh-btn {
+          background: #2385cd; color: #fff; border: none;
+          padding: 12px 28px; font-size: 13px; font-weight: 500;
+          font-family: 'DM Sans', sans-serif; cursor: pointer;
+          letter-spacing: 0.3px; transition: background 0.15s;
+        }
         .rh-btn:hover { background: #1a6aaa; }
-        .rh-btn-outline { background: transparent; color: #faf9f6; border: 1px solid rgba(255,255,255,0.35); padding: 10px 24px; font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s; }
+
+        .rh-btn-outline {
+          background: transparent; color: #faf9f6;
+          border: 1px solid rgba(255,255,255,0.35);
+          padding: 10px 24px; font-size: 13px;
+          font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s;
+        }
         .rh-btn-outline:hover { background: rgba(255,255,255,0.1); }
 
-        .rh-read-btn { font-size: 12px; color: #2385cd; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: gap 0.15s; white-space: nowrap; background: none; border: none; }
+        .rh-read-btn {
+          font-size: 12px; color: #2385cd; font-weight: 500;
+          cursor: pointer; display: flex; align-items: center;
+          gap: 4px; transition: gap 0.15s; white-space: nowrap;
+          background: none; border: none;
+        }
         .rh-read-btn:hover { gap: 8px; }
 
-        .rh-search { padding: 8px 14px; border: 1px solid #e0dbd3; background: #fff; font-size: 12px; font-family: 'DM Sans', sans-serif; color: #1c1a16; outline: none; width: 200px; transition: border-color 0.15s; }
-        .rh-search:focus { border-color: #2385cd; }
+        .rh-search {
+          padding: 8px 14px; border: 1px solid #e0dbd3;
+          background: #fff; font-size: 12px;
+          font-family: 'DM Sans', sans-serif; color: #1c1a16;
+          outline: none; width: 200px; transition: border-color 0.15s;
+        }
+        .rh-search:focus  { border-color: #2385cd; }
         .rh-search::placeholder { color: #bbb; }
 
-        .rh-sort-btn { padding: 6px 14px; font-size: 11px; border: 1px solid #e0dbd3; background: #faf9f6; color: #888; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+        .rh-sort-btn {
+          padding: 6px 14px; font-size: 11px;
+          border: 1px solid #e0dbd3; background: #faf9f6; color: #888;
+          cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+        }
         .rh-sort-btn.active { background: #1c1a16; color: #faf9f6; border-color: #1c1a16; }
 
         .rh-filter-bar { scrollbar-width: none; }
         .rh-filter-bar::-webkit-scrollbar { display: none; }
 
-        .rh-hero-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: stretch; }
-        .rh-stats-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #2e2b24; }
-        .rh-main-grid    { display: grid; grid-template-columns: 1fr 300px; gap: 48px; align-items: start; }
-        .rh-cards-grid   { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: #ece8e0; }
+        .rh-hero-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: stretch; }
+        .rh-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #2e2b24; }
+        .rh-main-grid  { display: grid; grid-template-columns: 1fr 300px; gap: 48px; align-items: start; }
+        .rh-cards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: #ece8e0; }
 
         @media (max-width: 768px) {
           .rh-hero-grid    { grid-template-columns: 1fr; gap: 24px; }
@@ -346,112 +634,126 @@ export function BlogPage({ onNavigate }) {
         position: "fixed", top: 0, left: 0, zIndex: 9999,
         height: 3, background: "#2385cd",
         width: `${scrollProgress}%`,
-        transition: "width 0.1s linear",
+        transition: "width 0.08s linear",
         boxShadow: "0 0 8px rgba(35,133,205,0.5)",
       }} />
 
       {/* ── HERO BANNER ── */}
-      {featured && (
-        <section style={{ background: "#1c1a16" }}>
-          <div
-            className="rh-hero-padding"
-            style={{ maxWidth: 1200, margin: "0 auto", padding: "104px 32px 48px" }}
+      <AnimatePresence mode="wait">
+        {isFirstLoad && !isFeaturedReady ? (
+          <HeroSkeleton key="hero-skeleton" />
+        ) : isFeaturedReady ? (
+          <motion.section
+            key="hero-content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            style={{ background: "#1c1a16" }}
           >
-            <motion.div
-              className="rh-hero-grid"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.65, ease: "easeOut" }}
-            >
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", color: "#2385cd", fontWeight: 500, marginBottom: 14 }}>
-                  Featured Article
-                </div>
-                <h1
-                  className="rh-hero-title"
-                  style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: "#faf9f6", lineHeight: 1.25, letterSpacing: "-0.5px", fontStyle: "italic" }}
-                >
-                  {featured.title}
-                </h1>
-                <p style={{ fontSize: 13, color: "#888", lineHeight: 1.7, marginTop: 14 }}>
-                  {featured.excerpt}
-                </p>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 18 }}>
-                  <InitialsAvatar name={featured.author} accent="#2385cd" />
-                  <div>
-                    <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>
-                      {featured.author} · {featured.date} · {featured.readTime} read
-                    </div>
-                    <div style={{ fontSize: 11, color: "#555", lineHeight: 1.5, marginTop: 3, maxWidth: 380 }}>
-                      {featured.authorBio}
+            <div className="rh-hero-padding" style={{ maxWidth: 1200, margin: "0 auto", padding: "104px 32px 48px" }}>
+              <motion.div
+                className="rh-hero-grid"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.65, ease: "easeOut" }}
+              >
+                {/* Left: text */}
+                <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", color: "#2385cd", fontWeight: 500, marginBottom: 14 }}>
+                    Featured Article
+                  </div>
+                  <h1
+                    className="rh-hero-title"
+                    style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: "#faf9f6", lineHeight: 1.25, letterSpacing: "-0.5px", fontStyle: "italic" }}
+                  >
+                    {featured.title}
+                  </h1>
+                  <p style={{ fontSize: 13, color: "#888", lineHeight: 1.7, marginTop: 14 }}>
+                    {featured.excerpt}
+                  </p>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 18 }}>
+                    <InitialsAvatar name={featured.author || "R&H"} accent="#2385cd" />
+                    <div>
+                      <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>
+                        {featured.author} · {featured.date} · {featured.readTime} read
+                      </div>
+                      {featured.authorBio && (
+                        <div style={{ fontSize: 11, color: "#555", lineHeight: 1.5, marginTop: 3, maxWidth: 380 }}>
+                          {featured.authorBio}
+                        </div>
+                      )}
                     </div>
                   </div>
+                  <div style={{ display: "flex", gap: 12, marginTop: 22, flexWrap: "wrap" }}>
+                    <button
+                      className="rh-btn"
+                      style={{ width: "auto", padding: "10px 28px", display: "inline-flex", alignItems: "center", gap: 6 }}
+                      onClick={() => onNavigate && onNavigate(featured.slug)}
+                    >
+                      Read Article <ExternalLink size={13} strokeWidth={2} />
+                    </button>
+                    <button
+                      onClick={() => shareWhatsApp(featured.title, featured.slug)}
+                      style={{
+                        background: "none", border: "1px solid #25D36644",
+                        color: "#25D366", fontSize: 12, padding: "10px 18px",
+                        cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >
+                      Share on WhatsApp
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 12, marginTop: 22, flexWrap: "wrap" }}>
-                  <button
-                    className="rh-btn"
-                    style={{ width: "auto", padding: "10px 28px" }}
-                    onClick={() => onNavigate(featured.slug)}
-                  >
-                    Read Article →
-                  </button>
-                  <button
-                    onClick={() => shareWhatsApp(featured.title, featured.slug)}
-                    style={{
-                      background: "none", border: "1px solid #25D36644",
-                      color: "#25D366", fontSize: 12, padding: "10px 18px",
-                      cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                    }}
-                  >
-                    Share on WhatsApp
-                  </button>
-                </div>
-              </div>
 
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 1, cursor: "pointer" }}
-                onClick={() => onNavigate(featured.slug)}
-              >
-                <div style={{ overflow: "hidden", height: 200 }}>
-                  <img
-                    src={featured.image}
-                    alt="Featured article"
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                  />
+                {/* Right: image + stats */}
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 1, cursor: "pointer" }}
+                  onClick={() => onNavigate && onNavigate(featured.slug)}
+                >
+                  <div style={{ overflow: "hidden", height: 200, background: "#2a3a4a" }}>
+                    <RobustImage
+                      src={featured.image}
+                      alt="Featured article"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      PlaceholderIcon={FileText}
+                    />
+                  </div>
+                  <div className="rh-stats-grid">
+                    {[
+                      { num: "300+", label: "Staff Deployed"      },
+                      { num: "100%", label: "Client Satisfaction" },
+                      { num: "15+",  label: "Yrs Leadership Exp." },
+                      { num: "3+",   label: "Years of Excellence" },
+                    ].map((s) => (
+                      <div key={s.label} style={{ background: "#1c1a16", padding: "18px 16px" }}>
+                        <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: "#2385cd" }}>{s.num}</div>
+                        <div style={{ fontSize: 11, color: "#666", marginTop: 3 }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="rh-stats-grid">
-                  {[
-                    { num: "300+", label: "Staff Deployed"      },
-                    { num: "100%", label: "Client Satisfaction" },
-                    { num: "15+",  label: "Yrs Leadership Exp." },
-                    { num: "3+",   label: "Years of Excellence" },
-                  ].map((s) => (
-                    <div key={s.label} style={{ background: "#1c1a16", padding: "18px 16px" }}>
-                      <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: "#2385cd" }}>{s.num}</div>
-                      <div style={{ fontSize: 11, color: "#666", marginTop: 3 }}>{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-      )}
+              </motion.div>
+            </div>
+          </motion.section>
+        ) : null}
+      </AnimatePresence>
 
       {/* ── FILTER BAR ── */}
       <div style={{
-        borderBottom: "1px solid #ece8e0",
-        background: "#faf9f6",
-        position: "sticky",
-        top: 88,
-        zIndex: 90,
+        borderBottom: "1px solid #ece8e0", background: "#faf9f6",
+        position: "sticky", top: 88, zIndex: 90,
       }}>
         <div
           className="rh-filter-bar"
           style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", height: 52, display: "flex", alignItems: "center", gap: 8, overflowX: "auto" }}
         >
           {categories.map((c) => (
-            <button key={c} className={`rh-pill ${activeCategory === c ? "active" : ""}`} onClick={() => setActiveCategory(c)}>
+            <button
+              key={c}
+              className={`rh-pill ${activeCategory === c ? "active" : ""}`}
+              onClick={() => setActiveCategory(c)}
+              aria-pressed={activeCategory === c}
+            >
               {c}
             </button>
           ))}
@@ -464,49 +766,154 @@ export function BlogPage({ onNavigate }) {
 
           {/* ── ARTICLES COLUMN ── */}
           <div>
+            {/* Toolbar */}
             <div className="rh-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, gap: 16, flexWrap: "wrap" }}>
               <div>
                 <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: "#1c1a16", fontStyle: "italic" }}>
                   {activeCategory === "All" ? "Latest Insights" : activeCategory}
                 </h2>
-                <span style={{ fontSize: 12, color: "#aaa" }}>{filtered.length} article{filtered.length !== 1 ? "s" : ""}</span>
+                <span style={{ fontSize: 12, color: "#aaa" }}>
+                  {filtered.length} article{filtered.length !== 1 ? "s" : ""}
+                  {fetchState === "loading" && (
+                    <span style={{ marginLeft: 8, color: "#2385cd", fontSize: 11 }}>⟳ Refreshing…</span>
+                  )}
+                </span>
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <div style={{ position: "relative" }}>
-                  <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#bbb" }}>🔍</span>
+                  <Search
+                    size={13}
+                    strokeWidth={2}
+                    style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#bbb", pointerEvents: "none" }}
+                  />
                   <input
                     className="rh-search"
                     style={{ paddingLeft: 30 }}
                     placeholder="Search articles…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search blog posts"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#bbb", display: "flex", alignItems: "center", padding: 0 }}
+                      aria-label="Clear search"
+                    >
+                      <X size={14} strokeWidth={2} />
+                    </button>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 0 }}>
-                  <button className={`rh-sort-btn ${sortOrder === "newest" ? "active" : ""}`} style={{ borderRadius: "3px 0 0 3px" }} onClick={() => setSortOrder("newest")}>Newest</button>
-                  <button className={`rh-sort-btn ${sortOrder === "popular" ? "active" : ""}`} style={{ borderRadius: "0 3px 3px 0", borderLeft: "none" }} onClick={() => setSortOrder("popular")}>Popular</button>
+                  <button
+                    className={`rh-sort-btn ${sortOrder === "newest" ? "active" : ""}`}
+                    style={{ borderRadius: "3px 0 0 3px" }}
+                    onClick={() => setSortOrder("newest")}
+                  >Newest</button>
+                  <button
+                    className={`rh-sort-btn ${sortOrder === "popular" ? "active" : ""}`}
+                    style={{ borderRadius: "0 3px 3px 0", borderLeft: "none" }}
+                    onClick={() => setSortOrder("popular")}
+                  >Popular</button>
                 </div>
               </div>
             </div>
 
-            {filtered.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: "#aaa", fontSize: 13 }}>
-                No articles match your search.
-              </div>
-            ) : (
-              <div className="rh-cards-grid">{cardElements}</div>
+            {/* Error banner — only shown after cache content is already visible */}
+            {fetchState === "error" && posts.length > 0 && (
+              <ErrorBanner
+                message={fetchError}
+                onRetry={fetchFresh}
+              />
             )}
 
-            {filtered.length > 0 && (
-              <div style={{ textAlign: "center", marginTop: 40 }}>
+            {/* Full error state — nothing in cache at all */}
+            {fetchState === "error" && posts.length === 0 && (
+              <div style={{ textAlign: "center", padding: "60px 0" }}>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <WifiOff size={28} strokeWidth={1.5} style={{ color: "#d97706" }} />
+                  </div>
+                </div>
+                <p style={{ color: "#888", fontSize: 14, marginBottom: 16 }}>Could not load articles. Please check your connection.</p>
                 <button
-                  style={{ padding: "12px 40px", border: "1px solid #1c1a16", background: "transparent", color: "#1c1a16", fontSize: 13, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", letterSpacing: 0.5, transition: "all 0.15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#1c1a16"; e.currentTarget.style.color = "#faf9f6"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#1c1a16"; }}
+                  onClick={fetchFresh}
+                  style={{
+                    background: "#2385cd", color: "#fff", border: "none",
+                    padding: "10px 24px", borderRadius: 6, fontSize: 13,
+                    fontFamily: "'DM Sans', sans-serif", cursor: "pointer",
+                  }}
                 >
-                  Load more articles
+                  Try again
                 </button>
               </div>
+            )}
+
+            {/* Skeleton loading — first load only */}
+            {isFirstLoad && (
+              <div className="rh-cards-grid">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <SkeletonCard key={`skel-${i}`} />
+                ))}
+              </div>
+            )}
+
+            {/* Article grid */}
+            {!isFirstLoad && filtered.length === 0 && (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "#aaa", fontSize: 13 }}>
+                {safeSearch ? (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#eaf4fc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Search size={24} strokeWidth={1.5} style={{ color: "#2385cd" }} />
+                      </div>
+                    </div>
+                    <p>No articles match "<strong style={{ color: "#555" }}>{searchQuery}</strong>".</p>
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      style={{ marginTop: 10, color: "#2385cd", background: "none", border: "none", cursor: "pointer", fontSize: 13, textDecoration: "underline" }}
+                    >
+                      Clear search
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#eaf4fc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Inbox size={24} strokeWidth={1.5} style={{ color: "#2385cd" }} />
+                      </div>
+                    </div>
+                    <p>No articles in <strong style={{ color: "#555" }}>{activeCategory}</strong> yet.</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {!isFirstLoad && filtered.length > 0 && (
+              <>
+                <div className="rh-cards-grid">{cardElements}</div>
+
+                {/* Load more */}
+                <div style={{ textAlign: "center", marginTop: 40 }}>
+                  {hasMore ? (
+                    <button
+                      onClick={() => setVisibleCount((c) => c + POSTS_PER_PAGE)}
+                      style={{
+                        padding: "12px 40px", border: "1px solid #1c1a16",
+                        background: "transparent", color: "#1c1a16",
+                        fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+                        cursor: "pointer", letterSpacing: 0.5, transition: "all 0.15s",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "#1c1a16"; e.currentTarget.style.color = "#faf9f6"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#1c1a16"; }}
+                    >
+                      Load more articles ({filtered.length - visibleCount} remaining)
+                    </button>
+                  ) : filtered.length > POSTS_PER_PAGE ? (
+                    <p style={{ color: "#ccc", fontSize: 12 }}>You've reached the end · {filtered.length} articles</p>
+                  ) : null}
+                </div>
+              </>
             )}
           </div>
 
@@ -514,17 +921,27 @@ export function BlogPage({ onNavigate }) {
           <aside className="rh-sidebar">
             <div className="rh-sidebar-inner" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-              <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }} style={{ background: "#1c1a16", padding: 22 }}>
+              {/* Who we are */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.5 }}
+                style={{ background: "#1c1a16", padding: 22 }}
+              >
                 <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#2385cd", fontWeight: 500, marginBottom: 10 }}>Who We Are</div>
                 <p style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, color: "#faf9f6", fontStyle: "italic", lineHeight: 1.4 }}>
                   Redefining service delivery and professionalism across Nigeria.
                 </p>
                 <p style={{ fontSize: 12, color: "#777", lineHeight: 1.7, marginTop: 10 }}>
-                  Randle & Hopkick is a domestic outsourcing firm providing exceptional services across homes and corporate bodies. Trust, competence, integrity, dedication and professionalism define everything we do.
+                  Randle &amp; Hopkick is a domestic outsourcing firm providing exceptional services across homes and corporate bodies. Trust, competence, integrity, dedication and professionalism define everything we do.
                 </p>
               </motion.div>
 
-              <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.08 }} style={{ border: "1px solid #ece8e0", padding: 22, background: "#fff" }}>
+              {/* Core values */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.08 }}
+                style={{ border: "1px solid #ece8e0", padding: 22, background: "#fff" }}
+              >
                 <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#aaa", fontWeight: 500, marginBottom: 14 }}>Our Core Values</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {[
@@ -541,22 +958,39 @@ export function BlogPage({ onNavigate }) {
                 </div>
               </motion.div>
 
-              <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.13 }} style={{ border: "1px solid #ece8e0", padding: 22, background: "#fff" }}>
+              {/* Browse by topic */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.13 }}
+                style={{ border: "1px solid #ece8e0", padding: 22, background: "#fff" }}
+              >
                 <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#aaa", fontWeight: 500, marginBottom: 14 }}>Browse by topic</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {categories.slice(1).map((c) => (
-                    <button key={c} className={`rh-pill ${activeCategory === c ? "active" : ""}`} onClick={() => setActiveCategory(c)} style={{ fontSize: 11 }}>{c}</button>
+                    <button
+                      key={c}
+                      className={`rh-pill ${activeCategory === c ? "active" : ""}`}
+                      onClick={() => { setActiveCategory(c); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      style={{ fontSize: 11 }}
+                    >
+                      {c}
+                    </button>
                   ))}
                 </div>
               </motion.div>
 
-              <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.18 }} style={{ background: "#f0f6fc", border: "1px solid #c8dff2", padding: 22, position: "relative", overflow: "hidden" }}>
+              {/* Services CTA */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.18 }}
+                style={{ background: "#f0f6fc", border: "1px solid #c8dff2", padding: 22, position: "relative", overflow: "hidden" }}
+              >
                 <div style={{ position: "absolute", top: -20, right: -20, width: 90, height: 90, borderRadius: "50%", background: "#2385cd10", border: "1px solid #2385cd22" }} />
                 <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#2385cd", fontWeight: 500, marginBottom: 12 }}>Our Services</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                   {services.map((s) => (
                     <div key={s.label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <span style={{ color: "#2385cd", fontSize: 12, marginTop: 1 }}>→</span>
+                      <ArrowRight size={12} strokeWidth={2} style={{ color: "#2385cd", marginTop: 2, flexShrink: 0 }} />
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 500, color: "#1c1a16" }}>{s.label}</div>
                         <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>{s.desc}</div>
@@ -567,11 +1001,52 @@ export function BlogPage({ onNavigate }) {
                 <button className="rh-btn" style={{ width: "100%" }}>Hire Staff Today</button>
               </motion.div>
 
+              {/* Recent posts (quick links from current data) */}
+              {posts.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.22 }}
+                  style={{ border: "1px solid #ece8e0", padding: 22, background: "#fff" }}
+                >
+                  <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#aaa", fontWeight: 500, marginBottom: 14 }}>Recent Posts</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {posts
+                      .filter((p) => p && p.slug && p.title)
+                      .slice(0, 4)
+                      .map((p) => (
+                        <div
+                          key={p.slug}
+                          onClick={() => onNavigate && onNavigate(p.slug)}
+                          style={{ display: "flex", gap: 10, cursor: "pointer", alignItems: "flex-start" }}
+                        >
+                          <div style={{ width: 48, height: 36, flexShrink: 0, borderRadius: 4, overflow: "hidden", background: "#eaf4fc" }}>
+                            <RobustImage
+                              src={p.image}
+                              alt={p.title}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              PlaceholderIcon={File}
+                            />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: 12, fontWeight: 500, color: "#1c1a16", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                              {p.title}
+                            </p>
+                            <p style={{ fontSize: 10, color: "#bbb", marginTop: 2 }}>{p.date || ""}</p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </motion.div>
+              )}
+
             </div>
           </aside>
 
         </div>
       </main>
+
+      {/* ── BACK TO TOP ── */}
+      <BackToTop />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import {
   ShieldCheck, ArrowLeft, BadgeCheck, Star,
 } from "lucide-react";
 import { useAuth } from "./AuthContext";
-import { apiGetProfile } from "../api/auth";
+import { apiGetMyStaffProfile } from "../api/auth"; // ✅ FIX 1: was apiGetProfile
 
 const SKY = {
   100: "#e0f2fe", 200: "#bae6fd", 300: "#7dd3fc",
@@ -192,7 +192,13 @@ function AdminNotice() {
 /* ══════════════════════════ MAIN COMPONENT ══════════════════════════ */
 export function Profile({ onNavigate }) {
   const { user } = useAuth();
-  const [staffData,    setStaffData]    = useState(null);
+
+  // ✅ FIX 2: seed state from localStorage cache so data shows instantly on reload
+  const [staffData, setStaffData] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("staffProfile") || "null"); }
+    catch { return null; }
+  });
+
   const [fetchLoading, setFetchLoading] = useState(true);
   const [fetchError,   setFetchError]   = useState("");
 
@@ -206,7 +212,9 @@ export function Profile({ onNavigate }) {
     (async () => {
       setFetchLoading(true);
       try {
-        const data    = await apiGetProfile();
+        // ✅ FIX 1: use apiGetMyStaffProfile() which hits /profile/my
+        // instead of apiGetProfile() which hits /auth/profile (wrong endpoint)
+        const data    = await apiGetMyStaffProfile();
         const profile = data?.profile || data?.staffProfile || data?.staff || data || {};
         const merged  = { ...profile };
         const staffFields = [
@@ -218,9 +226,11 @@ export function Profile({ onNavigate }) {
           staffFields.forEach(k => { if (!merged[k] && user[k] != null) merged[k] = user[k]; });
         }
         setStaffData(merged);
+        // ✅ FIX 2: persist to localStorage so data survives logout/login
+        localStorage.setItem("staffProfile", JSON.stringify(merged));
       } catch {
         if (user) {
-          setStaffData({
+          const fallback = {
             nationality: user.nationality, homeAddress: user.homeAddress,
             maritalStatus: user.maritalStatus, languageSkill: user.languageSkill,
             dateOfBirth: user.dateOfBirth, gender: user.gender,
@@ -229,7 +239,10 @@ export function Profile({ onNavigate }) {
             additionalSkills: user.additionalSkills, bio: user.bio,
             educationalQualification: user.educationalQualification,
             agreedToPolicy: user.agreedToPolicy,
-          });
+          };
+          setStaffData(fallback);
+          // ✅ FIX 2: also cache the fallback so it's available on next load
+          localStorage.setItem("staffProfile", JSON.stringify(fallback));
         } else {
           setFetchError("Could not load profile data.");
         }
@@ -263,23 +276,21 @@ export function Profile({ onNavigate }) {
   ].filter(Boolean);
 
   return (
-
     <div
       className="pf-root"
       style={{
-    minHeight: "100vh",
-    background: "#03080f",
-    fontFamily: FONT,
-    paddingTop: "80px",  
+        minHeight: "100vh",
+        background: "#03080f",
+        fontFamily: FONT,
+        paddingTop: "80px",
       }}
     >
       <style>{STYLES}</style>
 
-      {/* decorative glows — absolute, never fixed */}
+      {/* decorative glows */}
       <div style={{ position:"absolute", width:500, height:500, top:0, right:-110, borderRadius:"50%", filter:"blur(95px)", background:"radial-gradient(circle,rgba(14,165,233,.15),transparent)", pointerEvents:"none", zIndex:0 }}/>
       <div style={{ position:"absolute", width:360, height:360, bottom:30, left:-90, borderRadius:"50%", filter:"blur(85px)", background:"radial-gradient(circle,rgba(3,104,172,.12),transparent)", pointerEvents:"none", zIndex:0 }}/>
 
-      {/* page content */}
       <div
         style={{
           maxWidth: 1020, margin: "0 auto",

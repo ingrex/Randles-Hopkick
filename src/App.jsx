@@ -20,7 +20,7 @@ import Login    from "./pages/Login";
 import Register from "./pages/Register";
 import useTawk  from "./hooks/useTawk";
 
-import { AuthProvider } from "./pages/AuthContext";
+import { AuthProvider, useAuth } from "./pages/AuthContext";
 import ProtectedRoute   from "./pages/ProtectedRoute";
 import { StoreProvider } from "./store";
 import AdminPanel        from "./pages/Adminpanel";
@@ -36,17 +36,28 @@ function AdminRoute({ children }) {
 }
 
 // Wrapper to extract slug param and pass to BlogPostPage
+// useAuth() works here because this renders inside <AuthProvider>
 function BlogPostPageWrapper({ navigate }) {
   const { slug } = useParams();
+  const { user } = useAuth();   // ← pull the logged-in user from your auth context
+
   return (
     <BlogPostPage
       slug={slug}
+      user={user}               // ← pass it down so HireStaffButtonB can check it
       onNavigate={(s) => navigate(`/blog/${s}`)}
       onBackToBlog={() => navigate("/blog")}
     />
   );
 }
 
+
+
+// Wrapper to pass user into ServicesPage
+function ServicesWrapper() {
+  const { user } = useAuth();
+  return <Services user={user} />;
+}
 // ── Tawk.to wrapper — must live inside AuthProvider so useAuth() works ──
 function TawkWrapper() {
   useTawk();
@@ -89,7 +100,7 @@ function App() {
                 <Route path="/"              element={<PageWrapper><Home /></PageWrapper>} />
                 <Route path="/about"         element={<PageWrapper><AboutPage /></PageWrapper>} />
                 <Route path="/contact"       element={<PageWrapper><Contact /></PageWrapper>} />
-                <Route path="/services"      element={<PageWrapper><Services /></PageWrapper>} />
+                <Route path="/services"      element={<PageWrapper><ServicesWrapper /></PageWrapper>} />
                 <Route path="/applicantform" element={<PageWrapper><ApplicantForm /></PageWrapper>} />
 
                 {/* ── BLOG ── */}
