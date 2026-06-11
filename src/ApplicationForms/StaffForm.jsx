@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getNames } from "country-list";
 import { apiStaffProfile } from "../api/auth";
 import { useAuth } from "../pages/AuthContext";
 
@@ -511,18 +512,11 @@ export function StaffForm({ onSubmit }) {
   const [animKey, setAnimKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [done,    setDone]    = useState(false);
-  const [countries,     setCountries]     = useState([]);
-  const [countriesLoad, setCountriesLoad] = useState(true);
+  const [countries, setCountries] = useState([]);
 
+  // ── Load countries synchronously from country-list package ──
   useEffect(() => {
-    fetch("https://restcountries.com/v3.1/all?fields=name")
-      .then(r=>r.json())
-      .then(data=>{
-        const names=data.map(c=>c.name?.common).filter(Boolean).sort((a,b)=>a.localeCompare(b));
-        setCountries(names);
-      })
-      .catch(()=>setCountries([]))
-      .finally(()=>setCountriesLoad(false));
+    setCountries(getNames().sort());
   }, []);
 
   useEffect(() => {
@@ -569,7 +563,7 @@ export function StaffForm({ onSubmit }) {
         otherNames:            form.otherName,
         email:                 form.email,
         phoneNumber:           form.phone,
-        nationality:           form.country,       // ✅ map country → nationality to match API/Profile field name
+        nationality:           form.country,
         country:               form.country,
         homeAddress:           form.address,
         maritalStatus:         form.maritalStatus,
@@ -588,13 +582,8 @@ export function StaffForm({ onSubmit }) {
 
       await apiStaffProfile(payload);
 
-      // ✅ FIX: update AuthContext user so Profile reflects changes immediately
       updateUser({ ...payload, staffProfileSubmitted: true });
-
-      // ✅ FIX: write to staffProfile cache so data survives logout/login
-      // This is the key fix — without this, the profile page loses data on re-login
       localStorage.setItem("staffProfile", JSON.stringify(payload));
-
       localStorage.removeItem("staffRequestDraft");
       setDone(true);
       onSubmit?.(payload);
@@ -681,14 +670,12 @@ export function StaffForm({ onSubmit }) {
                 <div style={{ position:"relative" }}>
                   <select
                     style={errs.country ? sErr : sRest}
-                    value={form.country} onChange={set("country")} disabled={countriesLoad}
+                    value={form.country} onChange={set("country")}
                   >
-                    <option value="">{countriesLoad ? "Loading countries…" : "Country *"}</option>
+                    <option value="">Country *</option>
                     {countries.map(c=><option key={c} value={c}>{c}</option>)}
                   </select>
-                  <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>
-                    {countriesLoad ? "…" : "▾"}
-                  </span>
+                  <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
                 </div>
                 {errs.country && <span style={ERR_ST}>{errs.country}</span>}
               </FullSpan>

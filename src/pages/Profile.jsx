@@ -7,7 +7,7 @@ import {
   ShieldCheck, ArrowLeft, BadgeCheck, Star,
 } from "lucide-react";
 import { useAuth } from "./AuthContext";
-import { apiGetMyStaffProfile } from "../api/auth"; // ✅ FIX 1: was apiGetProfile
+import { apiGetMyStaffProfile } from "../api/auth"; // 
 
 const SKY = {
   100: "#e0f2fe", 200: "#bae6fd", 300: "#7dd3fc",
