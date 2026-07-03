@@ -2024,10 +2024,10 @@ function TestimonialsSection({ state, dispatch }) {
     } finally { setSaving(false); }
   };
 
-  const toggleVisible = async (t) => {
-    try { await apiUpdateTestimonial(t.id, { visible: !t.visible }); } catch { /* local */ }
-    dispatch({ type: "UPDATE_TESTI", payload: { ...t, visible: !t.visible } });
-  };
+const toggleVisible = async (t) => {
+  try { await apiUpdateTestimonial(t.id, { ...t, visible: !t.visible }); } catch { /* local */ }
+  dispatch({ type: "UPDATE_TESTI", payload: { ...t, visible: !t.visible } });
+};
 
   const remove = async (t) => {
     try { await apiDeleteTestimonial(t.id); } catch { /* local */ }

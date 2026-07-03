@@ -31,7 +31,7 @@ const Testimonials = () => {
     apiFetchTestimonials()
       .then((data) => {
         const raw  = Array.isArray(data) ? data : (data?.testimonials ?? data?.data ?? []);
-        const list = raw
+        const list = raw 
           .map((t, i) => normalise(t, i))
           .filter((t) => t && t.text);
         setTestimonials(list);
@@ -146,7 +146,7 @@ const Testimonials = () => {
                     <div style={{ display:"flex", gap:"3px" }}>
                       {[...Array(5)].map((_, s) => (
                         <span key={s} style={{
-                          color: s < (item.rating ?? 5) ? "#2385cd" : "rgba(35,133,205,0.25)",
+                          color: s < (item.rating ?? 5) ? "#ffd001" : "rgba(35,133,205,0.25)",
                           fontSize:"12px",
                         }}>★</span>
                       ))}
