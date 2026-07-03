@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getNames } from "country-list";
 import { apiStaffProfile } from "../api/auth";
@@ -67,18 +67,109 @@ const INIT = {
   surname:"", otherName:"", email:"", phone:"", country:"", address:"",
   maritalStatus:"", language:"", dobDay:"", dobMonth:"", dobYear:"", gender:"",
   disabled:false, internallyDisplaced:false,
+
+  // ── NEW: Next of Kin ──
+  nokName:"", nokRelationship:"", nokPhone:"", nokAltPhone:"", nokAddress:"",
+
+  // ── NEW: Job Experience ──
+  noPriorExperience:false,
+  jobExperience:[
+    { organization:"", role:"", fromMonth:"", fromYear:"", toMonth:"", toYear:"",
+      isCurrent:false, refName:"", refRelationship:"", refPhone:"", refEmail:"", saved:false },
+  ],
+
+  // ── NEW: Professional Picture ──
+  profilePicture:null,
+
   primarySkill:"", yearsExp:"", additionalSkills:[], bio:"", qualification:"", agreed:false,
 };
+
 const S1 = ["surname","otherName","email","phone","country","address"];
 const S2 = ["maritalStatus","language","dobDay","dobMonth","dobYear","gender"];
-const S3 = ["primarySkill","yearsExp","additionalSkills","bio","qualification","agreed"];
+const S3 = ["nokName","nokRelationship","nokPhone","nokAddress"]; // Next of Kin (nokAltPhone optional)
+const S5 = ["primarySkill","yearsExp","additionalSkills","bio","qualification","agreed"]; // Professional details
+
+// blank job-experience entry, used when adding a new card
+const emptyJobEntry = {
+  organization:"", role:"", fromMonth:"", fromYear:"", toMonth:"", toYear:"",
+  isCurrent:false, refName:"", refRelationship:"", refPhone:"", refEmail:"", saved:false,
+};
 
 function validate(form, keys) {
   const e = {};
   keys.forEach(k => { if (!isReq(form[k])) e[k] = "This field is required"; });
   if (keys.includes("email") && form.email && !/\S+@\S+\.\S+/.test(form.email)) e.email = "Enter a valid email";
   if (keys.includes("phone") && form.phone && !/^\+?[\d\s\-()]{7,}$/.test(form.phone)) e.phone = "Enter a valid phone";
+  if (keys.includes("nokPhone") && form.nokPhone && !/^\+?[\d\s\-()]{7,}$/.test(form.nokPhone)) e.nokPhone = "Enter a valid phone";
   return e;
+}
+
+/* ── NEW: per-entry validation for a Job Experience card ── */
+function validateJobEntry(entry) {
+  const e = {};
+  if (!entry.organization.trim()) e.organization = "Required";
+  if (!entry.role.trim()) e.role = "Required";
+  if (!entry.fromMonth) e.fromMonth = "Required";
+  if (!entry.fromYear) e.fromYear = "Required";
+  if (!entry.isCurrent) {
+    if (!entry.toMonth) e.toMonth = "Required";
+    if (!entry.toYear) e.toYear = "Required";
+  }
+  if (!entry.refName.trim()) e.refName = "Required";
+  if (!entry.refRelationship.trim()) e.refRelationship = "Required";
+  if (!entry.refPhone.trim()) e.refPhone = "Required";
+  else if (!/^\+?[\d\s\-()]{7,}$/.test(entry.refPhone)) e.refPhone = "Enter a valid phone";
+  return e;
+}
+
+/* ── NEW: step-level validation for Job Experience ── */
+function validateJobExperience(form) {
+  if (form.noPriorExperience) return { hasError:false };
+  if (!form.jobExperience.some(e => e.saved)) {
+    return { hasError:true, jobExperienceGeneral:"Add at least one job experience, or check \u2018No prior work experience\u2019 above." };
+  }
+  return { hasError:false };
+}
+
+/* ── NEW: client-side image compression (canvas-based) ── */
+function compressImage(file, { maxDimension = 800, targetKB = 350, minQuality = 0.3 } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Please upload a valid image file (JPG or PNG).")); return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      reject(new Error("Image is too large (max 15MB). Please choose a smaller file.")); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) { height = Math.round(height * (maxDimension / width)); width = maxDimension; }
+          else { width = Math.round(width * (maxDimension / height)); height = maxDimension; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const sizeKB = (str) => Math.round((str.length * 3 / 4) / 1024);
+        let quality = 0.8;
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        while (sizeKB(dataUrl) > targetKB && quality > minQuality) {
+          quality = Math.max(minQuality, quality - 0.1);
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+          if (quality === minQuality) break;
+        }
+        resolve({ dataUrl, originalSizeKB: Math.round(file.size / 1024), finalSizeKB: sizeKB(dataUrl) });
+      };
+      img.onerror = () => reject(new Error("Could not read image file."));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error("Could not read file."));
+    reader.readAsDataURL(file);
+  });
 }
 
 /* ══════════════════════ FIELD COMPONENTS ═══════════════════════ */
@@ -306,17 +397,177 @@ function AdditionalSkillsPicker({ value, onChange, err }) {
   );
 }
 
+/* ═══════════════════════ NEW: JOB EXPERIENCE CARD ═══════════════
+   Mirrors the ClientForm1 staff-role picker pattern: a filled entry
+   collapses into a compact summary chip/card with Edit + Remove,
+   while an unsaved entry shows the full input form.               */
+function JobExperienceCard({ entry, index, onChange, onSave, onEdit, onRemove, showRemove }) {
+  const [localErrs, setLocalErrs] = useState({});
+  const set = (k) => (e) => onChange(index, k, e.target.type === "checkbox" ? e.target.checked : e.target.value);
+
+  const handleSave = () => {
+    const errs = validateJobEntry(entry);
+    if (Object.keys(errs).length) { setLocalErrs(errs); return; }
+    setLocalErrs({});
+    onSave(index);
+  };
+
+  if (entry.saved) {
+    const duration = entry.isCurrent
+      ? `${entry.fromMonth} ${entry.fromYear} — Present`
+      : `${entry.fromMonth} ${entry.fromYear} — ${entry.toMonth} ${entry.toYear}`;
+    return (
+      <div style={{
+        borderRadius:14, border:"1.5px solid rgba(14,165,233,.22)",
+        background:"rgba(14,165,233,.06)", padding:"14px 16px",
+      }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:14, fontWeight:600, color:"#e8f0fe", fontFamily:FONT }}>
+              {entry.role} · {entry.organization}
+            </div>
+            <div style={{ fontSize:11.5, color:"rgba(175,210,245,.55)", marginTop:3, fontFamily:FONT }}>
+              {duration}
+            </div>
+            <div style={{ fontSize:11.5, color:"rgba(175,210,245,.45)", marginTop:5, fontFamily:FONT }}>
+              Reference: {entry.refName} ({entry.refRelationship}) · {entry.refPhone}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:10, flexShrink:0 }}>
+            <button type="button" onClick={()=>onEdit(index)}
+              style={{ fontSize:11, color:SKY[300], background:"none", border:"none", cursor:"pointer", fontFamily:FONT }}>
+              ✎ Edit
+            </button>
+            {showRemove && (
+              <button type="button" onClick={()=>onRemove(index)}
+                style={{ fontSize:11, color:"rgba(248,113,113,.75)", background:"none", border:"none", cursor:"pointer", fontFamily:FONT }}>
+                ✕ Remove
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      borderRadius:14, border:"1px solid rgba(255,255,255,.1)",
+      background:"rgba(255,255,255,.04)", padding:16,
+      display:"flex", flexDirection:"column", gap:12,
+    }}>
+      <Grid2>
+        <InputField label="Organization Name" value={entry.organization} onChange={set("organization")} err={localErrs.organization} req />
+        <InputField label="Job Role / Position" value={entry.role} onChange={set("role")} err={localErrs.role} req />
+      </Grid2>
+
+      <div>
+        <span style={{ fontSize:11, color:"rgba(155,200,240,.55)", fontFamily:FONT, marginBottom:6, display:"block" }}>
+          Duration *
+        </span>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          <DOBSelect value={entry.fromMonth} onChange={set("fromMonth")} placeholder="From: Month" opts={MONTHS} hasErr={!!localErrs.fromMonth} />
+          <DOBSelect value={entry.fromYear} onChange={set("fromYear")} placeholder="From: Year" opts={YEARS} hasErr={!!localErrs.fromYear} />
+        </div>
+
+        <div style={{ marginTop:10 }}>
+          <StyledCheckbox checked={entry.isCurrent} onToggle={()=>onChange(index,"isCurrent",!entry.isCurrent)} label="I currently work here" />
+        </div>
+
+        {!entry.isCurrent && (
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
+            <DOBSelect value={entry.toMonth} onChange={set("toMonth")} placeholder="To: Month" opts={MONTHS} hasErr={!!localErrs.toMonth} />
+            <DOBSelect value={entry.toYear} onChange={set("toYear")} placeholder="To: Year" opts={YEARS} hasErr={!!localErrs.toYear} />
+          </div>
+        )}
+      </div>
+
+      <div style={{ height:1, background:"rgba(255,255,255,.08)" }} />
+
+      <span style={{ fontSize:11, color:"rgba(155,200,240,.55)", fontFamily:FONT }}>
+        Reference Contact (for background check)
+      </span>
+      <Grid2>
+        <InputField label="Reference Name" value={entry.refName} onChange={set("refName")} err={localErrs.refName} req />
+        <InputField label="Relationship (e.g. Supervisor)" value={entry.refRelationship} onChange={set("refRelationship")} err={localErrs.refRelationship} req />
+        <InputField label="Reference Phone Number" value={entry.refPhone} onChange={set("refPhone")} err={localErrs.refPhone} req />
+        <InputField label="Reference Email (optional)" value={entry.refEmail} onChange={set("refEmail")} />
+      </Grid2>
+
+      <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <button type="button" onClick={handleSave} style={{
+          padding:"9px 20px", borderRadius:12, border:"none", cursor:"pointer",
+          fontFamily:FONT, fontSize:12.5, fontWeight:600, color:"#fff",
+          background:`linear-gradient(135deg,${SKY[700]},${SKY[500]})`,
+          transition:"all .25s ease",
+        }}>
+          Save This Role
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════ NEW: PHOTO UPLOAD FIELD ════════════════ */
+function PhotoUploadField({ value, meta, uploading, onFile, err }) {
+  const inputRef = useRef(null);
+  return (
+    <div>
+      <div
+        onClick={()=>!uploading && inputRef.current?.click()}
+        style={{
+          display:"flex", alignItems:"center", gap:14, padding:14, borderRadius:14,
+          cursor: uploading ? "wait" : "pointer",
+          border: err ? "1.5px dashed rgba(248,113,113,.6)" : "1.5px dashed rgba(125,211,252,.35)",
+          background:"rgba(255,255,255,.04)", transition:"all .25s ease",
+        }}
+      >
+        <div style={{
+          width:56, height:56, borderRadius:"50%", flexShrink:0, overflow:"hidden",
+          background:"rgba(255,255,255,.08)", display:"flex", alignItems:"center", justifyContent:"center",
+          border:"1.5px solid rgba(125,211,252,.3)",
+        }}>
+          {uploading ? (
+            <span style={{ width:18, height:18, border:"2.5px solid rgba(255,255,255,.25)", borderTopColor:SKY[300], borderRadius:"50%", display:"inline-block", animation:"spin .75s linear infinite" }}/>
+          ) : value ? (
+            <img src={value} alt="Profile preview" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M12 15a4 4 0 100-8 4 4 0 000 8z" stroke="rgba(180,215,255,.55)" strokeWidth="1.6"/>
+              <path d="M4 7h3l1.5-2h7L17 7h3v12H4V7z" stroke="rgba(180,215,255,.55)" strokeWidth="1.6" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:500, color:"#e8f0fe", fontFamily:FONT }}>
+            {uploading ? "Compressing image…" : value ? "Change photo" : "Upload recent professional picture *"}
+          </div>
+          <div style={{ fontSize:11, color:"rgba(155,200,240,.45)", marginTop:2, fontFamily:FONT }}>
+            {meta ? `Optimized: ${meta.originalSizeKB}KB → ${meta.finalSizeKB}KB` : "JPG or PNG, clear headshot"}
+          </div>
+        </div>
+      </div>
+      <input
+        ref={inputRef} type="file" accept="image/*" style={{ display:"none" }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }}
+      />
+      {err && <span style={ERR_ST}>{err}</span>}
+    </div>
+  );
+}
+
 /* ═══════════════════════ PROGRESS ══════════════════════════════ */
-const STEP_LABELS = ["Personal Info","More Details","Professional"];
+const STEP_LABELS = ["Personal Info","More Details","Next of Kin","Job Experience","Professional"];
 
 function Progress({ step, pct }) {
+  const lastIdx = STEP_LABELS.length - 1;
   return (
     <div style={{ marginBottom:20 }}>
       <div style={{ display:"flex", alignItems:"center", marginBottom:14 }}>
         {STEP_LABELS.map((lbl,i) => {
           const s=i+1, done=s<step, active=s===step;
           return (
-            <div key={s} style={{ display:"flex", alignItems:"center", flex:i<2?1:"none" }}>
+            <div key={s} style={{ display:"flex", alignItems:"center", flex:i<lastIdx?1:"none" }}>
               <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
                 <div style={{
                   width:30, height:30, borderRadius:"50%", flexShrink:0,
@@ -339,7 +590,7 @@ function Progress({ step, pct }) {
                   color: active?`${SKY[300]}ee`:done?`${SKY[300]}88`:"rgba(180,215,255,.35)",
                 }}>{lbl}</span>
               </div>
-              {i<2 && (
+              {i<lastIdx && (
                 <div style={{
                   flex:1, height:2, borderRadius:99, margin:"0 8px 18px",
                   background: step>s?`linear-gradient(90deg,${SKY[700]},${SKY[400]})`:"rgba(255,255,255,.1)",
@@ -514,6 +765,10 @@ export function StaffForm({ onSubmit }) {
   const [done,    setDone]    = useState(false);
   const [countries, setCountries] = useState([]);
 
+  // ── NEW: photo compression state ──
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoMeta, setPhotoMeta] = useState(null);
+
   // ── Load countries synchronously from country-list package ──
   useEffect(() => {
     setCountries(getNames().sort());
@@ -536,21 +791,68 @@ export function StaffForm({ onSubmit }) {
 
   const set = k => e => setForm(f=>({ ...f, [k]: e.target.type==="checkbox" ? e.target.checked : e.target.value }));
 
-  const allKeys = [...S1,...S2,...S3];
-  const pct = Math.round(allKeys.filter(k=>isReq(form[k])).length / allKeys.length * 100);
+  // ── Progress % now also accounts for Job Experience + Photo ──
+  const flatKeys = [...S1,...S2,...S3,...S5];
+  const filledFlat = flatKeys.filter(k=>isReq(form[k])).length;
+  const jobExpDone = form.noPriorExperience || form.jobExperience.some(e=>e.saved);
+  const photoDone = !!form.profilePicture;
+  const totalFields = flatKeys.length + 2; // +1 job experience, +1 photo
+  const pct = Math.round(((filledFlat + (jobExpDone?1:0) + (photoDone?1:0)) / totalFields) * 100);
 
   const transition = (next, dir) => {
     setAnimDir(dir); setAnimKey(k=>k+1); setStep(next);
     window.scrollTo({ top:0, behavior:"smooth" });
   };
 
+  // ── NEW: handle photo selection + compression ──
+  const handlePhotoSelect = async (file) => {
+    setPhotoUploading(true);
+    setErrs(e=>({ ...e, profilePicture: undefined }));
+    try {
+      const { dataUrl, originalSizeKB, finalSizeKB } = await compressImage(file);
+      setForm(f=>({ ...f, profilePicture: dataUrl }));
+      setPhotoMeta({ originalSizeKB, finalSizeKB });
+    } catch (err) {
+      setErrs(e=>({ ...e, profilePicture: err.message || "Could not process image." }));
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  // ── NEW: Job Experience card handlers ──
+  const updateJobEntry = (idx, k, v) =>
+    setForm(f=>({ ...f, jobExperience: f.jobExperience.map((e,i)=> i===idx ? { ...e, [k]:v } : e) }));
+  const saveJobEntry = (idx) =>
+    setForm(f=>({ ...f, jobExperience: f.jobExperience.map((e,i)=> i===idx ? { ...e, saved:true } : e) }));
+  const editJobEntry = (idx) =>
+    setForm(f=>({ ...f, jobExperience: f.jobExperience.map((e,i)=> i===idx ? { ...e, saved:false } : e) }));
+  const removeJobEntry = (idx) =>
+    setForm(f=>({ ...f, jobExperience: f.jobExperience.length>1 ? f.jobExperience.filter((_,i)=>i!==idx) : f.jobExperience }));
+  const addJobEntry = () =>
+    setForm(f=>({ ...f, jobExperience: [...f.jobExperience, { ...emptyJobEntry }] }));
+
   const goNext = async () => {
     const locked = ["surname","otherName","email","phone"];
-    const keys = (step===1?S1:step===2?S2:S3).filter(k=>!locked.includes(k));
+
+    // ── NEW: Step 4 (Job Experience) uses its own validator ──
+    if (step === 4) {
+      const jobErrs = validateJobExperience(form);
+      if (jobErrs.hasError) { setErrs(jobErrs); return; }
+      setErrs({});
+      transition(step+1, "fwd");
+      return;
+    }
+
+    const keys =
+      step===1 ? S1.filter(k=>!locked.includes(k)) :
+      step===2 ? S2 :
+      step===3 ? S3 :
+      S5; // step 5 (professional details)
     const e = validate(form, keys);
+    if (step === 5 && !form.profilePicture) e.profilePicture = "Please upload a recent professional picture";
     if (Object.keys(e).length) { setErrs(e); return; }
     setErrs({});
-    if (step < 3) { transition(step+1,"fwd"); return; }
+    if (step < 5) { transition(step+1,"fwd"); return; }
 
     setLoading(true);
     try {
@@ -572,6 +874,37 @@ export function StaffForm({ onSubmit }) {
         gender:                form.gender,
         disabled:              form.disabled,
         internallyDisplaced:   form.internallyDisplaced,
+
+        // ── NEW: Next of Kin ──
+        nextOfKin: {
+          name:                    form.nokName,
+          relationship:             form.nokRelationship,
+          phoneNumber:              form.nokPhone,
+          alternativePhoneNumber:   form.nokAltPhone,
+          address:                  form.nokAddress,
+        },
+
+        // ── NEW: Job Experience & References ──
+        hasNoPriorExperience: form.noPriorExperience,
+        jobExperience: form.noPriorExperience ? [] : form.jobExperience
+          .filter(e=>e.saved)
+          .map(e => ({
+            organization: e.organization,
+            role:         e.role,
+            from:         `${e.fromMonth} ${e.fromYear}`,
+            to:           e.isCurrent ? "Present" : `${e.toMonth} ${e.toYear}`,
+            isCurrent:    e.isCurrent,
+            reference: {
+              name:         e.refName,
+              relationship: e.refRelationship,
+              phone:        e.refPhone,
+              email:        e.refEmail,
+            },
+          })),
+
+        // ── NEW: Professional Picture (compressed) ──
+        profilePicture:         form.profilePicture,
+
         primarySkills:         form.primarySkill,
         yearsOfExperience:     yoeMap[form.yearsExp] ?? 0,
         additionalSkills:      form.additionalSkills.join(", "),
@@ -603,6 +936,8 @@ export function StaffForm({ onSubmit }) {
   const STEP_META = [
     { title:"Personal Information",  sub:"Tell us who you are — all fields are required."   },
     { title:"Additional Details",    sub:"A few more things to complete your profile."       },
+    { title:"Next of Kin",           sub:"Who should we contact in case of emergency?"       },
+    { title:"Job Experience",        sub:"Help us verify your work history quickly."         },
     { title:"Professional Details",  sub:"Your skills and qualifications help us match you." },
   ];
 
@@ -717,9 +1052,68 @@ export function StaffForm({ onSubmit }) {
             </Grid2>
           )}
 
-          {/* ── Step 3 ── */}
+          {/* ── Step 3: Next of Kin (NEW) ── */}
           {step===3 && (
             <Grid2>
+              <InputField label="Full Name" value={form.nokName} onChange={set("nokName")} err={errs.nokName} req />
+              <SelectField label="Relationship to Applicant" value={form.nokRelationship} onChange={set("nokRelationship")}
+                err={errs.nokRelationship} req opts={["Parent","Spouse","Sibling","Child","Guardian","Other"]} />
+              <InputField label="Phone Number" value={form.nokPhone} onChange={set("nokPhone")} err={errs.nokPhone} req />
+              <InputField label="Alternative Phone Number (optional)" value={form.nokAltPhone} onChange={set("nokAltPhone")} />
+              <FullSpan>
+                <InputField label="Home Address" value={form.nokAddress} onChange={set("nokAddress")} err={errs.nokAddress} req />
+              </FullSpan>
+            </Grid2>
+          )}
+
+          {/* ── Step 4: Job Experience (NEW) ── */}
+          {step===4 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <StyledCheckbox
+                checked={form.noPriorExperience}
+                onToggle={()=>setForm(f=>({ ...f, noPriorExperience: !f.noPriorExperience }))}
+                label="I have no prior work experience"
+              />
+
+              {!form.noPriorExperience && (
+                <>
+                  {form.jobExperience.map((entry, i) => (
+                    <JobExperienceCard
+                      key={i} entry={entry} index={i}
+                      onChange={updateJobEntry}
+                      onSave={saveJobEntry}
+                      onEdit={editJobEntry}
+                      onRemove={removeJobEntry}
+                      showRemove={form.jobExperience.length>1}
+                    />
+                  ))}
+
+                  {form.jobExperience[form.jobExperience.length-1]?.saved && (
+                    <button type="button" onClick={addJobEntry} style={{
+                      alignSelf:"flex-start", fontSize:12.5, color:SKY[300],
+                      background:"none", border:"none", cursor:"pointer", fontFamily:FONT,
+                    }}>
+                      + Add Another Role
+                    </button>
+                  )}
+
+                  {errs.jobExperienceGeneral && <span style={ERR_ST}>{errs.jobExperienceGeneral}</span>}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Step 5: Professional Details ── */}
+          {step===5 && (
+            <Grid2>
+              {/* NEW: Professional Picture */}
+              <FullSpan>
+                <PhotoUploadField
+                  value={form.profilePicture} meta={photoMeta} uploading={photoUploading}
+                  onFile={handlePhotoSelect} err={errs.profilePicture}
+                />
+              </FullSpan>
+
               <SelectField label="Primary Skill" value={form.primarySkill} onChange={set("primarySkill")}
                 err={errs.primarySkill} req opts={PRIMARY_SKILL_OPTIONS} />
               <SelectField label="Years of Experience" value={form.yearsExp} onChange={set("yearsExp")}
@@ -781,7 +1175,7 @@ export function StaffForm({ onSubmit }) {
                 <span style={{ width:15, height:15, border:"2.5px solid rgba(255,255,255,.25)", borderTopColor:"#fff", borderRadius:"50%", display:"inline-block", animation:"spin .75s linear infinite" }}/>
                 Submitting…
               </>
-            ) : step < 3 ? "Continue →" : "Submit Application"}
+            ) : step < 5 ? "Continue →" : "Submit Application"}
           </PrimaryBtn>
         </div>
 
