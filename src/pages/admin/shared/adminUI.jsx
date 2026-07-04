@@ -143,6 +143,21 @@ export function SkillTagInput({ value = [], onChange }) {
   );
 }
 
+export function statusColor(s) {
+  return {
+    Pending:           "yellow",
+    Approved:          "sky",
+    Rejected:          "red",
+    Declined:          "red",
+    Completed:         "gray",
+    "Awaiting Review": "orange",
+  }[s] ?? "gray";
+}
+
+export function safeKey(r, idx) {
+  return r?.backendId ?? r?._id ?? r?.id ?? `__row_${idx}`;
+}
+
 export function EmptyState({ icon: Icon, title, subtitle }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
