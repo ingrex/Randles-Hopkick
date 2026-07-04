@@ -81,13 +81,17 @@ const INIT = {
   // ── NEW: Professional Picture ──
   profilePicture:null,
 
-  primarySkill:"", yearsExp:"", additionalSkills:[], bio:"", qualification:"", agreed:false,
+  primarySkill:"", yearsExp:"", additionalSkills:[], bio:"", qualification:"",
+  consentBackgroundCheck:false, agreed:false,
 };
 
 const S1 = ["surname","otherName","email","phone","country","address"];
 const S2 = ["maritalStatus","language","dobDay","dobMonth","dobYear","gender"];
 const S3 = ["nokName","nokRelationship","nokPhone","nokAddress"]; // Next of Kin (nokAltPhone optional)
 const S5 = ["primarySkill","yearsExp","additionalSkills","bio","qualification","agreed"]; // Professional details
+
+// ── NEW: key used to persist an in-progress draft of this form ──
+const STORAGE_KEY = "staffFormDraft";
 
 // blank job-experience entry, used when adding a new card
 const emptyJobEntry = {
@@ -122,13 +126,16 @@ function validateJobEntry(entry) {
   return e;
 }
 
-/* ── NEW: step-level validation for Job Experience ── */
+/* ── NEW: step-level validation for Job Experience + consent ── */
 function validateJobExperience(form) {
-  if (form.noPriorExperience) return { hasError:false };
-  if (!form.jobExperience.some(e => e.saved)) {
-    return { hasError:true, jobExperienceGeneral:"Add at least one job experience, or check \u2018No prior work experience\u2019 above." };
+  const e = {};
+  if (!form.noPriorExperience && !form.jobExperience.some(entry => entry.saved)) {
+    e.jobExperienceGeneral = "Add at least one job experience, or check \u2018No prior work experience\u2019 above.";
   }
-  return { hasError:false };
+  if (!form.consentBackgroundCheck) {
+    e.consentBackgroundCheck = "You must consent to background verification to continue.";
+  }
+  return { hasError: Object.keys(e).length > 0, ...e };
 }
 
 /* ── NEW: client-side image compression (canvas-based) ── */
@@ -249,6 +256,84 @@ function DOBSelect({ value, onChange, placeholder, opts, hasErr }) {
         {opts.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
       <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
+    </div>
+  );
+}
+
+/* ── NEW: Searchable dropdown — type to filter options (e.g. Country) ── */
+function SearchableSelect({ label, value, onChange, options, err, req: r }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  const filtered = query.trim()
+    ? options.filter(o => o.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+
+  const raised = !!(value || open);
+  const displayValue = open ? query : (value || "");
+
+  return (
+    <div ref={wrapRef} style={{ position:"relative", minWidth:0 }}>
+      <input
+        style={err ? mkFloatErr() : open ? mkFloatFocus() : mkFloat()}
+        placeholder="" autoComplete="off"
+        value={displayValue}
+        onFocus={() => { setOpen(true); setQuery(""); }}
+        onChange={(e) => { setQuery(e.target.value); if (!open) setOpen(true); if (value) onChange(""); }}
+      />
+      <label style={{
+        position:"absolute", left:14, pointerEvents:"none", lineHeight:1,
+        transition:"top .15s ease, font-size .15s ease, color .15s ease",
+        top: raised ? 5 : "50%",
+        transform: raised ? "none" : "translateY(-50%)",
+        fontSize: raised ? 10 : 13,
+        color: open ? SKY[300] : "rgba(148,163,184,0.7)",
+        fontFamily:FONT,
+      }}>
+        {label}{r ? " *" : ""}
+      </label>
+      <span style={{
+        position:"absolute", right:14, pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11,
+        top: raised ? 18 : "50%", transform: raised ? "none" : "translateY(-50%)",
+      }}>▾</span>
+
+      {open && (
+        <div style={{
+          position:"absolute", top:"calc(100% + 6px)", left:0, right:0, zIndex:20,
+          maxHeight:220, overflowY:"auto", borderRadius:12,
+          background:"rgba(13,25,45,.97)", border:"1px solid rgba(56,189,248,.25)",
+          boxShadow:"0 20px 50px rgba(0,0,0,.4)", backdropFilter:"blur(20px)",
+        }}>
+          {filtered.length > 0 ? filtered.map(o => (
+            <div
+              key={o}
+              onMouseDown={() => { onChange(o); setQuery(""); setOpen(false); }}
+              style={{ padding:"9px 14px", fontSize:13, color:"rgba(221,238,255,.85)", cursor:"pointer", fontFamily:FONT, transition:"background .15s ease" }}
+              onMouseEnter={(e)=>{ e.currentTarget.style.background="rgba(56,189,248,.15)"; }}
+              onMouseLeave={(e)=>{ e.currentTarget.style.background="transparent"; }}
+            >
+              {o}
+            </div>
+          )) : (
+            <div style={{ padding:"10px 14px", fontSize:12, color:"rgba(180,210,255,.4)", fontFamily:FONT }}>
+              No matching country found
+            </div>
+          )}
+        </div>
+      )}
+      {err && <span style={ERR_ST}>{err}</span>}
     </div>
   );
 }
@@ -756,8 +841,16 @@ export function StaffForm({ onSubmit }) {
   const navigate             = useNavigate();
   const { user, updateUser } = useAuth();
 
-  const [step,    setStep]    = useState(1);
-  const [form,    setForm]    = useState(INIT);
+  // ── NEW: load any saved draft once, up front ──
+  const savedDraft = (() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  })();
+
+  const [step,    setStep]    = useState(() => savedDraft?.step || 1);
+  const [form,    setForm]    = useState(() => (savedDraft?.form ? { ...INIT, ...savedDraft.form } : INIT));
   const [errs,    setErrs]    = useState({});
   const [animDir, setAnimDir] = useState("fwd");
   const [animKey, setAnimKey] = useState(0);
@@ -767,12 +860,22 @@ export function StaffForm({ onSubmit }) {
 
   // ── NEW: photo compression state ──
   const [photoUploading, setPhotoUploading] = useState(false);
-  const [photoMeta, setPhotoMeta] = useState(null);
+  const [photoMeta, setPhotoMeta] = useState(() => savedDraft?.photoMeta || null);
 
   // ── Load countries synchronously from country-list package ──
   useEffect(() => {
     setCountries(getNames().sort());
   }, []);
+
+  // ── NEW: autosave draft to localStorage so progress survives a refresh ──
+  useEffect(() => {
+    if (done) return; // don't resurrect a draft right after a successful submit
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, form, photoMeta }));
+    } catch {
+      // storage full or unavailable — fail silently, autosave is a convenience, not a requirement
+    }
+  }, [step, form, photoMeta, done]);
 
   useEffect(() => {
     if (!user) return;
@@ -796,8 +899,9 @@ export function StaffForm({ onSubmit }) {
   const filledFlat = flatKeys.filter(k=>isReq(form[k])).length;
   const jobExpDone = form.noPriorExperience || form.jobExperience.some(e=>e.saved);
   const photoDone = !!form.profilePicture;
-  const totalFields = flatKeys.length + 2; // +1 job experience, +1 photo
-  const pct = Math.round(((filledFlat + (jobExpDone?1:0) + (photoDone?1:0)) / totalFields) * 100);
+  const consentDone = !!form.consentBackgroundCheck;
+  const totalFields = flatKeys.length + 3; // +1 job experience, +1 photo, +1 consent
+  const pct = Math.round(((filledFlat + (jobExpDone?1:0) + (photoDone?1:0) + (consentDone?1:0)) / totalFields) * 100);
 
   const transition = (next, dir) => {
     setAnimDir(dir); setAnimKey(k=>k+1); setStep(next);
@@ -918,6 +1022,7 @@ export function StaffForm({ onSubmit }) {
       updateUser({ ...payload, staffProfileSubmitted: true });
       localStorage.setItem("staffProfile", JSON.stringify(payload));
       localStorage.removeItem("staffRequestDraft");
+      localStorage.removeItem(STORAGE_KEY);
       setDone(true);
       onSubmit?.(payload);
     } catch (err) {
@@ -1000,19 +1105,15 @@ export function StaffForm({ onSubmit }) {
               <LockedField label="Email Address" value={form.email}     />
               <LockedField label="Phone Number"  value={form.phone}     />
 
-              {/* Country full width */}
+              {/* Country full width — searchable, type-to-filter */}
               <FullSpan>
-                <div style={{ position:"relative" }}>
-                  <select
-                    style={errs.country ? sErr : sRest}
-                    value={form.country} onChange={set("country")}
-                  >
-                    <option value="">Country *</option>
-                    {countries.map(c=><option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
-                </div>
-                {errs.country && <span style={ERR_ST}>{errs.country}</span>}
+                <SearchableSelect
+                  label="Country" req
+                  value={form.country}
+                  onChange={(v)=>setForm(f=>({ ...f, country: v }))}
+                  options={countries}
+                  err={errs.country}
+                />
               </FullSpan>
 
               {/* Address full width */}
@@ -1100,6 +1201,30 @@ export function StaffForm({ onSubmit }) {
                   {errs.jobExperienceGeneral && <span style={ERR_ST}>{errs.jobExperienceGeneral}</span>}
                 </>
               )}
+
+              <div style={{ height:1, background:"rgba(255,255,255,.08)", margin:"4px 0" }} />
+
+              <label style={{ display:"flex", alignItems:"flex-start", gap:12, cursor:"pointer" }}>
+                <div onClick={()=>setForm(f=>({...f, consentBackgroundCheck:!f.consentBackgroundCheck}))} style={{
+                  flexShrink:0, marginTop:2, width:22, height:22, borderRadius:6, cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center", transition:"all .28s ease",
+                  background:form.consentBackgroundCheck?`linear-gradient(135deg,${SKY[700]},${SKY[400]})`:"rgba(255,255,255,.1)",
+                  border:form.consentBackgroundCheck?`2px solid ${SKY[400]}bb`:"2px solid rgba(255,255,255,.22)",
+                  boxShadow:form.consentBackgroundCheck?"0 0 10px rgba(14,165,233,.28)":"none",
+                }}>
+                  {form.consentBackgroundCheck && (
+                    <svg width="11" height="9" viewBox="0 0 12 10" fill="none">
+                      <path d="M1.5 5L4.5 8L10.5 2" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                <span style={{ fontSize:12, color:"rgba(175,210,245,.6)", lineHeight:1.7, fontWeight:300, fontFamily:FONT }}>
+                  I consent to Randle &amp; Hopkins contacting my referee(s), previous employer(s), and next of kin listed
+                  in this application to verify the information provided, for the purpose of background checks and
+                  interview scheduling. *
+                </span>
+              </label>
+              {errs.consentBackgroundCheck && <span style={{ ...ERR_ST, marginLeft:34 }}>{errs.consentBackgroundCheck}</span>}
             </div>
           )}
 
