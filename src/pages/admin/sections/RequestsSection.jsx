@@ -468,14 +468,6 @@ export default function RequestsSection({ state, dispatch }) {
               ].map(([l, v]) => (
                 <div key={l}><p className="text-xs text-gray-400">{l}</p><p className="font-medium break-all">{v}</p></div>
               ))}
-              <div>
-                <p className="text-xs text-gray-400">Synced ID?</p>
-                {isValidBackendId(resolveBackendId(liveReq)) ? (
-                  <p className="font-medium flex items-center gap-1 text-green-600"><CheckCircle2 size={13} /> Yes</p>
-                ) : (
-                  <p className="font-medium flex items-center gap-1 text-amber-600"><AlertTriangle size={13} /> Not synced</p>
-                )}
-              </div>
             </div>
             <div>
               <p className="text-xs text-gray-400 mb-1">Roles requested</p>
@@ -602,7 +594,6 @@ export default function RequestsSection({ state, dispatch }) {
                             <StarRating rating={s.averageRating} />
                             <span className="text-xs text-gray-400">{s.averageRating > 0 ? s.averageRating.toFixed(1) : "—"}</span>
                           </div>
-                          <p className="text-[9px] text-gray-300 mt-0.5 font-mono truncate" title={s.id}>id: {s.id}</p>
                         </div>
                         <Pill label={s.status} color={s.status === "Available" ? "green" : "blue"} />
                       </div>
