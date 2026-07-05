@@ -4,12 +4,7 @@ import {
   Pill, Avatar, Modal, Btn, FormField, inputCls, StarRating, SkillTagInput, EmptyState,
 } from "../shared/adminUI";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION: Staff Registry
-// Moved out of AdminPanel.jsx as-is — same props (state, dispatch), same
-// dispatch actions (ADD_STAFF / UPDATE_STAFF / REMOVE_STAFF), no logic changes.
-// This is the isolated file for future staff-section upgrades.
-// ─────────────────────────────────────────────────────────────────────────────
+
 export default function StaffSection({ state, dispatch }) {
   const [modal,   setModal]   = useState(null);
   const [editing, setEditing] = useState(null);

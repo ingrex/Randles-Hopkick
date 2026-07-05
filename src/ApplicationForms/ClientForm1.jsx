@@ -58,6 +58,7 @@ const getInitialForm = (user) => ({
   companyName: "", email: "", companyPhone: "", address: "", country: null,
   industry: "", regNo: "",
   employees: [{ name: "", quantity: 1, search: "" }],
+  additionalComment: "",
   agreed: false,
 });
 
@@ -79,6 +80,7 @@ export function ClientForm1({ onSubmit }) {
       const base  = getInitialForm(user);
       if (draft) {
         return {
+          ...base,
           ...draft,
           surname:   base.surname,
           otherName: base.otherName,
@@ -164,6 +166,7 @@ export function ClientForm1({ onSubmit }) {
     requestedStaff: formData.employees
       .filter((e) => e.name.trim())
       .map((e) => ({ role: e.name, quantity: Number(e.quantity) })),
+    additionalComment: (formData.additionalComment || "").trim(),
     agreedToPolicy: formData.agreed,
   });
 
@@ -365,6 +368,17 @@ export function ClientForm1({ onSubmit }) {
               );
             })}
             <button onClick={addEmployee} className="text-sky-400 hover:text-sky-300 transition text-sm">+ Add Another Role</button>
+
+            {/* Additional Comment — new field added to match PrivateForm */}
+            <textarea
+              name="additionalComment"
+              value={formData.additionalComment}
+              onChange={handleChange}
+              rows={3}
+              placeholder="Additional comments (optional)"
+              className={`${glass} resize-none`}
+            />
+
             <label className="flex items-start gap-3 cursor-pointer mt-2">
               <input type="checkbox" name="agreed" checked={formData.agreed} onChange={handleChange} className="mt-1 accent-sky-400" />
               <span className="text-white/70 text-sm">I agree to the terms and conditions, and confirm that the information provided is accurate.</span>
