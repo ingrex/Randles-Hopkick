@@ -68,14 +68,6 @@ const coreValues = [
 ];
 
 /* ─── team data ── */
-const founderBio = {
-  name: "Mrs. Peace Obieke",
-  role: "Founder & Head of Operations",
-  paragraphs: [
-    "Mrs. Peace Obieke is the founder of Randle & Hopkick, and the Head of operations at Randle & Hopkick, she has over 15 years work experience that cuts across industries. Peace was a senior consultant at H. Pierson Associates Limited where she managed projects in training, HR consulting, business strategy and governance, she coordinated trainings fof UBA, Fidelity bank, First Bank, to mention a few. Peace also worked at Chisco group of companies as the Group Head of Human Resource, managing over 1000 staff. Peace holds a B.Sc in Business Administration from University of Lagos, Akoka and an MBA in (International studies) Human Resources from Lagos state University Ojo. She has attended various training and seminars local and offshore. ",
-  ],
-};
-
 const technicalTeamContent = {
   heading: "Technical Team",
   paragraphs: [
@@ -83,6 +75,30 @@ const technicalTeamContent = {
     "These individuals have worked with multinational companies like, Exxon Mobile, Dangote Flour, Coca-Cola, ETECO Integrated Facility manager, Nigeria Brewery, Promasidor, etc. These are companies where superior services delivery is non-negotiable. Hence, we shall deliver nothing less that the global standard when it comes to outsourcing services.",
   ],
 };
+
+/* ─── placement process data ── */
+const placementProcessSteps = [
+  {
+    step: "01",
+    title: "Screening & Verification",
+    text: "Every candidate undergoes background checks, reference verification, and skills assessment before being added to our pool.",
+  },
+  {
+    step: "02",
+    title: "Needs Matching",
+    text: "We take time to understand each client's specific requirements — role, environment, and expectations — before recommending staff.",
+  },
+  {
+    step: "03",
+    title: "Trial & Feedback",
+    text: "Placements are monitored closely in the first weeks, with direct client feedback loops to confirm fit.",
+  },
+  {
+    step: "04",
+    title: "Ongoing Support",
+    text: "We stay engaged after deployment, ready to replace or adjust staffing if a client's needs change.",
+  },
+];
 
 /* COMPONENT */
 export function AboutPage() {
@@ -466,7 +482,7 @@ export function AboutPage() {
         </motion.div>
 
         <div className="relative z-10 grid lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
-          {/* founder card */}
+          {/* placement process card */}
           <motion.div
             variants={fadeLeft}
             initial="hidden"
@@ -490,38 +506,54 @@ export function AboutPage() {
             />
 
             <div className="relative p-8 md:p-10">
-              <div className="flex items-center gap-5 mb-8">
-                <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-extrabold"
+              <div className="mb-8">
+                <span
+                  className="inline-block px-4 py-2 rounded-full text-xs tracking-widest font-semibold uppercase"
                   style={{
-                    background: "rgba(35,133,205,0.15)",
-                    border: "2px solid rgba(35,133,205,0.45)",
+                    background: "rgba(35,133,205,0.14)",
                     color: "#2385cd",
+                    border: "1px solid rgba(35,133,205,0.3)",
                   }}
                 >
-                  PO
-                </div>
+                  Our Process
+                </span>
 
-                <div>
-                  <h3 className="text-xl font-bold">{founderBio.name}</h3>
-                  <p className="text-sm text-[#2385cd] mt-1 tracking-wide uppercase">
-                    {founderBio.role}
-                  </p>
-                </div>
+                <h3 className="text-xl font-bold mt-4">
+                  The Right Staff, Every Time
+                </h3>
               </div>
 
-              <div className="space-y-5 text-sm md:text-[15px] leading-[2] opacity-85 text-justify">
-                {founderBio.paragraphs.map((para, i) => (
-                  <motion.p
-                    key={i}
+              <div className="space-y-5">
+                {placementProcessSteps.map((item, i) => (
+                  <motion.div
+                    key={item.step}
                     variants={fadeUp}
                     custom={i * 0.1}
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true }}
+                    className="flex gap-4"
                   >
-                    {para}
-                  </motion.p>
+                    <div
+                      className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{
+                        background: "rgba(35,133,205,0.15)",
+                        border: "1px solid rgba(35,133,205,0.4)",
+                        color: "#2385cd",
+                      }}
+                    >
+                      {item.step}
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold mb-1">
+                        {item.title}
+                      </h4>
+                      <p className="text-xs opacity-75 leading-relaxed">
+                        {item.text}
+                      </p>
+                    </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
