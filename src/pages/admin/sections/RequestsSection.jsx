@@ -465,7 +465,6 @@ export default function RequestsSection({ state, dispatch }) {
                 ["Phone",      liveReq.phone],
                 ["Location",   liveReq.location],
                 ["Status",     displayStatus(liveReq)],
-                ["Backend ID", resolveBackendId(liveReq)],
               ].map(([l, v]) => (
                 <div key={l}><p className="text-xs text-gray-400">{l}</p><p className="font-medium break-all">{v}</p></div>
               ))}
