@@ -9,6 +9,7 @@ import { useAuth }  from "./AuthContext";
 import {
   apiSubmitReview,
   apiGetMyStaffProfile,
+  apiGetUserRequests,
 } from "../api/auth";
 
 const MODES = ["Private", "Organization", "Staff"];
@@ -525,7 +526,24 @@ export function Dashboard() {
         : "Private Client";
 
   // ── syncUserRequests ────────────────────────────────────────────────────────
-  const syncUserRequests = useCallback(() => {}, []);
+  // Pulls this user's own staff-requests from the backend (GET /staff-request/my)
+  // and merges them into the store via SYNC_USER_REQUESTS. This is what keeps the
+  // Dashboard's Pending/Approved/Declined/Completed tabs in sync with actions an
+  // admin takes (approve, decline, complete, assign staff, set dates) from the
+  // Admin Panel — those happen in the admin's own session and never reach this
+  // browser's store unless we explicitly re-fetch.
+  const syncUserRequests = useCallback(async () => {
+    if (!user) return;
+    try {
+      const raw  = await apiGetUserRequests();
+      const list = raw?.data ?? raw?.requests ?? raw;
+      if (Array.isArray(list) && list.length) {
+        dispatch({ type: "SYNC_USER_REQUESTS", requests: list });
+      }
+    } catch (err) {
+      console.warn("[Dashboard] syncUserRequests failed:", err?.message);
+    }
+  }, [user, dispatch]);
 
   // ── syncStaffProfile ────────────────────────────────────────────────────────
   const syncStaffProfile = useCallback(async () => {
@@ -566,7 +584,7 @@ export function Dashboard() {
     };
   }, [staffModal]);
 
-  // ── On mount + focus + visibility ──────────────────────────────────────────
+  // ── On mount + focus + visibility — staff profile (only relevant in Staff mode) ─
   useEffect(() => {
     syncStaffProfile();
     const onFocus      = () => syncStaffProfile();
@@ -584,6 +602,21 @@ export function Dashboard() {
   useEffect(() => {
     if (mode === "Staff") syncStaffProfile();
   }, [mode, syncStaffProfile]);
+
+  // ── On mount + focus + visibility — this user's own requests (Private/Organization) ─
+  useEffect(() => {
+    syncUserRequests();
+    const onFocus      = () => syncUserRequests();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") syncUserRequests();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [syncUserRequests]);
 
   // Auto-open modal from navigation state
   useEffect(() => {
