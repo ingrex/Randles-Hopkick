@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useReducer } from "react";
 
 function defaultState() {
@@ -651,11 +650,9 @@ function reducer(state, action) {
       const { id, startDate, endDate } = action;
       next = {
         ...state,
-        requests: state.requests.map((r) => {
-          if (String(r.id) !== String(id)) return r;
-          const shouldActivate = r.status === "Approved" && startDate && endDate;
-          return { ...r, startDate, endDate, status: shouldActivate ? "Active" : r.status };
-        }),
+        requests: state.requests.map((r) =>
+          String(r.id) === String(id) ? { ...r, startDate, endDate } : r
+        ),
       };
       break;
     }

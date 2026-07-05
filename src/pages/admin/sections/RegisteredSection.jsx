@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { UserCheck, Eye } from "lucide-react";
 import {
-  Pill, Avatar, Modal, Btn, EmptyState, inputCls, statusColor, safeKey,
+  Pill, Avatar, Modal, Btn, EmptyState, inputCls,
 } from "../shared/adminUI";
+import { statusColor, safeKey } from "./RequestsSection";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION: Registered Users
