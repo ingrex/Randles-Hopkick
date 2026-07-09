@@ -4,6 +4,15 @@ import { getNames } from "country-list";
 import { apiStaffProfile } from "../api/auth";
 import { useAuth } from "../pages/AuthContext";
 
+/* ─── Nigerian states (State of Origin) ──────────────────────── */
+const NIGERIAN_STATES = [
+  "Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno",
+  "Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","Federal Capital Territory (Abuja)",
+  "Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos",
+  "Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto",
+  "Taraba","Yobe","Zamfara",
+];
+
 /* ─── date option arrays ─────────────────────────────────────── */
 const DAYS   = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
 const MONTHS = ["January","February","March","April","May","June",
@@ -64,7 +73,8 @@ const isReq = (v) => {
   return String(v || "").trim() !== "";
 };
 const INIT = {
-  surname:"", otherName:"", email:"", phone:"", country:"", address:"",
+  surname:"", otherName:"", email:"", phone:"", country:"",
+  stateOfOrigin:"", lgaOfOrigin:"", address:"",
   maritalStatus:"", language:"", dobDay:"", dobMonth:"", dobYear:"", gender:"",
   disabled:false, internallyDisplaced:false,
 
@@ -85,7 +95,7 @@ const INIT = {
   consentBackgroundCheck:false, agreed:false,
 };
 
-const S1 = ["surname","otherName","email","phone","country","address"];
+const S1 = ["surname","otherName","email","phone","country","stateOfOrigin","lgaOfOrigin","address"];
 const S2 = ["maritalStatus","language","dobDay","dobMonth","dobYear","gender"];
 const S3 = ["nokName","nokRelationship","nokPhone","nokAddress"]; // Next of Kin (nokAltPhone optional)
 const S5 = ["primarySkill","yearsExp","additionalSkills","bio","qualification","agreed"]; // Professional details
@@ -986,6 +996,8 @@ export function StaffForm({ onSubmit }) {
         phoneNumber:           form.phone,
         nationality:           form.country,
         country:               form.country,
+        stateOfOrigin:         form.stateOfOrigin,
+        lgaOfOrigin:           form.lgaOfOrigin,
         homeAddress:           form.address,
         maritalStatus:         form.maritalStatus,
         languageSkill:         form.language,
@@ -1129,6 +1141,12 @@ export function StaffForm({ onSubmit }) {
                     err={errs.country}
                   />
                 </FullSpan>
+
+                {/* State & LGA of Origin */}
+                <SelectField label="State of Origin" value={form.stateOfOrigin} onChange={set("stateOfOrigin")}
+                  err={errs.stateOfOrigin} req opts={NIGERIAN_STATES} />
+                <InputField label="Local Government of Origin" value={form.lgaOfOrigin} onChange={set("lgaOfOrigin")}
+                  err={errs.lgaOfOrigin} req />
 
                 {/* Address full width */}
                 <FullSpan>
