@@ -11,11 +11,6 @@ import {
   Pill, Avatar, Modal, Btn, FormField, inputCls, StarRating, EmptyState,
 } from "../shared/adminUI";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Request-domain helpers — peculiar to this section, exported so other
-// sections (e.g. RegisteredSection's request-history preview) can reuse them
-// without duplicating the business rules.
-// ─────────────────────────────────────────────────────────────────────────────
 
 export function statusColor(s) {
   return {
