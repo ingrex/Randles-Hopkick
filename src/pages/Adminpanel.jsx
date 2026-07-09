@@ -16,7 +16,7 @@ import {
   ShieldAlert, Menu, ChevronLeft, MoreHorizontal, RefreshCw, LogIn, Lock,
   Image, Phone, Mail as MailIcon, Loader2,
 } from "lucide-react";
-import StaffSection from "./admin/sections/StaffSection";
+import WorkforceSection from "./admin/sections/workforce/WorkforceSection";
 import RegisteredSection from "./admin/sections/RegisteredSection";
 import RequestsSection from "./admin/sections/RequestsSection";
 import BlogSection from "./admin/sections/BlogSection";
@@ -97,7 +97,7 @@ function AdminLoginGate({ onSuccess }) {
 
 const NAV = [
   { key: "requests",     label: "Requests",         Icon: ClipboardList },
-  { key: "staff",        label: "Staff",            Icon: Users         },
+  { key: "staff",        label: "Workforce",        Icon: Users         },
   { key: "registered",   label: "Registered Users", Icon: UserCheck     },
   { key: "blog",         label: "Blog",             Icon: Newspaper     },
   { key: "testimonials", label: "Testimonials",     Icon: MessageSquare },
@@ -730,7 +730,7 @@ export function AdminPanel() {
 
   const sectionContent = {
     requests:     <RequestsSection     state={state} dispatch={dispatch} />,
-    staff:        <StaffSection        state={state} dispatch={dispatch} />,
+    staff:        <WorkforceSection    state={state} dispatch={dispatch} />,
     registered:   <RegisteredSection   state={state} />,
     blog:         <BlogSection         state={state} dispatch={dispatch} />,
     testimonials: <TestimonialsSection state={state} dispatch={dispatch} />,
@@ -739,7 +739,7 @@ export function AdminPanel() {
   };
 
   const titles = {
-    requests: "Requests", staff: "Staff Registry", registered: "Registered Users",
+    requests: "Requests", staff: "Workforce Pipeline", registered: "Registered Users",
     blog: "Blog Manager", testimonials: "Testimonials", messages: "Messages", profiles: "Client Profiles",
   };
 
