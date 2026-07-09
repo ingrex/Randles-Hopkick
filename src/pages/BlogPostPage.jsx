@@ -198,9 +198,16 @@ export function BlogPostPage({ slug, onNavigate, onBackToBlog, user }) {
     ? related
     : posts.filter((p) => p.slug !== slug).slice(0, 3);
 
+  // NOTE: Removed the manual `window.history.pushState(...)` call that used to
+  // live here. React Router already owns the URL for this route (App.jsx
+  // matches "/blog/:slug" and BlogPostPageWrapper passes `slug` down here),
+  // so a second, manual pushState was writing a duplicate/duplicate-ish entry
+  // into the browser history stack on every visit. That desynced the real
+  // browser history index from React Router's internal location index, which
+  // is what caused "Back to Insights" / the browser back button to need
+  // several clicks before it caught up. We only need the title side effect.
   useEffect(() => {
     if (article) {
-      window.history.pushState({}, "", `/blog/${slug}`);
       document.title = `${article.title} — Randle & Hopkick`;
     }
     return () => { document.title = "Randle & Hopkick Insights"; };
