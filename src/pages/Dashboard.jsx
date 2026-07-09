@@ -716,7 +716,7 @@ export function Dashboard() {
 
       {/* ── HEADER ── */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative w-full">
-        <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e" alt="header"
+        <img src="https://res.cloudinary.com/dotvnclej/image/upload/v1780431641/bg2_v9bp0u.jpg" alt="header"
           className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/60" />
 
