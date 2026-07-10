@@ -75,7 +75,7 @@ const isReq = (v) => {
 const INIT = {
   surname:"", otherName:"", email:"", phone:"", country:"",
   stateOfOrigin:"", lgaOfOrigin:"", address:"",
-  maritalStatus:"", language:"", dobDay:"", dobMonth:"", dobYear:"", gender:"",
+  maritalStatus:"", language:[], dobDay:"", dobMonth:"", dobYear:"", gender:"",
   disabled:false, internallyDisplaced:false,
 
   // ── Next of Kin ──
@@ -494,6 +494,83 @@ function AdditionalSkillsPicker({ value, onChange, err }) {
   );
 }
 
+/* ═══════════════════════ LANGUAGE SKILLS ═══════════════════════
+   Same picker pattern as AdditionalSkillsPicker: preset dropdown of
+   common languages + free-text "Add" for anything not listed.
+   Supports selecting multiple languages, each removable via chip. */
+const LANGUAGE_OPTS = ["Hausa", "English", "French", "Pidgin English", "Yoruba", "Igbo"];
+
+function LanguagePicker({ value, onChange, err }) {
+  const [dropF, setDropF] = useState(false);
+  const [custom, setCustom] = useState("");
+  const [customF, setCustomF] = useState(false);
+
+  const addDrop = (e) => { const s=e.target.value; if(s && !value.includes(s)) onChange([...value,s]); e.target.value=""; };
+  const addCustom = () => { const t=custom.trim(); if(t && !value.includes(t)) onChange([...value,t]); setCustom(""); };
+  const remove = (s) => onChange(value.filter(x=>x!==s));
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      {value.length > 0 && (
+        <div style={{
+          display:"flex", flexWrap:"wrap", gap:7,
+          padding:"10px 12px", borderRadius:12,
+          background:"rgba(14,165,233,.06)", border:`1.5px solid rgba(14,165,233,.16)`,
+        }}>
+          {value.map(s => (
+            <span key={s} style={{
+              display:"inline-flex", alignItems:"center", gap:6,
+              padding:"3px 10px 3px 11px", borderRadius:99,
+              background:`linear-gradient(135deg,rgba(14,165,233,.2),rgba(56,189,248,.1))`,
+              border:`1px solid ${SKY[400]}44`,
+              fontSize:12, fontWeight:500, color:SKY[300], fontFamily:FONT,
+            }}>
+              {s}
+              <span onClick={()=>remove(s)} style={{
+                display:"inline-flex", alignItems:"center", justifyContent:"center",
+                width:15, height:15, borderRadius:"50%", cursor:"pointer",
+                background:"rgba(255,255,255,.1)", color:"rgba(200,230,255,.6)",
+                fontSize:10, transition:"all .2s ease",
+              }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(248,113,113,.35)";e.currentTarget.style.color="#fff";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,.1)";e.currentTarget.style.color="rgba(200,230,255,.6)";}}>✕</span>
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{ position:"relative" }}>
+        <select
+          style={err&&value.length===0 ? sErr : dropF ? sFocus : sRest}
+          defaultValue="" onChange={addDrop}
+          onFocus={()=>setDropF(true)} onBlur={()=>setDropF(false)}
+        >
+          <option value="">Language Skill(s) *</option>
+          {LANGUAGE_OPTS.filter(o=>!value.includes(o)).map(o=>(
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+        <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", color:"rgba(180,215,255,.5)", fontSize:11 }}>▾</span>
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <input
+          style={{ ...(customF ? mkFocus() : mkInput()), flex:1 }}
+          placeholder="Or type another language and press Add…"
+          value={custom} onChange={e=>setCustom(e.target.value)}
+          onFocus={()=>setCustomF(true)} onBlur={()=>setCustomF(false)}
+          onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addCustom();}}}
+        />
+        <button type="button" onClick={addCustom} style={{
+          flexShrink:0, padding:"10px 16px", borderRadius:12, border:"none",
+          cursor:"pointer", fontFamily:FONT, fontSize:12, fontWeight:600, color:"#fff",
+          background:`linear-gradient(135deg,${SKY[700]},${SKY[500]})`,
+          opacity:custom.trim()?1:0.45, transition:"all .25s ease", whiteSpace:"nowrap",
+        }}>+ Add</button>
+      </div>
+      {err && value.length===0 && <span style={ERR_ST}>{err}</span>}
+    </div>
+  );
+}
+
 /* ═══════════════════════ JOB EXPERIENCE CARD ═══════════════
    Mirrors the ClientForm1 staff-role picker pattern: a filled entry
    collapses into a compact summary chip/card with Edit + Remove,
@@ -878,7 +955,15 @@ export function StaffForm({ onSubmit }) {
     // current STEP_LABELS/STEP_META length (e.g. after a future flow change)
     return Math.min(Math.max(restored, 1), 3);
   });
-  const [form,    setForm]    = useState(() => (savedDraft?.form ? { ...INIT, ...savedDraft.form } : INIT));
+  const [form,    setForm]    = useState(() => {
+    if (!savedDraft?.form) return INIT;
+    const restoredForm = { ...INIT, ...savedDraft.form };
+    // migrate any pre-existing draft where language was still a string
+    if (typeof restoredForm.language === "string") {
+      restoredForm.language = restoredForm.language ? [restoredForm.language] : [];
+    }
+    return restoredForm;
+  });
   const [errs,    setErrs]    = useState({});
   const [animDir, setAnimDir] = useState("fwd");
   const [animKey, setAnimKey] = useState(0);
@@ -1007,7 +1092,7 @@ export function StaffForm({ onSubmit }) {
         lgaOfOrigin:           form.lgaOfOrigin,
         homeAddress:           form.address,
         maritalStatus:         form.maritalStatus,
-        languageSkill:         form.language,
+        languageSkill:         form.language.join(", "),
         dateOfBirth:           isoDate,
         gender:                form.gender,
         disabled:              form.disabled,
@@ -1166,7 +1251,15 @@ export function StaffForm({ onSubmit }) {
               <Grid2>
                 <SelectField label="Marital Status" value={form.maritalStatus} onChange={set("maritalStatus")}
                   err={errs.maritalStatus} req opts={["Single","Married","Divorced","Widowed","Separated"]} />
-                <InputField label="Language Skill" value={form.language} onChange={set("language")} err={errs.language} req />
+
+                {/* Language Skill(s) — full width, multi-select picker with custom "Add" */}
+                <FullSpan>
+                  <LanguagePicker
+                    value={form.language}
+                    onChange={v=>setForm(f=>({ ...f, language:v }))}
+                    err={errs.language}
+                  />
+                </FullSpan>
 
                 {/* DOB full width */}
                 <FullSpan>
