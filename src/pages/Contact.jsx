@@ -237,8 +237,8 @@ const Contact = () => {
         style={{ background: "#0f172a" }}
       >
         {[
-          { icon: <FaPhoneAlt />,      title: "Call Us",         detail: "+234 706 817 2272" },
-          { icon: <FaEnvelope />,      title: "Email Us",        detail: "info@randleandhopkick.com" },
+          { icon: <FaPhoneAlt />,      title: "Call Us",         detail: "+234 802 937 2373" },
+          { icon: <FaEnvelope />,      title: "Email Us",        detail: "randnhop@gmail.com" },
           { icon: <FaMapMarkerAlt />,  title: "Visit Us",        detail: "73, Ogudu Road, Ojota, Lagos, Nigeria" },
           { icon: <FaClock />,         title: "Business Hours",  detail: "Open 24/7 — We're always here for you." },
         ].map((item, i) => (
