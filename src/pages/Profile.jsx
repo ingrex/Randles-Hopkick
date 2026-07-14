@@ -189,7 +189,7 @@ function AdminNotice() {
   );
 }
 
-/* ══════════════════════════ MAIN COMPONENT ══════════════════════════ */
+/* ════════ MAIN COMPONENT ════════ */
 export function Profile({ onNavigate }) {
   const { user } = useAuth();
 

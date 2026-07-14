@@ -181,7 +181,54 @@ export function normaliseUser(u) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // normaliseStaffProfile  (job-seeker profiles from /profile endpoint)
+//
+// This is what StaffForm.jsx submits to `apiStaffProfile`. Keep this in sync
+// with that payload shape — if a field is added to the form and not mapped
+// here, it will silently vanish before it ever reaches the store/UI.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// otherSkills / additionalSkills can arrive as an array (some backend
+// shapes) or as a single comma-joined string (StaffForm submits
+// `additionalSkills: form.additionalSkills.join(", ")`). Normalise both
+// into a clean array so the rest of the app never has to care.
+function toSkillArray(raw) {
+  if (Array.isArray(raw)) return raw.map((s) => String(s).trim()).filter(Boolean);
+  if (typeof raw === "string") return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
+function normaliseNextOfKin(nok) {
+  if (!nok || typeof nok !== "object") return null;
+  const out = {
+    name:                   nok.name ?? "",
+    relationship:           nok.relationship ?? "",
+    phoneNumber:            nok.phoneNumber ?? nok.phone ?? "",
+    alternativePhoneNumber: nok.alternativePhoneNumber ?? nok.altPhone ?? "",
+    address:                nok.address ?? "",
+  };
+  return Object.values(out).some(Boolean) ? out : null;
+}
+
+function normaliseJobExperience(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((j) => {
+    const ref = j.reference ?? {};
+    return {
+      organization: j.organization ?? "",
+      role:         j.role ?? "",
+      from:         j.from ?? "",
+      to:           j.to ?? "",
+      isCurrent:    j.isCurrent ?? false,
+      reference: {
+        name:         ref.name ?? "",
+        relationship: ref.relationship ?? "",
+        phone:        ref.phone ?? "",
+        email:        ref.email ?? "",
+      },
+    };
+  });
+}
+
 export function normaliseStaffProfile(s) {
   if (!s || typeof s !== "object") return null;
 
@@ -212,16 +259,27 @@ export function normaliseStaffProfile(s) {
     averageRating: typeof s.averageRating === "number" ? s.averageRating : 0,
     totalReviews:  typeof s.totalReviews  === "number" ? s.totalReviews  : reviews.length,
     reviews,
-    otherSkills:   s.otherSkills ?? s.alternateSkills ?? s.skills ?? [],
+    otherSkills:   toSkillArray(s.otherSkills ?? s.alternateSkills ?? s.skills ?? s.additionalSkills),
     experience:    s.yearsOfExperience ?? s.experience ?? 0,
     nationality:   s.nationality  ?? "",
     location:      s.homeAddress  ?? s.location ?? "",
-    photoUrl:      user.photoUrl  ?? s.photoUrl ?? "",
+    photoUrl:      user.photoUrl  ?? s.photoUrl ?? s.profilePicture ?? "",
     bio:           s.bio          ?? "",
     gender:        s.gender       ?? "",
     maritalStatus: s.maritalStatus ?? "",
-    education:     s.educationalQualification ?? "",
-    languages:     s.languageSkill ?? "",
+    education:     s.educationalQualification ?? s.education ?? "",
+    languages:     s.languageSkill ?? s.languages ?? "",
+
+    // ── previously dropped fields (StaffForm submits all of these) ──
+    dateOfBirth:          s.dateOfBirth ?? "",
+    country:              s.country ?? "",
+    stateOfOrigin:        s.stateOfOrigin ?? "",
+    lgaOfOrigin:          s.lgaOfOrigin ?? "",
+    disabled:             s.disabled ?? false,
+    internallyDisplaced:  s.internallyDisplaced ?? false,
+    hasNoPriorExperience: s.hasNoPriorExperience ?? false,
+    nextOfKin:            normaliseNextOfKin(s.nextOfKin),
+    jobExperience:        normaliseJobExperience(s.jobExperience),
   };
 }
 

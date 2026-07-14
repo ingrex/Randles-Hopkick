@@ -140,7 +140,7 @@ const Home = () => {
     {
       number: "01",
       tag: "Residential",
-      title: "Domestic Staffing",
+      title: "Domestic Outsourcing",
       desc: "We provide professional, vetted home staff including nannies, cleaners, cooks, and housekeepers. Every candidate is background-checked and matched to fit your household's unique routine and culture.",
       image: "https://res.cloudinary.com/dotvnclej/image/upload/v1778601551/Untitled_design_15_kvzz9a.jpg",
     },

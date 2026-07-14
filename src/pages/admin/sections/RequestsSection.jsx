@@ -39,9 +39,6 @@ export function isReadyToApprove(r) {
 
 export function resolveBackendId(r) {
   const id = r.backendId ?? r._id ?? r.id;
-  console.log(
-    `[RequestsSection] resolveBackendId — local id: ${r.id}  backendId: ${r.backendId}  resolved: ${id}`
-  );
   return id;
 }
 

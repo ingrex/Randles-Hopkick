@@ -48,7 +48,7 @@ export const WhatsAppFloatingCTA = () => {
 
   return (
     <a
-      href="https://wa.me/2347068172272?text=Hello%2C%20I%27d%20like%20to%20enquire%20about%20your%20staffing%20services."
+      href="https://wa.me/2348029372373?text=Hello%2C%20I%27d%20like%20to%20enquire%20about%20your%20staffing%20services."
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
@@ -283,7 +283,8 @@ const Footer = () => {
           </ContactItem>
 
           <ContactItem icon={<PhoneIcon />}>
-            +234 706 817 2272
+            +234 802 937 2373 <br />
+            +234 802 099 6171
           </ContactItem>
 
           <ContactItem icon={<MailIcon />}>
@@ -308,7 +309,7 @@ const Footer = () => {
             <SocialBtn href="https://x.com/randleandhopkick" label="X / Twitter">
               <XIcon />
             </SocialBtn>
-            <SocialBtn href="https://wa.me/2347068172272" label="WhatsApp">
+            <SocialBtn href="https://wa.me/2348029372373" label="WhatsApp">
               <WhatsAppIconSmall />
             </SocialBtn>
           </div>

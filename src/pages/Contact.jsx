@@ -73,35 +73,41 @@ const FloatField = ({ label, name, type = "text", value, onChange, required, as 
 };
 
 /* ── Contact card ─────────────────────────────────────────────────────── */
-const ContactCard = ({ icon, title, detail, index }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 30 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4, delay: index * 0.1 }}
-    viewport={{ once: true }}
-    whileHover={{ y: -3 }}
-    className="p-6 text-center rounded-lg border border-[#2385cd]/40 group"
-    style={{
-      background: "linear-gradient(135deg, rgba(15,23,42,0.90) 0%, rgba(35,133,205,0.20) 100%)",
-      backdropFilter: "blur(6px)",
-      WebkitBackdropFilter: "blur(6px)",
-      transition: "box-shadow 0.3s",
-      cursor: "default",
-    }}
-    onHoverStart={e => e.currentTarget.style.boxShadow = "0 8px 32px rgba(35,133,205,0.18)"}
-    onHoverEnd={e => e.currentTarget.style.boxShadow = "none"}
-  >
+const ContactCard = ({ icon, title, detail, index }) => {
+  // detail can be a single string or an array of lines (e.g. multiple phone numbers)
+  const lines = Array.isArray(detail) ? detail : [detail];
+
+  return (
     <motion.div
-      className="text-2xl mb-3 flex justify-center text-[#2385cd]"
-      whileHover={{ scale: 1.2, rotate: 8 }}
-      transition={{ type: "spring", stiffness: 300 }}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.1 }}
+      whileHover={{ y: -3 }}
+      className="p-6 text-center rounded-lg border border-[#2385cd]/40 group"
+      style={{
+        background: "linear-gradient(135deg, rgba(15,23,42,0.90) 0%, rgba(35,133,205,0.20) 100%)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+        transition: "box-shadow 0.3s",
+        cursor: "default",
+      }}
+      onHoverStart={e => e.currentTarget.style.boxShadow = "0 8px 32px rgba(35,133,205,0.18)"}
+      onHoverEnd={e => e.currentTarget.style.boxShadow = "none"}
     >
-      {icon}
+      <motion.div
+        className="text-2xl mb-3 flex justify-center text-[#2385cd]"
+        whileHover={{ scale: 1.2, rotate: 8 }}
+        transition={{ type: "spring", stiffness: 300 }}
+      >
+        {icon}
+      </motion.div>
+      <h3 className="font-semibold mb-2">{title}</h3>
+      {lines.map((line, i) => (
+        <p key={i} className="text-sm text-gray-200">{line}</p>
+      ))}
     </motion.div>
-    <h3 className="font-semibold mb-2">{title}</h3>
-    <p className="text-sm text-gray-200">{detail}</p>
-  </motion.div>
-);
+  );
+};
 
 /* ── Success screen ───────────────────────────────────────────────────── */
 const SuccessScreen = ({ onReset }) => (
@@ -237,8 +243,8 @@ const Contact = () => {
         style={{ background: "#0f172a" }}
       >
         {[
-          { icon: <FaPhoneAlt />,      title: "Call Us",         detail: "+234 802 937 2373" },
-          { icon: <FaEnvelope />,      title: "Email Us",        detail: "randnhop@gmail.com" },
+          { icon: <FaPhoneAlt />,      title: "Call Us",         detail: ["+234 802 937 2373", "+234 802 099 6171"] },
+          { icon: <FaEnvelope />,      title: "Email Us",        detail: "info@randleandhopkick.com" },
           { icon: <FaMapMarkerAlt />,  title: "Visit Us",        detail: "73, Ogudu Road, Ojota, Lagos, Nigeria" },
           { icon: <FaClock />,         title: "Business Hours",  detail: "Open 24/7 — We're always here for you." },
         ].map((item, i) => (
@@ -254,9 +260,8 @@ const Contact = () => {
         {/* FORM CARD */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
-          whileInView={{ opacity: 1, x: 0 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
           className="rounded-xl shadow-lg overflow-hidden"
           style={{
             background: "rgba(255,255,255,0.07)",
@@ -307,7 +312,7 @@ const Contact = () => {
                     {/* Row 1 */}
                     <motion.div
                       className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                      custom={0} variants={fieldVariants} initial="hidden" whileInView="visible" viewport={{ once: true }}
+                      custom={0} variants={fieldVariants} initial="hidden" animate="visible"
                     >
                       <FloatField label="Your Name" name="name" value={form.name} onChange={handleChange} required />
                       <FloatField label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
@@ -316,7 +321,7 @@ const Contact = () => {
                     {/* Row 2 */}
                     <motion.div
                       className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                      custom={1} variants={fieldVariants} initial="hidden" whileInView="visible" viewport={{ once: true }}
+                      custom={1} variants={fieldVariants} initial="hidden" animate="visible"
                     >
                       <FloatField label="Phone" name="phone" value={form.phone} onChange={handleChange} />
                       <FloatField label="Subject" name="subject" value={form.subject} onChange={handleChange} />
@@ -324,7 +329,7 @@ const Contact = () => {
 
                     {/* Message + counter */}
                     <motion.div
-                      custom={2} variants={fieldVariants} initial="hidden" whileInView="visible" viewport={{ once: true }}
+                      custom={2} variants={fieldVariants} initial="hidden" animate="visible"
                       style={{ position: "relative" }}
                     >
                       <FloatField
@@ -350,7 +355,7 @@ const Contact = () => {
 
                     {/* Submit */}
                     <motion.div
-                      custom={3} variants={fieldVariants} initial="hidden" whileInView="visible" viewport={{ once: true }}
+                      custom={3} variants={fieldVariants} initial="hidden" animate="visible"
                     >
                       <motion.button
                         type="submit"
@@ -419,9 +424,8 @@ const Contact = () => {
         {/* MAP + SOCIAL */}
         <motion.div
           initial={{ opacity: 0, x: 40 }}
-          whileInView={{ opacity: 1, x: 0 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
           className="flex flex-col gap-4"
         >
           <div style={{ position: "relative", borderRadius: 12, overflow: "hidden" }}>

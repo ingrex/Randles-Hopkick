@@ -4,6 +4,35 @@ const AuthContext = createContext();
 
 const BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/v1/auth`;
 
+/* Safely parse a fetch Response as JSON. Some backends (or platform-level
+   errors, e.g. Render cold-starts/proxies) return an empty body or HTML
+   instead of JSON on failure — res.json() would throw in that case and
+   mask the real error, so we fall back to {} instead of crashing. */
+async function safeJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+/* Build an Error object that carries the backend's status + errors payload
+   along with the message, instead of collapsing everything down to a
+   single string. Callers (e.g. Register.jsx) rely on err.status/err.errors
+   to show field-level and duplicate-account messages correctly. */
+function buildApiError(res, data) {
+  const message =
+    data?.message ||
+    data?.error ||
+    (Array.isArray(data?.errors) ? data.errors[0]?.message : null) ||
+    `Request failed (${res.status})`;
+
+  const err = new Error(message);
+  err.status = res.status;
+  err.errors = data?.errors;
+  return err;
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,8 +57,8 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Invalid credential");
+      const data = await safeJson(res);
+      if (!res.ok) throw buildApiError(res, data);
 
       const userData = data.user || data;
 
@@ -40,7 +69,12 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      return { success: false, message: err.message };
+      return {
+        success: false,
+        message: err.message,
+        status: err.status,
+        errors: err.errors,
+      };
     } finally {
       setLoading(false);
     }
@@ -56,8 +90,8 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify(formData),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Register failed");
+      const data = await safeJson(res);
+      if (!res.ok) throw buildApiError(res, data);
 
       if (data.user || data.token) {
         const userData = data.user || data;
@@ -69,7 +103,12 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      return { success: false, message: err.message };
+      return {
+        success: false,
+        message: err.message,
+        status: err.status,
+        errors: err.errors,
+      };
     } finally {
       setLoading(false);
     }
