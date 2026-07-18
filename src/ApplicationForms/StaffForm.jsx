@@ -17,7 +17,17 @@ const NIGERIAN_STATES = [
 const DAYS   = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
 const MONTHS = ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"];
-const YEARS  = Array.from({ length: 70 }, (_, i) => String(2006 - i));
+
+// Date-of-birth years: calculated off the current year (not hardcoded) so this
+// never goes stale. Starts at a minimum working age of 16 and goes back 70 years.
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_WORKING_AGE = 16;
+const DOB_YEARS = Array.from({ length: 70 }, (_, i) => String(CURRENT_YEAR - MIN_WORKING_AGE - i));
+
+// Job-experience years: previously capped at 2006, which made it impossible to
+// select any role held in the last ~20 years. Extended through 2030 (with a
+// generous look-back to 1970) to cover current and near-future entries.
+const EXPERIENCE_YEARS = Array.from({ length: 61 }, (_, i) => String(2030 - i));
 
 /* ─── keyframes only (no layout classes) ─────────────────────── */
 const KEYFRAMES = `
@@ -641,7 +651,7 @@ function JobExperienceCard({ entry, index, onChange, onSave, onEdit, onRemove, s
         </span>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
           <DOBSelect value={entry.fromMonth} onChange={set("fromMonth")} placeholder="From: Month" opts={MONTHS} hasErr={!!localErrs.fromMonth} />
-          <DOBSelect value={entry.fromYear} onChange={set("fromYear")} placeholder="From: Year" opts={YEARS} hasErr={!!localErrs.fromYear} />
+          <DOBSelect value={entry.fromYear} onChange={set("fromYear")} placeholder="From: Year" opts={EXPERIENCE_YEARS} hasErr={!!localErrs.fromYear} />
         </div>
 
         <div style={{ marginTop:10 }}>
@@ -651,7 +661,7 @@ function JobExperienceCard({ entry, index, onChange, onSave, onEdit, onRemove, s
         {!entry.isCurrent && (
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
             <DOBSelect value={entry.toMonth} onChange={set("toMonth")} placeholder="To: Month" opts={MONTHS} hasErr={!!localErrs.toMonth} />
-            <DOBSelect value={entry.toYear} onChange={set("toYear")} placeholder="To: Year" opts={YEARS} hasErr={!!localErrs.toYear} />
+            <DOBSelect value={entry.toYear} onChange={set("toYear")} placeholder="To: Year" opts={EXPERIENCE_YEARS} hasErr={!!localErrs.toYear} />
           </div>
         )}
       </div>
@@ -856,7 +866,7 @@ function AlreadySubmittedScreen({ onDashboard, onHome }) {
           You have already submitted your staff application.
         </p>
         <p style={{ fontSize:12, color:"rgba(140,190,240,.38)", lineHeight:1.7, fontFamily:FONT, marginBottom:28 }}>
-          If you need to make changes, please contact the Randle &amp; Hopkins admin team directly.
+          If you need to make changes, please contact the Randle &amp; Hopkick admin team directly.
         </p>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <PrimaryBtn onClick={onDashboard}>Go to Dashboard →</PrimaryBtn>
@@ -889,7 +899,7 @@ function SuccessModal({ onDashboard, onHome }) {
         </div>
         <h2 style={{ fontFamily:SERIF, fontSize:28, fontWeight:700, color:"#e8f0fe", marginBottom:10 }}>Application Received!</h2>
         <p style={{ fontSize:13, color:"rgba(175,210,245,.58)", lineHeight:1.75, fontFamily:FONT, marginBottom:28 }}>
-          Your details have been submitted successfully. Our team at Randle &amp; Hopkins will review your application and be in touch shortly.
+          Your details have been submitted successfully. Our team at Randle &amp; Hopkick will review your application and be in touch shortly.
         </p>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <PrimaryBtn onClick={onDashboard}>Go to Dashboard →</PrimaryBtn>
@@ -1199,7 +1209,7 @@ export function StaffForm({ onSubmit }) {
           <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
             <div style={{ width:6, height:6, borderRadius:"50%", background:`linear-gradient(135deg,${SKY[500]},${SKY[300]})`, boxShadow:`0 0 8px ${SKY[500]}88` }}/>
             <span style={{ fontSize:10, fontWeight:600, letterSpacing:".22em", textTransform:"uppercase", color:`${SKY[400]}dd`, fontFamily:FONT }}>
-              Randle &amp; Hopkins
+              Randle &amp; Hopkick
             </span>
           </div>
           <h1 style={{ fontFamily:SERIF, fontSize:28, fontWeight:700, color:"#e8f0fe", letterSpacing:"-.022em", lineHeight:1.12 }}>
@@ -1266,7 +1276,7 @@ export function StaffForm({ onSubmit }) {
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr 1fr", gap:10 }}>
                     <DOBSelect value={form.dobDay}   onChange={set("dobDay")}   placeholder="Day *"            opts={DAYS}   hasErr={!!errs.dobDay}/>
                     <DOBSelect value={form.dobMonth} onChange={set("dobMonth")} placeholder="Month of Birth *" opts={MONTHS} hasErr={!!errs.dobMonth}/>
-                    <DOBSelect value={form.dobYear}  onChange={set("dobYear")}  placeholder="Year *"           opts={YEARS}  hasErr={!!errs.dobYear}/>
+                    <DOBSelect value={form.dobYear}  onChange={set("dobYear")}  placeholder="Year *"           opts={DOB_YEARS}  hasErr={!!errs.dobYear}/>
                   </div>
                   {(errs.dobDay||errs.dobMonth||errs.dobYear) && <span style={ERR_ST}>Please select your complete date of birth</span>}
                 </FullSpan>
@@ -1351,7 +1361,7 @@ export function StaffForm({ onSubmit }) {
                     )}
                   </div>
                   <span style={{ fontSize:12, color:"rgba(175,210,245,.6)", lineHeight:1.7, fontWeight:300, fontFamily:FONT }}>
-                    I consent to Randle &amp; Hopkins contacting my referee(s), previous employer(s), and next of kin listed
+                    I consent to Randle &amp; Hopkick contacting my referee(s), previous employer(s), and next of kin listed
                     in this application to verify the information provided, for the purpose of background checks and
                     interview scheduling. *
                   </span>
@@ -1412,7 +1422,7 @@ export function StaffForm({ onSubmit }) {
                     )}
                   </div>
                   <span style={{ fontSize:12, color:"rgba(175,210,245,.6)", lineHeight:1.7, fontWeight:300, fontFamily:FONT }}>
-                    I agree to Randle &amp; Hopkins's{" "}
+                    I agree to Randle &amp; Hopkick's{" "}
                     <span style={{ color:SKY[300], textDecoration:"underline", textUnderlineOffset:3, cursor:"pointer" }}>Terms and Conditions</span>
                     {" "}and{" "}
                     <span style={{ color:SKY[300], textDecoration:"underline", textUnderlineOffset:3, cursor:"pointer" }}>Privacy Policy</span>
